@@ -1,0 +1,47 @@
+"""Compact captions for the main application outputs."""
+
+
+def _number(value):
+    """Format a numeric condition compactly without losing useful precision."""
+    return f"{float(value):g}"
+
+
+def input_conditions_caption(
+    *,
+    atom_name,
+    temperature_C,
+    n2_pressure_torr,
+    R_ER,
+    R_SE,
+    q_axis,
+    bias_larmor_hz,
+    beam_inputs,
+):
+    """Return a compact sidebar-input summary, omitting zero-intensity beams."""
+    spin_exchange = f"SE=on (R_SE={_number(R_SE)} s⁻¹)"
+    cell_conditions = (
+        f"Sidebar inputs — {atom_name}; T={_number(temperature_C)} °C; "
+        f"N₂={_number(n2_pressure_torr)} Torr; R_ER={_number(R_ER)} s⁻¹; "
+        f"{spin_exchange}; q={q_axis}; "
+        f"bias Larmor={_number(bias_larmor_hz)} Hz."
+    )
+
+    active_beams = []
+    for beam in beam_inputs:
+        if float(beam.get("intensity", 0.0)) <= 0.0:
+            continue
+        active_beams.append(
+            f"{beam['name']}: {beam['line']} {beam['transition_label']}, "
+            f"Δ_rel={_number(beam['detuning_relative'])} MHz, "
+            f"I={_number(beam['intensity'])} µW/cm², "
+            f"R_F,res={_number(beam['rate_at_resonance'])} s⁻¹, "
+            f"R_F,det={_number(beam['rate'])} s⁻¹, "
+            f"k={beam['k_axis']}, {beam['pol']}"
+        )
+
+    beam_conditions = (
+        " Active pumps — " + "; ".join(active_beams) + "."
+        if active_beams
+        else " Active pumps — none."
+    )
+    return cell_conditions + beam_conditions

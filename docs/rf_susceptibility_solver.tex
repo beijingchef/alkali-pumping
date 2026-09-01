@@ -1,0 +1,318 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\newcommand{\ii}{\mathrm{i}}
+\newcommand{\Tr}{\operatorname{Tr}}
+\newcommand{\Omrf}{\Omega_{\mathrm{rf}}}
+
+\title{Weak-RF Susceptibility Solver\\for the Magnetometry Page}
+\author{Alkali Pumping application}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Purpose and phase convention}
+
+The solver calculates the linear response of a selected observable $O$ in the
+upper ground hyperfine manifold to a weak, linearly polarized RF field.  The
+RF Hamiltonian is defined as
+\begin{equation}
+  \frac{H_{\mathrm{rf}}(t)}{\hbar}
+  =\Omrf F_i\cos(\omega t),
+  \label{eq:rf-hamiltonian}
+\end{equation}
+where $i\in\{x,y,z\}$ is the selected laboratory RF axis,
+$\omega=2\pi f_{\mathrm{rf}}$, and $\Omrf$ is an angular Rabi frequency.
+The density matrix is expanded directly about zero RF drive:
+\begin{equation}
+  \rho(t)=\rho_0+\Omrf\rho^{(1)}(t)+\mathcal O(\Omrf^2).
+\end{equation}
+Thus the calculation does not assign an arbitrary finite value to
+$\Omrf$.
+
+The real cosine drive contains two Fourier components,
+\begin{equation}
+  \cos(\omega t)=\frac12e^{-\ii\omega t}+\frac12e^{+\ii\omega t}.
+\end{equation}
+We use $\chi_+(\omega)$ for the coefficient of $e^{-\ii\omega t}$ in
+$\partial\langle O\rangle/\partial\Omrf$.
+
+\section{Basis, drive, and readout}
+
+Let $|a\rangle=|F,m\rangle$ denote a ground-state basis vector.  The plotted
+RF observable belongs to the upper ground manifold
+\begin{equation}
+  F=F_+\equiv I+\frac12.
+\end{equation}
+The available observables are spin components $F_j$ and the off-diagonal
+alignment operator
+\begin{equation}
+  Q_{ij}=\frac12(F_iF_j+F_jF_i).
+\end{equation}
+For the $Q_{ij}$ option, the indices are chosen cyclically from the RF axis:
+\begin{equation}
+  x\rightarrow yz,\qquad y\rightarrow zx,\qquad z\rightarrow xy.
+\end{equation}
+The laboratory operators are expressed in the local frame whose $z$ axis is
+the selected quantization axis.
+
+For any readout operator $O$,
+\begin{equation}
+  \langle O\rangle=\Tr(\rho O)=\sum_{a,b}\rho_{ab}O_{ba}.
+  \label{eq:trace}
+\end{equation}
+
+\section{Independent adjacent-transition response}
+
+Consider the adjacent pair
+\begin{equation}
+  |a\rangle=|F,m\rangle,\qquad |b\rangle=|F,m-1\rangle.
+\end{equation}
+Its steady-state population difference is
+\begin{equation}
+  D_m=p_a-p_b.
+\end{equation}
+The signed transition angular frequency is
+\begin{equation}
+  \omega_m=2\pi\nu_{ab},
+\end{equation}
+where $\nu_{ab}$ includes the static-field and diagonal light-shift
+contributions.  The adjacent-coherence decay rate is
+\begin{equation}
+  \Gamma_m=\Gamma_{\mathrm{OP},m}
+           +\Gamma_{\mathrm{ER},m}
+           +\Gamma_{\mathrm{SE},m}.
+  \label{eq:gamma}
+\end{equation}
+
+Define the RF drive matrix elements
+\begin{equation}
+  d_{ab}=\langle a|F_i|b\rangle,\qquad
+  d_{ba}=\langle b|F_i|a\rangle.
+\end{equation}
+The coefficients of $e^{-\ii\omega t}$ in the two ordered coherences, per
+unit $\Omrf$, are
+\begin{align}
+  \frac{\partial\rho_{ab,+}}{\partial\Omrf}
+  &=\frac{\ii d_{ab}D_m/2}
+          {\Gamma_m+\ii(\omega_m-\omega)},
+  \label{eq:rhoab}\\
+  \frac{\partial\rho_{ba,+}}{\partial\Omrf}
+  &=\frac{-\ii d_{ba}D_m/2}
+          {\Gamma_m+\ii(-\omega_m-\omega)}.
+  \label{eq:rhoba}
+\end{align}
+The first denominator is the co-rotating resonance and the second is the
+counter-rotating contribution.  Both are retained because the applied field
+is a real cosine.  In particular, the second term correctly represents a
+negative signed transition frequency that resonates at positive drive
+frequency.
+
+Using Eq.~\eqref{eq:trace}, the total complex susceptibility is
+\begin{equation}
+  \chi_+(\omega)=
+  \sum_m\left[
+    O_{ba}\frac{\partial\rho_{ab,+}}{\partial\Omrf}
+   +O_{ab}\frac{\partial\rho_{ba,+}}{\partial\Omrf}
+  \right].
+  \label{eq:transition-sum}
+\end{equation}
+Only adjacent coherences within $F_+$ that have nonzero drive and readout
+matrix elements contribute.
+
+\section{Full coherence-space solver}
+
+The coupled solver retains every ordered off-diagonal coherence.  Write
+\begin{equation}
+  \bm c=(\rho_{a_1b_1},\rho_{a_2b_2},\ldots)^T,
+  \qquad a_k\ne b_k.
+\end{equation}
+Its linearized equation of motion is
+\begin{equation}
+  \frac{d\bm c}{dt}=G\bm c
+  +\Omrf\left(\bm s e^{-\ii\omega t}
+  +\bm s_-e^{+\ii\omega t}\right).
+  \label{eq:eom}
+\end{equation}
+For the $e^{-\ii\omega t}$ component, set
+\begin{equation}
+  \bm c(t)=\Omrf\bm c_+(\omega)e^{-\ii\omega t}+\cdots.
+\end{equation}
+Substitution into Eq.~\eqref{eq:eom} gives
+\begin{equation}
+  (-\ii\omega I-G)\bm c_+=\bm s,
+\end{equation}
+and therefore
+\begin{equation}
+  \boxed{\bm c_+(\omega)=(-\ii\omega I-G)^{-1}\bm s.}
+  \label{eq:coherence-solution}
+\end{equation}
+
+For an ordered coherence $(a,b)$, the RF source and observable readout are
+\begin{align}
+  s_{ab}&=\frac{\ii}{2}(F_i)_{ab}(p_a-p_b),
+  \label{eq:source}\\
+  r_{ab}&=O_{ba}.
+  \label{eq:readout}
+\end{align}
+Combining Eqs.~\eqref{eq:coherence-solution} and \eqref{eq:readout} yields
+the implemented resolvent expression
+\begin{equation}
+  \boxed{
+  \chi_+(\omega)=\bm r^T(-\ii\omega I-G)^{-1}\bm s.}
+  \label{eq:resolvent}
+\end{equation}
+Here $T$ means the algebraic row-vector contraction used by the density-matrix
+readout.  The necessary complex conjugate relationships are already present
+in the Hermitian operator matrix elements and in the ordered-coherence basis.
+
+\subsection{Local generator}
+
+For one alkali species, let
+\begin{equation}
+  \nu_a=\nu_{\mathrm{LS},a}+\nu_{B,a}
+\end{equation}
+be the light-shift plus magnetic frequency assigned to state $a$.  The bare
+coherence generator for $(a,b)$ contains
+\begin{equation}
+  G^{(0)}_{ab,ab}
+  =-\frac{\Gamma_{\mathrm{OP},a}+\Gamma_{\mathrm{OP},b}}{2}
+   -\ii,2\pi(\nu_a-\nu_b).
+  \label{eq:bare-generator}
+\end{equation}
+Electron randomization and spin exchange are represented by linear coherence
+maps $M_{\mathrm{ER}}$, $M_{\mathrm{SE,self}}$, and
+$M_{\mathrm{SE,cross}}$.  The local generator is
+\begin{align}
+  G_{\mathrm{loc}}={}&G^{(0)}
+  +R_{\mathrm{ER}}(M_{\mathrm{ER}}-I)
+  +R_{\mathrm{SE,self}}(M_{\mathrm{SE,self}}-I)\nonumber\\
+  &+R_{\mathrm{SE,cross}}(M_{\mathrm{SE,cross}}-I).
+  \label{eq:local-generator}
+\end{align}
+These maps are the derivatives of the corresponding density-matrix collision
+maps about the calculated steady state.  Thus their off-diagonal entries can
+transfer perturbations between different coherences rather than merely adding
+a scalar linewidth.
+
+\subsection{Two-species block generator}
+
+For active alkalis A and B, concatenate their ordered coherences:
+\begin{equation}
+  \bm c=\begin{pmatrix}\bm c_A\\\bm c_B\end{pmatrix}.
+\end{equation}
+The joint generator is
+\begin{equation}
+  G=\begin{pmatrix}
+  G_A & R_{\mathrm{SE,cross},A}M_{A\leftarrow B}\\
+  R_{\mathrm{SE,cross},B}M_{B\leftarrow A} & G_B
+  \end{pmatrix}.
+  \label{eq:block-generator}
+\end{equation}
+For the Alkali-A curve, only A is directly driven and read out:
+\begin{equation}
+  \bm s^{(A)}=\begin{pmatrix}\bm s_A\\0\end{pmatrix},
+  \qquad
+  \bm r^{(A)}=\begin{pmatrix}\bm r_A\\0\end{pmatrix}.
+\end{equation}
+The B coherences can nevertheless modify the A response through the two
+off-diagonal spin-exchange blocks.  The B curve is defined conversely.
+
+\section{In-phase, quadrature, and amplitude}
+
+The real time-domain susceptibility is defined with the RF cosine as its phase
+reference:
+\begin{equation}
+  \frac{\partial\langle O(t)\rangle}{\partial\Omrf}
+  =X(\omega)\cos(\omega t)+Y(\omega)\sin(\omega t).
+  \label{eq:xy-definition}
+\end{equation}
+Since $\chi_+$ is the coefficient of $e^{-\ii\omega t}$,
+\begin{align}
+  X(\omega)&=2\operatorname{Re}\chi_+(\omega),
+  \label{eq:x}\\
+  Y(\omega)&=2\operatorname{Im}\chi_+(\omega),
+  \label{eq:y}\\
+  A(\omega)&=\sqrt{X(\omega)^2+Y(\omega)^2}
+             =2|\chi_+(\omega)|.
+  \label{eq:a}
+\end{align}
+Thus $X$ is the in-phase component, $Y$ is the quadrature component, and $A$
+is the nonnegative amplitude.  No sign reversal is applied internally.
+
+The optional \emph{Add $\pi$} controls are display transformations only:
+\begin{equation}
+  X_{\mathrm{plot}}=-X
+  \quad\hbox{or}\quad
+  Y_{\mathrm{plot}}=-Y.
+\end{equation}
+They do not change $\chi_+$, the generator, or the amplitude.
+
+\section{Units and optional display factors}
+
+The spin and alignment operators are represented in dimensionless angular
+momentum units.  Because the response is differentiated with respect to the
+angular Rabi frequency $\Omrf$ in radians per second, the unscaled
+susceptibility has the corresponding inverse-frequency unit (seconds for a
+dimensionless spin observable).
+
+Two optional display factors may be applied after solving:
+\begin{equation}
+  (A,X,Y)_{\mathrm{plot}}
+  =C(A,X,Y),
+  \qquad
+  C=\begin{cases}
+  1,&\text{no optional factor},\\
+  \Gamma_{\mathrm{ref}},&\text{relaxation normalized},\\
+  n,&\text{density factored},\\
+  \Gamma_{\mathrm{ref}}n,&\text{both selected}.
+  \end{cases}
+\end{equation}
+Here $\Gamma_{\mathrm{ref}}$ is the adjacent-coherence relaxation rate selected
+by the application's reference rule and $n$ is the alkali number density.
+These factors do not alter the underlying linear-response solution.
+
+\section{Computational form}
+
+The implementation diagonalizes $G$ once,
+\begin{equation}
+  G=V\Lambda V^{-1},
+\end{equation}
+and evaluates the response at every requested frequency as
+\begin{equation}
+  \chi_+(\omega)
+  =\sum_k
+  \frac{(\bm r^TV)_k(V^{-1}\bm s)_k}
+       {-\ii\omega-\lambda_k}.
+  \label{eq:modal}
+\end{equation}
+A typical eigenvalue is $\lambda_k=-\Gamma_k-\ii\omega_k$.  Equation
+\eqref{eq:modal} makes the physical structure clear: each coherence mode
+contributes a complex Lorentzian centered near its precession frequency and
+weighted by how strongly the RF drive excites it and the selected observable
+detects it.
+
+\section{Summary of the solver}
+
+\begin{enumerate}
+  \item Calculate the zero-RF steady-state populations and diagonal state
+        frequencies.
+  \item Construct all ordered coherences and the generator $G$, including
+        optical relaxation, electron randomization, and spin exchange.
+  \item Construct the source vector $\bm s$ from RF matrix elements and
+        population differences.
+  \item Construct the readout vector $\bm r$ from the chosen $F_j$ or
+        $Q_{ij}$ observable.
+  \item Evaluate $\chi_+(\omega)=\bm r^T(-\ii\omega I-G)^{-1}\bm s$.
+  \item Convert the phasor to $X=2\Re\chi_+$,
+        $Y=2\Im\chi_+$, and $A=2|\chi_+|$.
+  \item Apply only the user-selected display factors and optional $\pi$ phase
+        flips.
+\end{enumerate}
+
+\end{document}

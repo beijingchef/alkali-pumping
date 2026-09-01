@@ -1,0 +1,399 @@
+"""Doppler/Voigt profiles and hyperfine transition helpers."""
+
+from math import pi, sqrt
+
+import numpy as np
+import pandas as pd
+from scipy.special import wofz
+
+from .angular_momentum import allowed_F, hfs_energy_MHz, hyperfine_transition_allowed
+
+# ============================================================
+# 5. Line shape
+# ============================================================
+
+def doppler_fwhm_MHz(atom, line, temperature_C):
+    """
+    Doppler FWHM in MHz:
+        Delta_nu_D = 2 nu0 sqrt(2 kT ln2 / mc^2)
+    """
+    kB = 1.380649e-23
+    c = 299792458.0
+    amu = 1.66053906660e-27
+
+    T = temperature_C + 273.15
+    mass = atom["mass_amu"] * amu
+    lam = atom[f"lambda_{line}_nm"] * 1e-9
+    nu0 = c / lam
+
+    fwhm = 2 * nu0 * sqrt(2 * kB * T * np.log(2) / (mass * c**2))
+    return fwhm / 1e6
+
+
+
+
+def line_center_frequency_MHz(atom, line):
+    """Absolute zero-pressure fine-structure D-line frequency in MHz."""
+    c = 299792458.0
+    lam = atom[f"lambda_{line}_nm"] * 1e-9
+    return c / lam / 1e6
+
+
+def MHz_to_THz(freq_MHz):
+    return freq_MHz / 1e6
+
+def complex_voigt_response_relative(delta_MHz, lorentz_fwhm_MHz, doppler_fwhm_MHz_val):
+    """Complex Voigt response normalized to the on-resonance absorption.
+
+    The real part is the absorption profile used for optical pumping, normalized
+    to Re[response](Delta=0)=1. The imaginary part is the corresponding
+    Doppler-averaged dispersive profile with the same normalization.
+
+    In the zero-Doppler limit, this returns
+        absorption  = gamma^2 / (Delta^2 + gamma^2)
+        dispersion  = gamma Delta / (Delta^2 + gamma^2)
+    where gamma is the Lorentzian HWHM. Therefore
+        0.5 * dispersion = absorption * Delta / Gamma_FWHM,
+    which reproduces the old far-wing two-level formula when Doppler broadening
+    is negligible.
+    """
+    delta = np.asarray(delta_MHz, dtype=float)
+    scalar_input = delta.ndim == 0
+    gamma_hwhm = lorentz_fwhm_MHz / 2.0
+    sigma = doppler_fwhm_MHz_val / (2 * sqrt(2 * np.log(2)))
+
+    if gamma_hwhm <= 0:
+        gamma_hwhm = 1e-12
+
+    if sigma <= 1e-12:
+        denom = delta**2 + gamma_hwhm**2
+        absorption = gamma_hwhm**2 / denom
+        dispersion = gamma_hwhm * delta / denom
+        response = absorption + 1j * dispersion
+        return complex(response) if scalar_input else np.asarray(response, dtype=complex)
+
+    z = (delta + 1j * gamma_hwhm) / (sigma * sqrt(2))
+    z0 = (1j * gamma_hwhm) / (sigma * sqrt(2))
+
+    W = wofz(z) / (sigma * sqrt(2 * pi))
+    W0 = wofz(z0) / (sigma * sqrt(2 * pi))
+    absorption0 = float(np.real(W0))
+
+    if absorption0 <= 0:
+        return 0.0 + 0.0j
+
+    response = W / absorption0
+    return complex(response) if scalar_input else np.asarray(response, dtype=complex)
+
+
+def voigt_peak_relative_to_natural_line(
+    natural_fwhm_MHz,
+    lorentz_fwhm_MHz,
+    doppler_fwhm_MHz_val,
+):
+    """Return the broadened line-center absorption relative to the natural line.
+
+    The Voigt profiles used elsewhere are normalized to one at their own line
+    center. An absolute rate inferred from optical intensity also needs the
+    reduction in peak cross section caused by homogeneous and Doppler
+    broadening. This function returns
+
+        V_broadened(0) / V_natural(0),
+
+    using area-normalized profiles in the same frequency units.
+    """
+    natural_hwhm = max(float(natural_fwhm_MHz) / 2.0, 1e-12)
+    lorentz_hwhm = max(float(lorentz_fwhm_MHz) / 2.0, 1e-12)
+    sigma = float(doppler_fwhm_MHz_val) / (2.0 * sqrt(2.0 * np.log(2.0)))
+
+    if sigma <= 1e-12:
+        return natural_hwhm / lorentz_hwhm
+
+    z0 = 1j * lorentz_hwhm / (sigma * sqrt(2.0))
+    broadened_peak_per_MHz = float(
+        np.real(wofz(z0)) / (sigma * sqrt(2.0 * pi))
+    )
+    natural_peak_per_MHz = 1.0 / (pi * natural_hwhm)
+    return max(0.0, broadened_peak_per_MHz / natural_peak_per_MHz)
+
+
+def voigt_profile_relative(delta_MHz, lorentz_fwhm_MHz, doppler_fwhm_MHz_val):
+    """
+    Dimensionless Voigt absorption profile normalized to V(0)=1.
+    delta_MHz is the laser detuning from the pressure-shifted hyperfine transition.
+    """
+    response = complex_voigt_response_relative(
+        delta_MHz,
+        lorentz_fwhm_MHz,
+        doppler_fwhm_MHz_val,
+    )
+    return float(max(0.0, response.real))
+
+
+def voigt_dispersion_relative(delta_MHz, lorentz_fwhm_MHz, doppler_fwhm_MHz_val):
+    """
+    Doppler-averaged dispersive profile with the same normalization as
+    voigt_profile_relative.
+    """
+    response = complex_voigt_response_relative(
+        delta_MHz,
+        lorentz_fwhm_MHz,
+        doppler_fwhm_MHz_val,
+    )
+    return float(response.imag)
+
+
+# ============================================================
+# 6. Transition tables and optical pumping
+# ============================================================
+
+def transition_shift_MHz(g_state, e_state):
+    """
+    Hyperfine transition shift relative to the fine-structure D-line center:
+        delta_hfs(Fg -> Fe) = E_e(Fe) - E_g(Fg).
+    """
+    return float(e_state["E"] - g_state["E"])
+
+
+def hyperfine_transition_table(
+    atom,
+    n2_pressure_torr,
+    n2_coeffs,
+    allowed_only=True,
+    pump_beams=None,
+    temperature_C=23.5,
+):
+    """
+    Table of ground-hyperfine to excited-hyperfine transition centers.
+
+    Detunings are relative to the corresponding zero-pressure D1 or D2
+    fine-structure line center.
+
+    The pressure-shifted detuning is:
+        delta_with_N2 = delta_hfs + beta_N2 P_N2.
+
+    Absolute optical frequencies are shown in MHz.
+    """
+    rows = []
+    pump_beams = pump_beams or []
+
+    I = atom["I"]
+    Jg = atom["ground"]["J"]
+    Ag = atom["ground"]["A"]
+    Bg = atom["ground"]["B"]
+
+    ground_Fs = []
+    for Fg in allowed_F(I, Jg):
+        Eg = hfs_energy_MHz(I, Jg, Fg, Ag, Bg)
+        ground_Fs.append({"F": float(Fg), "E": Eg})
+
+    for line in ["D1", "D2"]:
+        Jp = atom[line]["Jp"]
+        Ae = atom[line]["A"]
+        Be = atom[line]["B"]
+
+        line_center_MHz = line_center_frequency_MHz(atom, line)
+        pressure_shift = n2_coeffs[line]["shift"] * n2_pressure_torr
+        pressure_width = n2_coeffs[line]["width"] * n2_pressure_torr
+        total_lorentz = atom[line]["gamma_nat_MHz"] + pressure_width
+        doppler = doppler_fwhm_MHz(atom, line, float(temperature_C))
+
+        for g in ground_Fs:
+            Fg = g["F"]
+            Eg = g["E"]
+
+            for Fe in allowed_F(I, Jp):
+                if allowed_only and not hyperfine_transition_allowed(Fg, Fe):
+                    continue
+
+                Ee = hfs_energy_MHz(I, Jp, Fe, Ae, Be)
+                det0 = Ee - Eg
+                detP = det0 + pressure_shift
+                transition_abs_MHz = line_center_MHz + detP
+
+                pump_frequencies = {
+                    "PumpA1": np.nan,
+                    "PumpA2": np.nan,
+                    "PumpA3": np.nan,
+                    "PumpB1": np.nan,
+                    "PumpB2": np.nan,
+                    "PumpB3": np.nan,
+                }
+                for beam in pump_beams:
+                    if beam.get("line") != line:
+                        continue
+                    selected = beam.get("selected_transition") or {}
+                    try:
+                        selected_Fg = float(selected.get("Fg"))
+                        selected_Fe = float(selected.get("Fe"))
+                    except (TypeError, ValueError):
+                        continue
+                    if abs(selected_Fg - float(Fg)) > 1e-9 or abs(selected_Fe - float(Fe)) > 1e-9:
+                        continue
+
+                    pump_abs_MHz = line_center_MHz + float(beam.get("detuning", 0.0))
+                    beam_name = beam.get("name")
+                    if beam_name in pump_frequencies:
+                        pump_frequencies[beam_name] = pump_abs_MHz
+
+                rows.append({
+                    "Line": line,
+                    "Fg": f"{Fg:g}",
+                    "F'": f"{Fe:g}",
+                    "nu_D_absolute": line_center_MHz,
+                    "detuning_zero_pressure": det0,
+                    "N2_shift": pressure_shift,
+                    "transition_frequency_with_N2": transition_abs_MHz,
+                    "pump_A1_frequency": pump_frequencies["PumpA1"],
+                    "pump_A2_frequency": pump_frequencies["PumpA2"],
+                    "pump_A3_frequency": pump_frequencies["PumpA3"],
+                    "pump_B1_frequency": pump_frequencies["PumpB1"],
+                    "pump_B2_frequency": pump_frequencies["PumpB2"],
+                    "pump_B3_frequency": pump_frequencies["PumpB3"],
+                    "lorentz_FWHM_total": total_lorentz,
+                    "doppler_FWHM": doppler,
+                    "beta_width": n2_coeffs[line]["width"],
+                    "beta_shift": n2_coeffs[line]["shift"],
+                })
+
+    return pd.DataFrame(rows)
+
+
+def hyperfine_transition_choices(atom, line, n2_pressure_torr, n2_coeffs, allowed_only=True):
+    """
+    Return selectable hyperfine transitions for one optical line.
+
+    Each item contains:
+      label: text shown in the UI
+      det0: transition center relative to the zero-pressure D-line center
+      detP: pressure-shifted transition center relative to the zero-pressure D-line center
+    """
+    rows = []
+
+    I = atom["I"]
+    Jg = atom["ground"]["J"]
+    Ag = atom["ground"]["A"]
+    Bg = atom["ground"]["B"]
+    Jp = atom[line]["Jp"]
+    Ae = atom[line]["A"]
+    Be = atom[line]["B"]
+
+    pressure_shift = n2_coeffs[line]["shift"] * n2_pressure_torr
+
+    for Fg in allowed_F(I, Jg):
+        Eg = hfs_energy_MHz(I, Jg, Fg, Ag, Bg)
+        for Fe in allowed_F(I, Jp):
+            if allowed_only and not hyperfine_transition_allowed(Fg, Fe):
+                continue
+            Ee = hfs_energy_MHz(I, Jp, Fe, Ae, Be)
+            det0 = float(Ee - Eg)
+            detP = float(det0 + pressure_shift)
+            # Keep the UI label independent of N2 pressure so Streamlit preserves
+            # the user's selected reference transition when pressure changes.
+            label = f"{Fg:g}→{Fe:g}"
+            rows.append({
+                "line": line,
+                "Fg": float(Fg),
+                "Fe": float(Fe),
+                "det0": det0,
+                "detP": detP,
+                "label": label,
+            })
+
+    return rows
+
+
+def transition_choice_labels(atom, line, n2_pressure_torr, n2_coeffs, allowed_only=True):
+    return [
+        row["label"]
+        for row in hyperfine_transition_choices(
+            atom, line, n2_pressure_torr, n2_coeffs, allowed_only=allowed_only
+        )
+    ]
+
+
+def relative_hyperfine_transition_label(
+    old_atom,
+    new_atom,
+    line,
+    transition_label,
+    allowed_only=True,
+):
+    """Translate Fg→Fe by manifold rank between two alkali isotopes.
+
+    The lowest/next/... ground and excited manifolds retain their respective
+    ordinal positions. No previous per-isotope selection is stored.
+    """
+    if old_atom is None or new_atom is None or line not in ("D1", "D2"):
+        return None
+    try:
+        ground_text, excited_text = str(transition_label).split("→", maxsplit=1)
+        old_Fg = float(ground_text)
+        old_Fe = float(excited_text)
+    except (TypeError, ValueError):
+        return None
+
+    old_ground = allowed_F(old_atom["I"], old_atom["ground"]["J"])
+    old_excited = allowed_F(old_atom["I"], old_atom[line]["Jp"])
+    new_ground = allowed_F(new_atom["I"], new_atom["ground"]["J"])
+    new_excited = allowed_F(new_atom["I"], new_atom[line]["Jp"])
+
+    def matching_index(values, target):
+        return next(
+            (index for index, value in enumerate(values) if np.isclose(value, target)),
+            None,
+        )
+
+    ground_index = matching_index(old_ground, old_Fg)
+    excited_index = matching_index(old_excited, old_Fe)
+    if (
+        ground_index is None
+        or excited_index is None
+        or ground_index >= len(new_ground)
+        or excited_index >= len(new_excited)
+    ):
+        return None
+
+    new_Fg = float(new_ground[ground_index])
+    new_Fe = float(new_excited[excited_index])
+    if allowed_only and not hyperfine_transition_allowed(new_Fg, new_Fe):
+        return None
+    return f"{new_Fg:g}→{new_Fe:g}"
+
+
+def default_transition_label(atom, line, n2_pressure_torr, n2_coeffs, Fg_target, Fe_target, allowed_only=True):
+    """Return the UI label for a requested hyperfine reference transition."""
+    choices = hyperfine_transition_choices(
+        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=allowed_only
+    )
+    for row in choices:
+        if abs(float(row["Fg"]) - float(Fg_target)) < 1e-9 and abs(float(row["Fe"]) - float(Fe_target)) < 1e-9:
+            return row["label"]
+    return choices[0]["label"] if choices else None
+
+
+def absolute_detuning_from_transition_choice(
+    atom,
+    line,
+    transition_label,
+    relative_detuning_MHz,
+    n2_pressure_torr,
+    n2_coeffs,
+    allowed_only=True,
+):
+    """
+    Convert UI setting into the detuning expected by build_optical_L.
+
+    The user sets Δ relative to a selected pressure-shifted hyperfine transition.
+    build_optical_L expects ν_L - ν_D,zero-pressure. Therefore
+
+        Δ_abs = [ν(F→F') - ν_D,zero-pressure with N₂] + Δ_relative.
+    """
+    choices = hyperfine_transition_choices(
+        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=allowed_only
+    )
+    if not choices:
+        return float(relative_detuning_MHz), None
+
+    selected = next((row for row in choices if row["label"] == transition_label), choices[0])
+    return float(selected["detP"] + relative_detuning_MHz), selected

@@ -1,0 +1,439 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{physics}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+
+\title{Origin of the Positive- and Negative-Frequency Convention}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{The central question}
+
+Why is a factor of the form
+\begin{equation}
+e^{-i\omega t},
+\qquad \omega>0,
+\label{eq:exp-minus}
+\end{equation}
+called a \emph{positive-frequency} component, even though the exponent contains a minus sign?
+
+The answer is that the terms ``positive frequency'' and ``negative frequency'' refer to the sign of the Fourier-frequency variable, not to the explicit sign multiplying $i\omega t$ in isolation. Which exponential represents positive frequency therefore depends on the Fourier-transform convention being used.
+
+\section{Fourier-transform convention}
+
+A common convention in physics is
+\begin{equation}
+f(t)
+=
+\int_{-\infty}^{\infty}
+\frac{d\omega}{2\pi}\,
+\widetilde f(\omega)e^{-i\omega t},
+\label{eq:inverse-fourier}
+\end{equation}
+with the corresponding forward transform
+\begin{equation}
+\widetilde f(\omega)
+=
+\int_{-\infty}^{\infty}
+dt\,
+f(t)e^{+i\omega t}.
+\label{eq:forward-fourier}
+\end{equation}
+
+In Eq.~\eqref{eq:inverse-fourier}, the functions
+\begin{equation}
+e^{-i\omega t}
+\label{eq:fourier-basis}
+\end{equation}
+are the Fourier basis functions, and $\omega$ is the variable that labels their frequency.
+
+Therefore, if
+\begin{equation}
+\omega>0,
+\end{equation}
+then
+\begin{equation}
+e^{-i\omega t}
+\end{equation}
+is, by definition within this Fourier convention, a \emph{positive-frequency Fourier component}.
+
+Conversely,
+\begin{equation}
+e^{+i\omega t}
+=
+e^{-i(-\omega)t}.
+\label{eq:rewrite-positive-exp}
+\end{equation}
+For $\omega>0$, this is a Fourier component whose frequency label is $-\omega<0$. It is therefore called a \emph{negative-frequency component}.
+
+Thus, under the convention of Eq.~\eqref{eq:inverse-fourier},
+\begin{equation}
+\boxed{
+\begin{aligned}
+e^{-i\omega t},\quad \omega>0
+&\quad\longleftrightarrow\quad
+\text{positive frequency},\\[4pt]
+e^{+i\omega t},\quad \omega>0
+&\quad\longleftrightarrow\quad
+\text{negative frequency}.
+\end{aligned}}
+\label{eq:frequency-identification}
+\end{equation}
+
+\section{Explicit Fourier-transform examples}
+
+Consider first
+\begin{equation}
+f(t)=e^{-i\omega_0 t},
+\qquad
+\omega_0>0.
+\label{eq:positive-example}
+\end{equation}
+Using Eq.~\eqref{eq:forward-fourier},
+\begin{align}
+\widetilde f(\omega)
+&=
+\int_{-\infty}^{\infty}
+dt\,
+e^{-i\omega_0t}e^{+i\omega t}\\
+&=
+\int_{-\infty}^{\infty}
+dt\,
+e^{i(\omega-\omega_0)t}\\
+&=
+2\pi\delta(\omega-\omega_0).
+\label{eq:positive-spectrum}
+\end{align}
+
+The spectrum is concentrated at
+\begin{equation}
+\omega=+\omega_0.
+\end{equation}
+Hence $e^{-i\omega_0t}$ is a positive-frequency component.
+
+Now consider
+\begin{equation}
+g(t)=e^{+i\omega_0t}.
+\label{eq:negative-example}
+\end{equation}
+Its Fourier transform is
+\begin{align}
+\widetilde g(\omega)
+&=
+\int_{-\infty}^{\infty}
+dt\,
+e^{+i\omega_0t}e^{+i\omega t}\\
+&=
+\int_{-\infty}^{\infty}
+dt\,
+e^{i(\omega+\omega_0)t}\\
+&=
+2\pi\delta(\omega+\omega_0).
+\label{eq:negative-spectrum}
+\end{align}
+
+The spectrum is therefore concentrated at
+\begin{equation}
+\omega=-\omega_0.
+\end{equation}
+Thus $e^{+i\omega_0t}$ is a negative-frequency component.
+
+\section{Why the terminology can initially look backwards}
+
+The expression
+\begin{equation}
+e^{-i\omega t}
+\end{equation}
+contains a minus sign, so it is tempting to associate it with ``negative frequency.'' However, that minus sign belongs to the chosen Fourier kernel.
+
+The standard basis has been chosen as
+\begin{equation}
+e^{-i\omega t}.
+\end{equation}
+The sign of the frequency is determined by the value of the label $\omega$.
+
+A useful way to avoid confusion is always to rewrite a time-dependent exponential in the standard Fourier form
+\begin{equation}
+e^{-i\Omega t}.
+\label{eq:standard-form}
+\end{equation}
+Then inspect the sign of $\Omega$.
+
+For example,
+\begin{equation}
+e^{-i5t}
+\end{equation}
+has $\Omega=+5$ and is therefore positive frequency, whereas
+\begin{equation}
+e^{+i5t}
+=
+e^{-i(-5)t}
+\end{equation}
+has $\Omega=-5$ and is therefore negative frequency.
+
+\section{A real oscillation contains both signs of frequency}
+
+Consider a real monochromatic field,
+\begin{equation}
+E(t)=E_0\cos(\omega_0t),
+\qquad
+\omega_0>0.
+\label{eq:real-field}
+\end{equation}
+Using Euler's identity,
+\begin{equation}
+\cos(\omega_0t)
+=
+\frac{1}{2}
+\left(
+e^{-i\omega_0t}
++
+e^{+i\omega_0t}
+\right),
+\label{eq:cos-decomposition}
+\end{equation}
+so
+\begin{equation}
+E(t)
+=
+\frac{E_0}{2}e^{-i\omega_0t}
++
+\frac{E_0}{2}e^{+i\omega_0t}.
+\end{equation}
+
+We therefore define
+\begin{equation}
+E(t)=E^{(+)}(t)+E^{(-)}(t),
+\label{eq:E-decomposition}
+\end{equation}
+where
+\begin{align}
+E^{(+)}(t)
+&=
+\frac{E_0}{2}e^{-i\omega_0t},
+\label{eq:E-positive}\\
+E^{(-)}(t)
+&=
+\frac{E_0}{2}e^{+i\omega_0t}.
+\label{eq:E-negative}
+\end{align}
+
+For a real field,
+\begin{equation}
+E^{(-)}(t)
+=
+\left[E^{(+)}(t)\right]^*.
+\label{eq:conjugate-relation}
+\end{equation}
+
+Thus a real sinusoidal field necessarily contains equal positive- and negative-frequency contributions.
+
+\section{The convention could have been chosen oppositely}
+
+The terminology is not an intrinsic property of the exponential alone. Suppose instead that one adopted the inverse Fourier transform
+\begin{equation}
+f(t)
+=
+\int_{-\infty}^{\infty}
+\frac{d\omega}{2\pi}\,
+\widetilde f(\omega)e^{+i\omega t}.
+\label{eq:opposite-convention}
+\end{equation}
+
+With this convention, the basis function associated with a positive value $\omega>0$ would be
+\begin{equation}
+e^{+i\omega t}.
+\end{equation}
+
+Therefore the assignment
+\begin{equation}
+e^{-i\omega t}
+\longleftrightarrow
+\text{positive frequency}
+\end{equation}
+is not a convention-independent mathematical truth. It follows from the Fourier-sign convention in Eq.~\eqref{eq:inverse-fourier}.
+
+What is physically important is consistency: once a Fourier convention is chosen, all definitions of positive- and negative-frequency components must follow that convention.
+
+\section{Why the $e^{-i\omega t}$ convention is natural in quantum mechanics}
+
+The convention commonly used in atomic physics and quantum optics is particularly convenient because it agrees naturally with Schr\"odinger time evolution.
+
+Let $\ket{n}$ be an energy eigenstate satisfying
+\begin{equation}
+H\ket{n}=E_n\ket{n}.
+\label{eq:energy-eigenstate}
+\end{equation}
+Its Schr\"odinger-picture time dependence is
+\begin{equation}
+\ket{n(t)}
+=
+e^{-iE_nt/\hbar}\ket{n}.
+\label{eq:schrodinger-evolution}
+\end{equation}
+
+Defining
+\begin{equation}
+\omega_n=\frac{E_n}{\hbar},
+\label{eq:omega-energy}
+\end{equation}
+we obtain
+\begin{equation}
+\ket{n(t)}
+=
+e^{-i\omega_nt}\ket{n}.
+\label{eq:energy-frequency-evolution}
+\end{equation}
+
+For positive energy relative to the chosen reference,
+\begin{equation}
+E_n>0
+\quad\Longrightarrow\quad
+\omega_n>0,
+\end{equation}
+and the corresponding time evolution contains $e^{-i\omega_nt}$.
+
+This makes the Fourier convention
+\begin{equation}
+f(t)\sim e^{-i\omega t}
+\end{equation}
+especially convenient in quantum mechanics.
+
+\section{Application to the electromagnetic field}
+
+In quantum optics, the electric field is decomposed as
+\begin{equation}
+\widehat{\bm E}(\bm r,t)
+=
+\widehat{\bm E}^{(+)}(\bm r,t)
++
+\widehat{\bm E}^{(-)}(\bm r,t).
+\label{eq:quantum-field-decomposition}
+\end{equation}
+
+For a single plane-wave mode, schematically,
+\begin{align}
+\widehat{\bm E}^{(+)}(\bm r,t)
+&\propto
+\bm\epsilon\,
+\hat a\,
+e^{i\bm k\cdot\bm r}
+e^{-i\omega t},
+\label{eq:quantum-positive-field}\\
+\widehat{\bm E}^{(-)}(\bm r,t)
+&\propto
+\bm\epsilon^*\,
+\hat a^\dagger\,
+e^{-i\bm k\cdot\bm r}
+e^{+i\omega t}.
+\label{eq:quantum-negative-field}
+\end{align}
+
+Here:
+\begin{itemize}[leftmargin=2em]
+    \item $\hat a$ is the photon-annihilation operator,
+    \item $\hat a^\dagger$ is the photon-creation operator,
+    \item $\bm\epsilon$ is the polarization vector,
+    \item $\bm k$ is the wave vector.
+\end{itemize}
+
+The superscripts $(+)$ and $(-)$ in
+$\widehat{\bm E}^{(+)}$ and $\widehat{\bm E}^{(-)}$
+refer to the sign of the Fourier frequency, not to the sign appearing explicitly in the exponential.
+
+\section{Connection to resonant light--atom interaction}
+
+The convention is particularly useful when comparing the optical field with the time dependence of atomic transition operators.
+
+Let
+\begin{equation}
+\omega_{eg}
+=
+\frac{E_e-E_g}{\hbar}
+>0
+\label{eq:transition-frequency}
+\end{equation}
+be an atomic transition frequency.
+
+The atomic raising operator
+\begin{equation}
+\ket{e}\bra{g}
+\end{equation}
+acquires the interaction-picture time dependence
+\begin{equation}
+\ket{e}\bra{g}
+\longrightarrow
+e^{+i\omega_{eg}t}
+\ket{e}\bra{g}.
+\label{eq:raising-time}
+\end{equation}
+
+The positive-frequency optical field contains
+\begin{equation}
+E^{(+)}(t)\propto e^{-i\omega t}.
+\label{eq:optical-positive-time}
+\end{equation}
+
+Their product therefore varies as
+\begin{equation}
+e^{+i\omega_{eg}t}
+e^{-i\omega t}
+=
+e^{i(\omega_{eg}-\omega)t}.
+\label{eq:near-resonant-factor}
+\end{equation}
+
+When $\omega\simeq\omega_{eg}$, this factor varies slowly. This is the near-resonant term retained in the rotating-wave approximation.
+
+By contrast, combining the atomic raising operator with the negative-frequency field gives
+\begin{equation}
+e^{+i\omega_{eg}t}
+e^{+i\omega t}
+=
+e^{i(\omega_{eg}+\omega)t},
+\label{eq:counterrotating-factor}
+\end{equation}
+which oscillates rapidly near resonance and is the corresponding counter-rotating term.
+
+Thus the positive-frequency convention is not merely convenient bookkeeping: once adopted consistently, it makes the resonant structure of the light--atom interaction transparent.
+
+\section{Summary}
+
+Under the commonly used Fourier convention
+\begin{equation}
+f(t)
+=
+\int\frac{d\omega}{2\pi}
+\widetilde f(\omega)e^{-i\omega t},
+\end{equation}
+the exponential $e^{-i\omega t}$ with $\omega>0$ is called a positive-frequency component because its Fourier spectrum is located at positive $\omega$.
+
+Similarly,
+\begin{equation}
+e^{+i\omega t}
+=
+e^{-i(-\omega)t}
+\end{equation}
+has Fourier frequency $-\omega$ and is therefore a negative-frequency component.
+
+The essential statement is
+\begin{equation}
+\boxed{
+\text{The signs ``positive'' and ``negative'' refer to the Fourier-frequency label,
+not directly to the sign in the exponent.}
+}
+\label{eq:main-summary}
+\end{equation}
+
+The assignment depends on the Fourier-transform convention, but the convention using $e^{-i\omega t}$ for positive frequency is especially natural in quantum mechanics because positive-energy stationary states evolve as $e^{-iEt/\hbar}$.
+
+\end{document}
