@@ -47,6 +47,16 @@ register_persistent_page_settings(
 
 for _key, _value in DEFAULT_STARTUP_CONDITION.items():
     st.session_state.setdefault(_key, _value)
+# A browser session can survive an in-place app upgrade without loading a
+# condition file. Preserve the v6.8 meaning of its existing plain pump links
+# exactly once; subsequent plain-pump selections are intentional v6.9 modes.
+if st.session_state.get("_probe_source_semantics_version") != "6.9":
+    for _label in ("A", "B"):
+        _source_key = f"probe_source_{_label}"
+        _source = st.session_state.get(_source_key)
+        if _source in {f"Pump{_label}{_number}" for _number in (1, 2, 3)}:
+            st.session_state[_source_key] = f"{_source} weak"
+    st.session_state["_probe_source_semantics_version"] = "6.9"
 st.session_state.setdefault(
     "_condition_save_name",
     clean_condition_name(st.session_state["condition_name"]),
@@ -434,7 +444,25 @@ def _pump_configuration_ui(
 
 
 def _probe_source_options(label):
-    return ["Custom", *(f"Pump{label}{number}" for number in (1, 2, 3))]
+    options = ["Custom"]
+    for number in (1, 2, 3):
+        pump_name = f"Pump{label}{number}"
+        options.extend((f"{pump_name} weak", pump_name))
+    return options
+
+
+def _probe_source_spec(label, source):
+    """Return the linked pump name and readout mode for one source value."""
+    if source == "Custom":
+        return {"pump_name": None, "mode": "weak"}
+    pump_name = source.removesuffix(" weak")
+    allowed = {f"Pump{label}{number}" for number in (1, 2, 3)}
+    if pump_name not in allowed:
+        return {"pump_name": None, "mode": "weak"}
+    return {
+        "pump_name": pump_name,
+        "mode": "weak" if source.endswith(" weak") else "nonlinear",
+    }
 
 
 def _probe_widget_key(state_key):
@@ -461,9 +489,10 @@ def _copy_selected_pump_to_probe(label):
     if source not in options:
         source = "Custom"
         st.session_state[source_key] = source
-    if source == "Custom":
+    source_spec = _probe_source_spec(label, source)
+    if source_spec["pump_name"] is None:
         return
-    prefix = source.removeprefix("Pump")
+    prefix = source_spec["pump_name"].removeprefix("Pump")
     for probe_field, pump_field in (
         ("line", "line"),
         ("transition", "transition"),
@@ -525,7 +554,19 @@ def _probe_from_state(label, atom_name, n2_coeffs):
         n2_coeffs=n2_coeffs,
         allowed_only=show_allowed_only,
     )
+    source = st.session_state[f"probe_source_{label}"]
+    source_spec = _probe_source_spec(label, source)
+    pump_name = source_spec["pump_name"]
+    pump_prefix = pump_name.removeprefix("Pump") if pump_name is not None else None
     return {
+        "source": source,
+        "mode": source_spec["mode"],
+        "pump_name": pump_name,
+        "pump_intensity_uW_cm2": (
+            float(st.session_state[f"intensity_{pump_prefix}"])
+            if pump_prefix is not None
+            else 0.0
+        ),
         "line": line,
         "transition_label": transition,
         "selected_transition": selected,
@@ -557,12 +598,14 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
             args=(label,),
             disabled=disabled,
             help=(
-                "Custom enables independent probe settings. Selecting a pump "
-                "copies its line, transition, detuning, direction, and "
-                "polarization; pump intensity is not used by the weak probe."
+                "Custom enables an independent weak probe. A 'weak' pump source "
+                "copies that pump's optical settings but ignores intensity. A "
+                "plain pump source uses the physical pump intensity in a "
+                "self-consistent Stokes calculation."
             ),
         )
-    linked = source != "Custom"
+    source_spec = _probe_source_spec(label, source)
+    linked = source_spec["pump_name"] is not None
     with direction_col:
         direction_key = f"probe_k_{label}"
         st.selectbox(
@@ -654,16 +697,25 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
             disabled=disabled or linked,
         )
     if linked:
+        if source_spec["mode"] == "weak":
+            message = (
+                f"Using {source_spec['pump_name']} optical settings as a weak "
+                "probe; pump intensity is ignored and path length remains independent."
+            )
+        else:
+            prefix = source_spec["pump_name"].removeprefix("Pump")
+            intensity = float(st.session_state[f"intensity_{prefix}"])
+            message = (
+                f"Using physical {source_spec['pump_name']} with intensity "
+                f"{intensity:g} µW/cm² and self-consistent CBOR+LDOR propagation."
+            )
+        st.caption(accent_caption(message))
+    else:
         st.caption(
             accent_caption(
-                f"Using {source}; its intensity is ignored and path length remains independent."
+                f"Probe-{label} is a weak, non-perturbing detector for Alkali {label}."
             )
         )
-    st.caption(
-        accent_caption(
-            f"Probe-{label} is a weak, non-perturbing detector for Alkali {label}."
-        )
-    )
 
 
 def _probe_configuration_ui(
@@ -821,7 +873,7 @@ with st.sidebar:
             open_file_button(
                 type=["json"],
                 key="condition_file_uploader",
-                help="Load a v6.8 condition or migrate a v6.7/v6.6/v6.5/v6.4/v6.3/v6.2/v6.1/v6.0/v5.0 condition.",
+                help="Load a v6.9 condition or migrate a v6.8/v6.7/v6.6/v6.5/v6.4/v6.3/v6.2/v6.1/v6.0/v5.0 condition.",
                 on_change=load_condition_callback,
             )
         with save_col:
@@ -1393,6 +1445,8 @@ def _render_probe_response(result, label):
         "transmission": "Fractional transmission",
     }
     signal = st.session_state[f"probe_signal_{label}"]
+    nonlinear = result["probe_info"].get("mode") == "nonlinear physical pump"
+    pump_name = result["probe_info"].get("pump_name")
     response = result["probe_response"]
     response_choice = st.session_state[f"probe_response_component_{label}"]
     response_key = {
@@ -1419,11 +1473,16 @@ def _render_probe_response(result, label):
         result["rf_frequencies_hz"], response, signal,
         rf_rabi_rad_s_per_nT=rf_rabi_rad_s_per_nT,
     )
+    export["readout_mode"] = "nonlinear physical pump" if nonlinear else "weak probe"
+    export["physical_pump"] = pump_name or ""
     title_col, download_col, help_col = st.columns([0.74, 0.18, 0.08], gap="small")
     with title_col:
-        _compact_title(
-            f"Probe-{label} weak optical readout — {signal_labels[signal]}"
+        readout_title = (
+            f"{pump_name} nonlinear optical readout"
+            if nonlinear
+            else f"Probe-{label} weak optical readout"
         )
+        _compact_title(f"{readout_title} — {signal_labels[signal]}")
     with download_col:
         st.download_button(
             "Download CSV",
@@ -1435,8 +1494,25 @@ def _render_probe_response(result, label):
         )
     with help_col:
         with st.popover("❓"):
-            st.markdown(
-                r"""
+            if nonlinear:
+                st.markdown(
+                    r"""
+The selected physical pump is both the perturbing beam and its own detector.
+Its RF-induced normalized Stokes vector is propagated self-consistently through
+the cell. Rank-1 circular birefringence/dichroism and rank-2 linear
+birefringence/dichroism both feed the pump's vector/tensor light shifts.
+
+Orientation induced and Alignment induced are counterfactual nonlinear
+solutions with only that optical feedback channel present. Total is the
+physical coupled solution; because of feedback, it is not the sum of the two
+counterfactual curves. Optical rotation, ellipticity, normalized Stokes
+signals, and fractional transmission all come from the same propagated
+response.
+"""
+                )
+            else:
+                st.markdown(
+                    r"""
 Probe-A detects Alkali A and Probe-B detects Alkali B. Each probe is treated as
 a weak, non-perturbing detector: it does not pump the atoms, add light shift,
 or broaden the magnetic resonance. The result is linear in both the probe
@@ -1454,7 +1530,7 @@ same RF-axis/frequency sweep as the atomic-moment plot above. Responses are
 reported per RF magnetic-field amplitude using
 $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
 """
-            )
+                )
 
     control_col, plot_col = st.columns([0.18, 0.82], gap="small")
     with control_col:
@@ -1515,6 +1591,11 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
             return
         if not result["light_shift_available"]:
             st.warning("Probe response is unavailable because the RF atomic response is unavailable.")
+            return
+        if nonlinear and not result["probe_info"].get("nonlinear_available", False):
+            st.warning(result["probe_info"].get(
+                "nonlinear_reason", "The nonlinear pump response is unavailable."
+            ))
             return
         show_amplitude = bool(st.session_state[f"probe_show_amplitude_{label}"])
         show_x = bool(st.session_state[f"probe_show_in_phase_{label}"])

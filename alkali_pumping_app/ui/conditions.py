@@ -185,7 +185,7 @@ DEFAULT_STARTUP_CONDITION = {
     "rf_add_pi_quadrature_B": False,
     "rf_relaxation_normalized_B": False,
     "rf_density_factor_B": False,
-    "probe_source_A": "PumpA2",
+    "probe_source_A": "PumpA2 weak",
     "probe_line_A": "D1",
     "probe_transition_A": "2→2",
     "probe_det_rel_A": 1000.0,
@@ -201,7 +201,7 @@ DEFAULT_STARTUP_CONDITION = {
     "probe_add_pi_in_phase_A": False,
     "probe_show_quadrature_A": False,
     "probe_add_pi_quadrature_A": False,
-    "probe_source_B": "PumpB2",
+    "probe_source_B": "PumpB2 weak",
     "probe_line_B": "D1",
     "probe_transition_B": "2→2",
     "probe_det_rel_B": 1000.0,
@@ -381,6 +381,26 @@ def _migrate_v67_conditions(conditions):
     return migrated, {}
 
 
+def _mark_linked_probes_as_weak(conditions):
+    """Preserve the pre-v6.9 meaning of pump-linked probe sources."""
+    migrated = dict(conditions)
+    for label in ("A", "B"):
+        key = f"probe_source_{label}"
+        source = migrated.get(key)
+        if source in {f"Pump{label}{number}" for number in (1, 2, 3)}:
+            migrated[key] = f"{source} weak"
+    return migrated
+
+
+def _migrate_v68_conditions(conditions):
+    """Distinguish legacy weak pump links from v6.9 physical-pump modes."""
+    migrated = _legacy_condition_defaults()
+    for key in CONDITION_KEYS:
+        if key in conditions:
+            migrated[key] = conditions[key]
+    return _mark_linked_probes_as_weak(migrated), {}
+
+
 def _migrate_v5_conditions(conditions):
     """Translate a v5 single-alkali condition into the current A/B schema."""
     migrated = _legacy_condition_defaults()
@@ -442,6 +462,8 @@ def apply_loaded_condition_dict(payload):
         if missing:
             raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
         legacy_pump_inputs = {}
+    elif version == "6.8":
+        loaded_conditions, legacy_pump_inputs = _migrate_v68_conditions(conditions)
     elif version == "6.7":
         loaded_conditions, legacy_pump_inputs = _migrate_v67_conditions(conditions)
     elif version == "6.6":
@@ -463,8 +485,11 @@ def apply_loaded_condition_dict(payload):
     else:
         raise ValueError(
             "Unsupported condition-file version. Expected "
-            f"{CONDITION_SCHEMA_VERSION}, legacy 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0."
+            f"{CONDITION_SCHEMA_VERSION}, legacy 6.8, 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0."
         )
+
+    if version != CONDITION_SCHEMA_VERSION:
+        loaded_conditions = _mark_linked_probes_as_weak(loaded_conditions)
 
     loaded_name = clean_condition_name(loaded_conditions["condition_name"])
     for key in CONDITION_KEYS:

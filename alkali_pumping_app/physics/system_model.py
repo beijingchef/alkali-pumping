@@ -17,6 +17,7 @@ from .multi_species import (
     cross_spin_exchange_adjacent_coherence_self_relaxation_rates,
     steady_state_two_species,
 )
+from .nonlinear_readout import apply_physical_pump_readout
 from .observables import (
     add_adjacent_optical_relaxation_columns,
     add_nu_m_column,
@@ -438,6 +439,7 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
             J_A,
             common,
         )
+        apply_physical_pump_readout(result_A, common)
         return {"A": result_A, "B": None, "J_coupled": J_A, "solve": solve}
 
     cross_A_info = cross_spin_exchange_rate_info(
@@ -521,6 +523,8 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
     if coupled_probe is not None:
         result_A["probe_response"] = _nested_probe_responses(coupled_probe["A"])
         result_B["probe_response"] = _nested_probe_responses(coupled_probe["B"])
+    apply_physical_pump_readout(result_A, common)
+    apply_physical_pump_readout(result_B, common)
     return {
         "A": result_A,
         "B": result_B,

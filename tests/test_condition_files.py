@@ -78,15 +78,15 @@ def legacy_v60_conditions():
 
 
 class ConditionFileTests(unittest.TestCase):
-    def test_condition_schema_is_v68(self):
-        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.8")
-        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.8")
+    def test_condition_schema_is_v69(self):
+        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.9")
+        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.9")
 
     def test_payload_has_current_shape(self):
         payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
         self.assertEqual(payload["app"], "alkali_pumping")
         self.assertEqual(payload["format"], "alkali_pumping_conditions")
-        self.assertEqual(payload["version"], "6.8")
+        self.assertEqual(payload["version"], "6.9")
         self.assertEqual(set(payload["conditions"]), set(conditions.CONDITION_KEYS))
         self.assertNotIn("include_spin_exchange", payload["conditions"])
 
@@ -103,8 +103,8 @@ class ConditionFileTests(unittest.TestCase):
         ]
         self.assertEqual(intensities, [5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
         self.assertTrue(all(value >= 0.0 for value in intensities))
-        self.assertEqual(defaults["probe_source_A"], "PumpA2")
-        self.assertEqual(defaults["probe_source_B"], "PumpB2")
+        self.assertEqual(defaults["probe_source_A"], "PumpA2 weak")
+        self.assertEqual(defaults["probe_source_B"], "PumpB2 weak")
         self.assertEqual(defaults["rf_frequency_upper_hz_A"], 100.0)
         self.assertEqual(defaults["rf_frequency_upper_hz_B"], 100.0)
 
@@ -124,7 +124,7 @@ class ConditionFileTests(unittest.TestCase):
         }
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(
-                ValueError, "Expected 6.8, legacy 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0"
+                ValueError, "Expected 6.9, legacy 6.8, 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0"
             ):
                 conditions.apply_loaded_condition_dict(payload)
 
@@ -134,7 +134,7 @@ class ConditionFileTests(unittest.TestCase):
         payload = {
             "app": "alkali_pumping",
             "format": "alkali_pumping_conditions",
-            "version": "6.8",
+            "version": "6.9",
             "conditions": values,
         }
         with patch.object(conditions.st, "session_state", {}):
@@ -298,6 +298,22 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(
             session_state["probe_response_component_B"], "Alignment induced"
         )
+
+    def test_v68_pump_links_migrate_to_explicit_weak_sources(self):
+        values = dict(conditions.DEFAULT_STARTUP_CONDITION)
+        values["probe_source_A"] = "PumpA1"
+        values["probe_source_B"] = "PumpB3"
+        payload = {
+            "app": "alkali_pumping",
+            "format": "alkali_pumping_conditions",
+            "version": "6.8",
+            "conditions": values,
+        }
+        session_state = {}
+        with patch.object(conditions.st, "session_state", session_state):
+            conditions.apply_loaded_condition_dict(payload)
+        self.assertEqual(session_state["probe_source_A"], "PumpA1 weak")
+        self.assertEqual(session_state["probe_source_B"], "PumpB3 weak")
 
     def test_v5_condition_migrates_legacy_third_pump_to_A3(self):
         payload = {

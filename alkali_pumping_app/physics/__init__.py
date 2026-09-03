@@ -9,6 +9,7 @@ from .light_shift import *
 from .observables import *
 from .optical_pumping import *
 from .multi_species import *
+from .nonlinear_readout import *
 from .optical_readout import *
 from .polarization import *
 from .spin_exchange import *

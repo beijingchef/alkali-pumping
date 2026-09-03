@@ -341,6 +341,110 @@ def weak_rf_matrix_susceptibility(
     )
 
 
+def weak_drive_matrix_readouts(
+    frequencies_hz,
+    ground_states,
+    populations,
+    adjacent_transition_hz,
+    gamma_op,
+    gamma_er,
+    gamma_se,
+    drive_operator,
+    readout_operators,
+    target_F=None,
+):
+    """Return weak responses to an arbitrary Hermitian angular-frequency drive.
+
+    ``drive_operator`` is the coefficient of a real cosine-modulated,
+    dimensionless drive amplitude in the ground-state Hamiltonian divided by
+    hbar, and therefore has units of rad/s.  Unlike the RF convenience
+    routine, ``target_F=None`` includes every hyperfine manifold.  The result
+    maps each stable readout name to the usual
+    ``(amplitude, in_phase, quadrature, info)`` tuple.
+
+    This generalized source is used by the physical-pump readout: a local
+    Stokes change rotates the pump's vector/tensor light-shift Hamiltonian, and
+    the resulting density-matrix response acts back on the propagating light.
+    """
+    frequencies_hz = np.asarray(frequencies_hz, dtype=float)
+    populations = np.asarray(populations, dtype=float)
+    transition_hz = np.asarray(adjacent_transition_hz, dtype=float)
+    gamma_op = np.asarray(gamma_op, dtype=float)
+    gamma_er = np.asarray(gamma_er, dtype=float)
+    gamma_se = np.asarray(gamma_se, dtype=float)
+    drive = np.asarray(drive_operator, dtype=complex)
+    state_count = len(ground_states)
+    if drive.shape != (state_count, state_count):
+        raise ValueError("drive_operator must match the ground-state basis size.")
+    readouts = {
+        name: np.asarray(operator, dtype=complex)
+        for name, operator in readout_operators.items()
+    }
+    for operator in readouts.values():
+        if operator.shape != (state_count, state_count):
+            raise ValueError("Every readout operator must match the ground-state basis size.")
+
+    phasors = {
+        name: np.zeros_like(frequencies_hz, dtype=complex)
+        for name in readouts
+    }
+    state_index = {
+        (float(state["F"]), float(state["m"])): index
+        for index, state in enumerate(ground_states)
+    }
+    omega = 2.0 * np.pi * frequencies_hz
+    used_transitions = 0
+    nonpositive_linewidths = 0
+    for a, state in enumerate(ground_states):
+        F = float(state["F"])
+        if target_F is not None and not np.isclose(F, float(target_F)):
+            continue
+        m = float(state["m"])
+        b = state_index.get((F, m - 1.0))
+        if b is None or not np.isfinite(transition_hz[a]):
+            continue
+        drive_ab = drive[a, b]
+        drive_ba = drive[b, a]
+        if abs(drive_ab) == 0.0 and abs(drive_ba) == 0.0:
+            continue
+        gamma = gamma_op[a] + gamma_er[a] + gamma_se[a]
+        if not np.isfinite(gamma):
+            continue
+        if gamma <= 0.0:
+            nonpositive_linewidths += 1
+            gamma = 1e-12
+        population_difference = populations[a] - populations[b]
+        omega_m = 2.0 * np.pi * transition_hz[a]
+        drho_ab = (
+            0.5j * drive_ab * population_difference
+            / (gamma + 1j * (omega_m - omega))
+        )
+        drho_ba = (
+            -0.5j * drive_ba * population_difference
+            / (gamma + 1j * (-omega_m - omega))
+        )
+        for name, readout in readouts.items():
+            phasors[name] += readout[b, a] * drho_ab + readout[a, b] * drho_ba
+        used_transitions += 1
+
+    result = {}
+    for name, phasor in phasors.items():
+        in_phase = 2.0 * np.real(phasor)
+        quadrature = 2.0 * np.imag(phasor)
+        result[name] = (
+            np.hypot(in_phase, quadrature),
+            in_phase,
+            quadrature,
+            {
+                "used_transitions": used_transitions,
+                "nonpositive_linewidths": nonpositive_linewidths,
+                "target_F": None if target_F is None else float(target_F),
+                "generalized_drive": True,
+            },
+        )
+    return result
+
+
 def _density_reductions(amplitudes, density_matrix):
     """Return nuclear and electron reduced matrices in the uncoupled basis."""
     nuclear = np.einsum(

@@ -22,8 +22,8 @@ from alkali_pumping_app.version import DISPLAY_VERSION, __version__
 
 class PhysicsFoundationTests(unittest.TestCase):
     def test_version_metadata(self):
-        self.assertEqual(__version__, "6.8.9")
-        self.assertEqual(DISPLAY_VERSION, "6.8.9")
+        self.assertEqual(__version__, "6.9.0")
+        self.assertEqual(DISPLAY_VERSION, "6.9.0")
 
     def test_static_field_and_larmor_frequency_conversion_round_trip(self):
         for atom_name in ATOMS:

@@ -1,5 +1,25 @@
 # Changelog
 
+## 6.9.0 - 2026-09-02
+
+### Added
+
+- Added an explicit weak source beside every pump source in the Probe source
+  selectors. `PumpN weak` uses the existing non-perturbing linear probe solver;
+  `PumpN` treats the selected pump as the physical detected beam.
+- Added distributed weak-RF, full-Stokes feedback for physical-pump readout.
+  The nonlinear propagation includes CBOR and LDOR contributions, the linked
+  pump's ellipticity, and every existing probe signal and RF quadrature.
+- Added nonlinear orientation-only and alignment-only counterfactual responses
+  alongside the coupled Total response, plus readout-mode metadata in CSV
+  exports.
+
+### Changed
+
+- Advanced the condition schema to v6.9. Legacy v6.8 pump-linked probes migrate
+  to their explicit `weak` variants so loading an old file does not silently
+  change its physics.
+
 ## 6.8.9 - 2026-09-01
 
 ### Changed

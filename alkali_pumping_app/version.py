@@ -1,7 +1,7 @@
 """Application and model version metadata."""
 
 APP_NAME = "alkali_pumping"
-__version__ = "6.8.9"
-DISPLAY_VERSION = "6.8.9"
-CONDITION_SCHEMA_VERSION = "6.8"
-PHYSICS_MODEL_VERSION = "v6.7-mathur-normalized-dual-probe-stokes-readout"
+__version__ = "6.9.0"
+DISPLAY_VERSION = "6.9.0"
+CONDITION_SCHEMA_VERSION = "6.9"
+PHYSICS_MODEL_VERSION = "v6.9-self-consistent-pump-stokes-readout"

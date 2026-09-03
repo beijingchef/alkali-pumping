@@ -1,4 +1,4 @@
-# Alkali Pumping v6.8.9
+# Alkali Pumping v6.9.0
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -67,12 +67,19 @@ streamlit run alkali_pumping.py
   is defined conversely. New sessions default both RF upper sweep bounds to
   100 Hz.
 - Probe-A and Probe-B have independent line, hyperfine-transition detuning,
-  propagation direction, input ellipse, and path length. A probe is a weak
-  detector only and does not pump, shift, or broaden the atoms.
-- Each probe can alternatively inherit the corresponding species' Pump1,
-  Pump2, or Pump3 spectral, direction, and polarization settings while keeping
-  an independent path length and ignoring pump intensity. New sessions default
-  Probe-A to PumpA2 and Probe-B to PumpB2.
+  propagation direction, input ellipse, and path length. A Custom probe is a
+  weak detector only and does not pump, shift, or broaden the atoms.
+- Each probe source lists both `PumpN weak` and `PumpN`. The weak item inherits
+  that pump's spectrum, direction, and polarization while ignoring its
+  intensity. The plain pump item represents the physical pump beam and uses
+  its intensity in a distributed, self-consistent Stokes calculation. New
+  sessions default Probe-A to `PumpA2 weak` and Probe-B to `PumpB2 weak`.
+- Physical-pump propagation includes rank-1 circular birefringence/dichroism
+  and rank-2 linear birefringence/dichroism feedback into the vector and tensor
+  light shifts. It retains the weak-RF approximation for the modulated atomic
+  response. Orientation-induced and alignment-induced curves are nonlinear
+  counterfactual solutions; the Total curve is the coupled physical solution
+  and is not their sum.
 - Probe signals include optical rotation, ellipticity, normalized Stokes
   s1/s2/s3, and fractional transmission. A single selector displays the
   orientation-induced, alignment-induced, or coherent total response; the
@@ -86,8 +93,10 @@ streamlit run alkali_pumping.py
 - The dual-alkali RF solver retains coherence feedback through self and cross
   spin exchange even though the other RF drive is zero.
 
-The condition-file schema is version 6.8. Complete v6.8 files are required;
-v6.7, v6.6, v6.5, v6.4, v6.3, v6.2, v6.1, v6.0, and v5.0 files are migrated automatically. A relative-
+The condition-file schema is version 6.9. Complete v6.9 files are required;
+v6.8, v6.7, v6.6, v6.5, v6.4, v6.3, v6.2, v6.1, v6.0, and v5.0 files are migrated automatically. Existing
+v6.8 `PumpN` probe links migrate to `PumpN weak`, preserving their original
+non-perturbing meaning. A relative-
 concentration value loaded from an older file is retained numerically and is
 interpreted as the liquid mole ratio `B/A` by the v6.4 Raoult-law model. Legacy Pump1–Pump3
 become PumpA1–PumpA3. A legacy A Larmor frequency is converted to the
