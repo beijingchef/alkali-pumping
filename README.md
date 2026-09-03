@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.0
+# Alkali Pumping v6.9.4
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -18,7 +18,8 @@ four workflows:
   shown for each ground hyperfine manifold.
 - **Analysis → Magnetometry** provides dual-alkali population and Zeeman
   diagnostics, independent RF-A/RF-B drives, atomic-moment susceptibilities,
-  and independent weak Probe-A/Probe-B Stokes readouts.
+  and independent weak Probe-A/Probe-B Stokes readouts. Its Zeeman tables have
+  per-species column selectors while retaining complete CSV exports.
 - **Reference → Atomic properties** presents the former Settings dialog as a
   full page with thermal, buffer-gas, and transition-strength tabs.
 
@@ -73,7 +74,11 @@ streamlit run alkali_pumping.py
   that pump's spectrum, direction, and polarization while ignoring its
   intensity. The plain pump item represents the physical pump beam and uses
   its intensity in a distributed, self-consistent Stokes calculation. New
-  sessions default Probe-A to `PumpA2 weak` and Probe-B to `PumpB2 weak`.
+  sessions default Probe-A to `PumpA1 weak` and Probe-B to `PumpB1 weak`.
+- Pump1 defaults to the D1 $F=I+1/2\rightarrow F'=I+1/2$ transition at
+  +450 MHz and 10 µW/cm². Pump2 defaults to
+  $F=I-1/2\rightarrow F'=I+1/2$ at zero detuning and 10 µW/cm². These
+  relative hyperfine branches are translated when the selected isotope changes.
 - Physical-pump propagation includes rank-1 circular birefringence/dichroism
   and rank-2 linear birefringence/dichroism feedback into the vector and tensor
   light shifts. It retains the weak-RF approximation for the modulated atomic
@@ -90,6 +95,9 @@ streamlit run alkali_pumping.py
 - The Zeeman table is upstream of both field-response plots. A compact table
   lists upper-manifold transitions inside the shared RF sweep, and the same
   resonance markers appear on both plots.
+- The ground-state Zeeman properties/populations, atomic response, and optical
+  response are three independently collapsible, default-open result sections.
+  The shared RF settings remain visible above the atomic-response section.
 - The dual-alkali RF solver retains coherence feedback through self and cross
   spin exchange even though the other RF drive is zero.
 

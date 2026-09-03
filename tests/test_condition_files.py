@@ -101,10 +101,15 @@ class ConditionFileTests(unittest.TestCase):
             defaults[f"intensity_{prefix}"]
             for prefix in ("A1", "A2", "A3", "B1", "B2", "B3")
         ]
-        self.assertEqual(intensities, [5.0, 5.0, 0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(intensities, [10.0, 10.0, 0.0, 10.0, 10.0, 0.0])
         self.assertTrue(all(value >= 0.0 for value in intensities))
-        self.assertEqual(defaults["probe_source_A"], "PumpA2 weak")
-        self.assertEqual(defaults["probe_source_B"], "PumpB2 weak")
+        for label in ("A", "B"):
+            self.assertEqual(defaults[f"transition_{label}1"], "2→2")
+            self.assertEqual(defaults[f"det_rel_{label}1"], 450.0)
+            self.assertEqual(defaults[f"transition_{label}2"], "1→2")
+            self.assertEqual(defaults[f"det_rel_{label}2"], 0.0)
+        self.assertEqual(defaults["probe_source_A"], "PumpA1 weak")
+        self.assertEqual(defaults["probe_source_B"], "PumpB1 weak")
         self.assertEqual(defaults["rf_frequency_upper_hz_A"], 100.0)
         self.assertEqual(defaults["rf_frequency_upper_hz_B"], 100.0)
 

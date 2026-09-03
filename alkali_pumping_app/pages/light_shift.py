@@ -1551,14 +1551,15 @@ def render_light_shift_page():
     with action_placeholder.container():
         download_column, help_column = st.columns([0.78, 0.22], gap="small")
         with download_column:
-            st.download_button(
-                "Download CSV",
-                dataframe_to_csv_bytes(export),
-                file_name=f"{condition_name}_{atom_name}_{line}_light-shifts.csv",
-                mime="text/csv; charset=utf-8",
-                key="download_light_shift_page_csv",
-                width="stretch",
-            )
+            with st.container(horizontal_alignment="right"):
+                st.download_button(
+                    "Download CSV",
+                    dataframe_to_csv_bytes(export),
+                    file_name=f"{condition_name}_{atom_name}_{line}_light-shifts.csv",
+                    mime="text/csv; charset=utf-8",
+                    key="download_light_shift_page_csv",
+                    width="content",
+                )
         with help_column:
             with st.popover("❓"):
                 _render_light_shift_help(

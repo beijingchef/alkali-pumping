@@ -120,7 +120,62 @@ def render_transition_table_html(df):
 """
 
 
-def render_zeeman_properties_table_html(df):
+ZEEMAN_TABLE_COLUMNS = (
+    ("F", "F", None, "g", "F"),
+    ("m", "m", None, "g", "m"),
+    ("P_F", "P<sub>F</sub>", None, ".3f", r"$P_F$"),
+    ("Pₘ", "P<sub>m</sub>", None, ".3f", r"$P_m$"),
+    ("Dₘ", "D<sub>m</sub>", None, ".3f", r"$D_m$"),
+    ("ν^{VS} (Hz)", "ν<sup>VS</sup>", "Hz", ".1f", r"$\nu^{\mathrm{VS}}$"),
+    ("ν^{TS} (Hz)", "ν<sup>TS</sup>", "Hz", ".1f", r"$\nu^{\mathrm{TS}}$"),
+    ("ν^{LS} (Hz)", "ν<sup>LS</sup>", "Hz", ".1f", r"$\nu^{\mathrm{LS}}$"),
+    ("ν^{B} (Hz)", "ν<sup>B</sup>", "Hz", ".1f", r"$\nu^{B}$"),
+    ("ν_m (Hz)", "ν<sub>m</sub>", "Hz", ".1f", r"$\nu_m$"),
+    ("Λ (s⁻¹)", "Λ", "s<sup>−1</sup>", ".1f", r"$\Lambda$"),
+    ("G^{OP} (s^-1)", "G<sup>OP</sup>", "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{OP}}$"),
+    ("Γ^{OP} (s^-1)", "Γ<sup>OP</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{OP}}$"),
+    ("G^{ER} (s^-1)", "G<sup>ER</sup>", "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{ER}}$"),
+    ("Γ^{ER} (s^-1)", "Γ<sup>ER</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{ER}}$"),
+    (
+        "G^{SE,self} (s^-1)",
+        "<span class='zeeman-scripted-symbol'>G<span class='zeeman-script-stack'><span>SE</span><span>self</span></span></span>",
+        "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{SE}}_{\mathrm{self}}$",
+    ),
+    (
+        "Γ^{SE,self} (s^-1)",
+        "<span class='zeeman-scripted-symbol'>Γ<span class='zeeman-script-stack'><span>SE</span><span>self</span></span></span>",
+        "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{SE}}_{\mathrm{self}}$",
+    ),
+    (
+        "G^{SE,cross} (s^-1)",
+        "<span class='zeeman-scripted-symbol'>G<span class='zeeman-script-stack'><span>SE</span><span>cross</span></span></span>",
+        "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{SE}}_{\mathrm{cross}}$",
+    ),
+    (
+        "Γ^{SE,cross} (s^-1)",
+        "<span class='zeeman-scripted-symbol'>Γ<span class='zeeman-script-stack'><span>SE</span><span>cross</span></span></span>",
+        "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{SE}}_{\mathrm{cross}}$",
+    ),
+    ("G^{SE} (s^-1)", "G<sup>SE</sup>", "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{SE}}$"),
+    ("Γ^{SE} (s^-1)", "Γ<sup>SE</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{SE}}$"),
+    ("G (s^-1)", "G", "s<sup>−1</sup>", ".1f", r"$G$"),
+    ("Γ (s^-1)", "Γ", "s<sup>−1</sup>", ".1f", r"$\Gamma$"),
+    ("Γ/2π (Hz)", "Γ/2π", "Hz", ".1f", r"$\Gamma/(2\pi)$"),
+)
+
+ZEEMAN_REQUIRED_COLUMN_KEYS = ("F", "m")
+ZEEMAN_OPTIONAL_COLUMN_KEYS = tuple(
+    column[0] for column in ZEEMAN_TABLE_COLUMNS
+    if column[0] not in ZEEMAN_REQUIRED_COLUMN_KEYS
+)
+ZEEMAN_DEFAULT_VISIBLE_COLUMN_KEYS = tuple(
+    key for key in ZEEMAN_OPTIONAL_COLUMN_KEYS
+    if key not in {"P_F", "Λ (s⁻¹)"}
+)
+ZEEMAN_COLUMN_LABELS = {column[0]: column[4] for column in ZEEMAN_TABLE_COLUMNS}
+
+
+def render_zeeman_properties_table_html(df, visible_columns=None):
     """Render the Zeeman-sublevel table with a guaranteed hyperfine separator.
 
     A custom HTML table is used because Streamlit's dataframe renderer does not
@@ -131,52 +186,9 @@ def render_zeeman_properties_table_html(df):
     """
     import html
 
-    columns = [
-        ("F", "F", None, "g"),
-        ("m", "m", None, "g"),
-        ("P_F", "P<sub>F</sub>", None, ".3f"),
-        ("Pₘ", "P<sub>m</sub>", None, ".3f"),
-        ("Dₘ", "D<sub>m</sub>", None, ".3f"),
-        ("ν^{VS} (Hz)", "ν<sup>VS</sup>", "Hz", ".1f"),
-        ("ν^{TS} (Hz)", "ν<sup>TS</sup>", "Hz", ".1f"),
-        ("ν^{LS} (Hz)", "ν<sup>LS</sup>", "Hz", ".1f"),
-        ("ν^{B} (Hz)", "ν<sup>B</sup>", "Hz", ".1f"),
-        ("ν_m (Hz)", "ν<sub>m</sub>", "Hz", ".1f"),
-        ("Λ (s⁻¹)", "Λ", "s<sup>−1</sup>", ".1f"),
-        ("G^{OP} (s^-1)", "G<sup>OP</sup>", "s<sup>−1</sup>", ".1f"),
-        ("Γ^{OP} (s^-1)", "Γ<sup>OP</sup>", "s<sup>−1</sup>", ".1f"),
-        ("G^{ER} (s^-1)", "G<sup>ER</sup>", "s<sup>−1</sup>", ".1f"),
-        ("Γ^{ER} (s^-1)", "Γ<sup>ER</sup>", "s<sup>−1</sup>", ".1f"),
-        (
-            "G^{SE,self} (s^-1)",
-            "<span class='zeeman-scripted-symbol'>G<span class='zeeman-script-stack'><span>SE</span><span>self</span></span></span>",
-            "s<sup>−1</sup>",
-            ".1f",
-        ),
-        (
-            "Γ^{SE,self} (s^-1)",
-            "<span class='zeeman-scripted-symbol'>Γ<span class='zeeman-script-stack'><span>SE</span><span>self</span></span></span>",
-            "s<sup>−1</sup>",
-            ".1f",
-        ),
-        (
-            "G^{SE,cross} (s^-1)",
-            "<span class='zeeman-scripted-symbol'>G<span class='zeeman-script-stack'><span>SE</span><span>cross</span></span></span>",
-            "s<sup>−1</sup>",
-            ".1f",
-        ),
-        (
-            "Γ^{SE,cross} (s^-1)",
-            "<span class='zeeman-scripted-symbol'>Γ<span class='zeeman-script-stack'><span>SE</span><span>cross</span></span></span>",
-            "s<sup>−1</sup>",
-            ".1f",
-        ),
-        ("G^{SE} (s^-1)", "G<sup>SE</sup>", "s<sup>−1</sup>", ".1f"),
-        ("Γ^{SE} (s^-1)", "Γ<sup>SE</sup>", "s<sup>−1</sup>", ".1f"),
-        ("G (s^-1)", "G", "s<sup>−1</sup>", ".1f"),
-        ("Γ (s^-1)", "Γ", "s<sup>−1</sup>", ".1f"),
-        ("Γ/2π (Hz)", "Γ/2π", "Hz", ".1f"),
-    ]
+    selected = set(ZEEMAN_OPTIONAL_COLUMN_KEYS if visible_columns is None else visible_columns)
+    selected.update(ZEEMAN_REQUIRED_COLUMN_KEYS)
+    columns = [column[:4] for column in ZEEMAN_TABLE_COLUMNS if column[0] in selected]
 
     def fmt(value, spec):
         if pd.isna(value):

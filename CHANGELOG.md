@@ -1,5 +1,54 @@
 # Changelog
 
+## 6.9.4 - 2026-09-03
+
+### Changed
+
+- Added independent column-visibility selectors to the Alkali A and B Zeeman
+  tables. The `F` and `m` columns remain fixed; all optional columns except
+  `P_F` and `Λ` are visible by default; and CSV downloads continue to contain
+  the complete table. The
+  selector is positioned at the table area's upper-left, and its menus expand
+  vertically to show all choices when the viewport permits.
+- Reduced the horizontal margins of the Magnetometry main panel without
+  changing the layout of other pages.
+- Increased the condition/control columns in both Magnetometry response
+  expanders from 18% to 23% of the available width.
+- Changed every `Download CSV` button to size itself to its caption instead of
+  stretching across its layout column.
+- Right-aligned each caption-sized CSV button so it sits immediately beside
+  its corresponding help popover.
+- Set the probe-configuration row to 45% source, 20% direction, and 35% path
+  length, and shortened the direction label.
+
+## 6.9.3 - 2026-09-03
+
+### Changed
+
+- Moved the shared RF settings outside the atomic-response expander.
+- Simplified the population-plot heading to `Populations`, removed the
+  redundant Zeeman-table heading, and clarified in the enclosing expander
+  label that the displayed properties belong to the ground state.
+
+## 6.9.2 - 2026-09-03
+
+### Changed
+
+- Made the atomic RF response and optical probe response independently
+  collapsible in default-open expanders on each magnetometry result tab.
+
+## 6.9.1 - 2026-09-03
+
+### Changed
+
+- Made the complete Zeeman sublevel-properties area, including the ground-state
+  population plot and population/rate summary, collapsible in a default-open
+  expander.
+- Changed both species' Pump1 defaults to the D1 upper-to-upper hyperfine
+  transition at +450 MHz and 10 µW/cm², and Pump2 defaults to the D1
+  lower-to-upper transition at zero detuning and 10 µW/cm².
+- Changed the default weak probe links to PumpA1 and PumpB1.
+
 ## 6.9.0 - 2026-09-02
 
 ### Added

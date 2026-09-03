@@ -24,6 +24,9 @@ from alkali_pumping_app.ui.rf_display import (
     rf_component_legend_label,
 )
 from alkali_pumping_app.ui.tables import (
+    ZEEMAN_COLUMN_LABELS,
+    ZEEMAN_DEFAULT_VISIBLE_COLUMN_KEYS,
+    ZEEMAN_OPTIONAL_COLUMN_KEYS,
     render_transition_table_html,
     render_zeeman_properties_table_html,
 )
@@ -41,7 +44,34 @@ register_persistent_page_settings(
         "pump_configuration_tab",
         "probe_configuration_tab",
         "result_species_tab",
+        "zeeman_visible_columns_A",
+        "zeeman_visible_columns_B",
     )
+)
+
+st.html(
+    """
+    <style>
+    [data-testid="stMainBlockContainer"] {
+        max-width: none;
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+    @media (max-width: 700px) {
+        [data-testid="stMainBlockContainer"] {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+    }
+    div[data-testid="stPopoverBody"]:has(.st-key-zeeman_column_options_A),
+    div[data-testid="stPopoverBody"]:has(.st-key-zeeman_column_options_B) {
+        max-height: calc(100vh - 2rem);
+    }
+    div[role="listbox"] {
+        max-height: calc(100vh - 8rem);
+    }
+    </style>
+    """
 )
 
 
@@ -588,7 +618,7 @@ def _probe_from_state(label, atom_name, n2_coeffs):
 
 def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
     source_key = f"probe_source_{label}"
-    source_col, direction_col, path_col = st.columns(3, gap="xsmall")
+    source_col, direction_col, path_col = st.columns([0.45, 0.20, 0.35], gap="xsmall")
     with source_col:
         source = st.selectbox(
             "Probe source",
@@ -609,7 +639,7 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
     with direction_col:
         direction_key = f"probe_k_{label}"
         st.selectbox(
-            "Beam direction", ["z", "x", "y"],
+            "Direction", ["z", "x", "y"],
             key=_prime_probe_widget(direction_key),
             on_change=_store_probe_widget_value, args=(direction_key,),
             disabled=disabled or linked,
@@ -1171,6 +1201,19 @@ def _prime_result_widget(state_key):
     return widget_key
 
 
+def _store_zeeman_column_visibility(label, column_key, widget_key):
+    """Update a species' ordered visible-column list from one checkbox."""
+    state_key = f"zeeman_visible_columns_{label}"
+    selected = set(st.session_state[state_key])
+    if st.session_state[widget_key]:
+        selected.add(column_key)
+    else:
+        selected.discard(column_key)
+    st.session_state[state_key] = [
+        key for key in ZEEMAN_OPTIONAL_COLUMN_KEYS if key in selected
+    ]
+
+
 def _rf_resonances_in_sweep(result, label):
     lower = float(st.session_state[f"rf_frequency_lower_hz_{label}"])
     upper = float(st.session_state[f"rf_frequency_upper_hz_{label}"])
@@ -1282,11 +1325,12 @@ def _render_rf(result, label):
             f"(F={result['rf_upper_F']:g})"
         )
     with download_col:
-        st.download_button(
-            "Download CSV", dataframe_to_csv_bytes(export),
-            file_name=f"{condition_save_name}_alkali-{label}_weak-rf.csv",
-            mime="text/csv; charset=utf-8", key=f"download_rf_{label}", width="stretch",
-        )
+        with st.container(horizontal_alignment="right"):
+            st.download_button(
+                "Download CSV", dataframe_to_csv_bytes(export),
+                file_name=f"{condition_save_name}_alkali-{label}_weak-rf.csv",
+                mime="text/csv; charset=utf-8", key=f"download_rf_{label}", width="content",
+            )
     with help_col:
         with st.popover("❓"):
             st.markdown(
@@ -1324,7 +1368,7 @@ plotted after the selected $\pi$ shifts, relaxation normalization, and density
 factor.
 """
             )
-    control_col, plot_col = st.columns([0.18, 0.82], gap="small")
+    control_col, plot_col = st.columns([0.23, 0.77], gap="small")
     with control_col:
         st.caption(
             accent_caption(f"RF-{label} applied; the other RF drive is zero.")
@@ -1484,14 +1528,15 @@ def _render_probe_response(result, label):
         )
         _compact_title(f"{readout_title} — {signal_labels[signal]}")
     with download_col:
-        st.download_button(
-            "Download CSV",
-            dataframe_to_csv_bytes(export),
-            file_name=f"{condition_save_name}_probe-{label}-{signal}.csv",
-            mime="text/csv; charset=utf-8",
-            key=f"download_probe_{label}",
-            width="stretch",
-        )
+        with st.container(horizontal_alignment="right"):
+            st.download_button(
+                "Download CSV",
+                dataframe_to_csv_bytes(export),
+                file_name=f"{condition_save_name}_probe-{label}-{signal}.csv",
+                mime="text/csv; charset=utf-8",
+                key=f"download_probe_{label}",
+                width="content",
+            )
     with help_col:
         with st.popover("❓"):
             if nonlinear:
@@ -1532,7 +1577,7 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
 """
                 )
 
-    control_col, plot_col = st.columns([0.18, 0.82], gap="small")
+    control_col, plot_col = st.columns([0.23, 0.77], gap="small")
     with control_col:
         key = f"probe_signal_{label}"
         st.selectbox(
@@ -1694,35 +1739,63 @@ def _render_species_result(result, label):
                 f"{result['bias_larmor_hz']:.6g} Hz."
             )
         )
-    left, right = st.columns([1, 3], gap="small")
-    with left:
-        _compact_title(f"{result['atom_name']} ground-state populations")
-        _render_population_plot(result)
     display_df = _zeeman_display_dataframe(result)
-    with right:
-        title_col, download_col, help_col = st.columns(
-            [0.72, 0.20, 0.08], gap="small"
-        )
-        with title_col:
-            _compact_title("Zeeman sublevel properties")
-        with download_col:
-            st.download_button(
-                "Download CSV", dataframe_to_csv_bytes(display_df),
-                file_name=f"{condition_save_name}_alkali-{label}_zeeman.csv",
-                mime="text/csv; charset=utf-8", key=f"download_zeeman_{label}", width="stretch",
+    visible_columns_key = f"zeeman_visible_columns_{label}"
+    existing_visible_columns = st.session_state.get(
+        visible_columns_key, list(ZEEMAN_DEFAULT_VISIBLE_COLUMN_KEYS)
+    )
+    st.session_state[visible_columns_key] = [
+        key for key in ZEEMAN_OPTIONAL_COLUMN_KEYS if key in existing_visible_columns
+    ]
+    with st.expander(
+        f"{result['atom_name']} ground-state Zeeman properties and populations",
+        expanded=True,
+    ):
+        left, right = st.columns([1, 3], gap="small")
+        with left:
+            _compact_title("Populations")
+            _render_population_plot(result)
+        with right:
+            columns_col, _spacer_col, download_col, help_col = st.columns(
+                [0.17, 0.55, 0.20, 0.08], gap="small"
             )
-        with help_col:
-            with st.popover("❓"):
-                st.markdown(
-                    r"""
+            with columns_col:
+                with st.popover("Columns"):
+                    st.caption("F and m are always visible.")
+                    with st.container(key=f"zeeman_column_options_{label}", gap=None):
+                        option_columns = st.columns(2, gap="medium")
+                        for index, column_key in enumerate(ZEEMAN_OPTIONAL_COLUMN_KEYS):
+                            widget_key = f"_zeeman_column_{label}_{index}"
+                            st.session_state[widget_key] = (
+                                column_key in st.session_state[visible_columns_key]
+                            )
+                            with option_columns[index % 2]:
+                                st.checkbox(
+                                    ZEEMAN_COLUMN_LABELS[column_key],
+                                    key=widget_key,
+                                    on_change=_store_zeeman_column_visibility,
+                                    args=(label, column_key, widget_key),
+                                )
+            with download_col:
+                with st.container(horizontal_alignment="right"):
+                    st.download_button(
+                        "Download CSV", dataframe_to_csv_bytes(display_df),
+                        file_name=f"{condition_save_name}_alkali-{label}_zeeman.csv",
+                        mime="text/csv; charset=utf-8", key=f"download_zeeman_{label}", width="content",
+                    )
+            with help_col:
+                with st.popover("❓"):
+                    st.markdown(
+                        r"""
 $F$ and $m$ label the ground-state hyperfine manifold and its Zeeman sublevel.
 
 $P_F=\sum_{m=-F}^{F}P_m$ is the total population of manifold $F$; $P_m$ is the population of $|F,m\rangle$; and $D_m=P_m-P_{m-1}$ is the adjacent-sublevel population difference.
 
-$\nu_m^{\mathrm{VS}}$ and $\nu_m^{\mathrm{TS}}$ are the vector and tensor contributions to the adjacent-transition light shift. Their sum is $\nu_m^{\mathrm{LS}}$.
+$\nu_{F,m}^{\mathrm{VS}}$ and $\nu_{F,m}^{\mathrm{TS}}$ are the vector and tensor contributions to the light shift of the state $|F,m\rangle$. The total state light shift is
+$\nu_{F,m}^{\mathrm{LS}}=\nu_F^{\mathrm{SS}}+\nu_{F,m}^{\mathrm{VS}}+\nu_{F,m}^{\mathrm{TS}}+\nu_{F,m}^{\mathrm{res}}$, where $\nu_F^{\mathrm{SS}}$ is the scalar contribution and $\nu_{F,m}^{\mathrm{res}}$ is any residual left by the scalar-vector-tensor fit. The scalar contribution contains both a common-mode shift shared by the ground hyperfine manifolds and a manifold-dependent hyperfine shift. A common scalar shift cancels from every transition frequency; the scalar shift within one manifold also cancels from its adjacent-Zeeman transition frequencies.
 
 $\nu_{F,m}^{B}=m(g_F/g_{F_+})\nu_{B,+}$ is the static-field Zeeman shift, and
-$\nu_m=[\nu_m^{\mathrm{LS}}+\nu_m^B]-[\nu_{m-1}^{\mathrm{LS}}+\nu_{m-1}^B]$
+$\nu_m=[\nu_{F,m}^{\mathrm{LS}}+\nu_{F,m}^B]-[\nu_{F,m-1}^{\mathrm{LS}}+\nu_{F,m-1}^B]$
 is the total adjacent-sublevel resonance frequency.
 
 $\Lambda_m$ is the total repopulation rate into $|F,m\rangle$, divided by its steady-state population.
@@ -1734,12 +1807,19 @@ $\Gamma_m^{\mathrm{OP}}=(G_m^{\mathrm{OP}}+G_{m-1}^{\mathrm{OP}})/2$.
 
 $G_m$ and $\Gamma_m$ are the sums of all displayed population-loss and adjacent-coherence relaxation mechanisms. $\Gamma_m/(2\pi)$ expresses the total angular decay rate as an ordinary linewidth in hertz.
 """
-                )
-        st.markdown(render_zeeman_properties_table_html(display_df), unsafe_allow_html=True)
-    _render_population_and_rate_summary(result)
+                    )
+            st.markdown(
+                render_zeeman_properties_table_html(
+                    display_df, st.session_state[visible_columns_key]
+                ),
+                unsafe_allow_html=True,
+            )
+        _render_population_and_rate_summary(result)
     _render_shared_rf_controls(result, label)
-    _render_rf(result, label)
-    _render_probe_response(result, label)
+    with st.expander(f"{result['atom_name']} atomic response", expanded=True):
+        _render_rf(result, label)
+    with st.expander(f"{result['atom_name']} optical response", expanded=True):
+        _render_probe_response(result, label)
     with st.expander("Optical transition frequencies"):
         transition_df = hyperfine_transition_table(
             atom=result["atom"], n2_pressure_torr=n2_pressure_torr,
