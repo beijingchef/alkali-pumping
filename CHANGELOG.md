@@ -1,5 +1,14 @@
 # Changelog
 
+## 6.9.5 - 2026-09-04
+
+### Changed
+
+- Renamed the Atomic polarizability y-axis labels for
+  $\alpha_{\mathrm{gt}}$ and $\alpha_{\mathrm{br}}$ to Vector polarizability
+  and Tensor polarizability. The help popover retains Mathur's coefficient
+  names and explains the rank-1/rank-2 interpretation and normalization.
+
 ## 6.9.4 - 2026-09-03
 
 ### Changed

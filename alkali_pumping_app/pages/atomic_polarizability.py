@@ -37,8 +37,8 @@ POLARIZABILITY_COMPONENTS = (
 POLARIZABILITY_Y_AXIS_TITLES = {
     "alpha_eq": "Isotropic polarizability (10⁻¹⁸ cm³)",
     "alpha_hfs": "Hyperfine polarizability (10⁻¹⁸ cm³)",
-    "alpha_gt": "Gyrotropic polarizability (10⁻¹⁸ cm³)",
-    "alpha_br": "Mathur birefringent coefficient (10⁻¹⁸ cm³)",
+    "alpha_gt": "Vector polarizability (10⁻¹⁸ cm³)",
+    "alpha_br": "Tensor polarizability (10⁻¹⁸ cm³)",
 }
 TRANSITION_MARKER_COLOR = "#606060"
 TRANSITION_MARKER_OPACITY = 0.58
@@ -181,16 +181,18 @@ $\alpha_{{\mathrm{{hfs}}}}$ — **hyperfine polarizability.** The scalar
 hyperfine-dependent part of the response. It measures how the two ground
 hyperfine manifolds depart from the equilibrium isotropic contribution.
 
-$\alpha_{{\mathrm{{gt}}}}(F,F)$ — **gyrotropic polarizability.** The diagonal
-rank-1 response of manifold $F$, associated with atomic orientation and
-circular birefringence/dichroism. Its dispersive part produces optical
-rotation for an oriented ensemble.
+$\alpha_{{\mathrm{{gt}}}}(F,F)$ — **vector polarizability.** Mathur denotes
+this coefficient by $\alpha_{{\mathrm{{gt}}}}$. It is the diagonal rank-1
+response of manifold $F$, associated with atomic orientation and circular
+birefringence/dichroism. Its dispersive part produces optical rotation for an
+oriented ensemble.
 
-$\alpha_{{\mathrm{{br}}}}(F,F)$ — **birefringent polarizability.** The diagonal
-rank-2 response of manifold $F$, associated with atomic alignment and linear
-birefringence/dichroism. This page plots Mathur's coefficient itself, which
-multiplies Mathur's normalized rank-2 operator. It is therefore not the
-coefficient of the app's raw Cartesian
+$\alpha_{{\mathrm{{br}}}}(F,F)$ — **tensor polarizability.** Mathur denotes
+this coefficient by $\alpha_{{\mathrm{{br}}}}$. It is the diagonal rank-2
+response of manifold $F$, associated with atomic alignment and linear
+birefringence/dichroism. This page plots Mathur's normalization of the tensor
+coefficient, which multiplies his normalized rank-2 operator. It is therefore
+not the coefficient of the app's raw Cartesian
 $Q_{{ij}}=(F_iF_j+F_jF_i)/2-\delta_{{ij}}F(F+1)/3$. For the raw-$Q_{{ij}}$
 convention the coefficient is $c_F\alpha_{{\mathrm{{br}}}}$, where
 $c_F=-\sqrt{{30/[F(F+1)(2F-1)(2F+1)(2F+3)]}}$. The probe-readout calculation

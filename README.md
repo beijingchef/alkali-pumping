@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.4
+# Alkali Pumping v6.9.5
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -12,9 +12,10 @@ four workflows:
   and plot selection. Its main panel plots scalar, vector, tensor,
   state-resolved, eigenvalue, adjacent-transition, and scattering results.
 - **Analysis → Atomic polarizability** plots the complex Mathur equilibrium,
-  hyperfine, gyrotropic, and birefringent response functions for D1 or D2
+  hyperfine, vector $\alpha_{\mathrm{gt}}$, and tensor $\alpha_{\mathrm{br}}$
+  response functions for D1 or D2
   light. The real curves describe phase response and the imaginary curves
-  describe attenuation; diagonal gyrotropic and birefringent responses are
+  describe attenuation; diagonal vector and tensor responses are
   shown for each ground hyperfine manifold.
 - **Analysis → Magnetometry** provides dual-alkali population and Zeeman
   diagnostics, independent RF-A/RF-B drives, atomic-moment susceptibilities,
