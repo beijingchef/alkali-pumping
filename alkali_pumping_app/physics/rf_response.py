@@ -466,6 +466,16 @@ def _ordered_coherences(state_count):
     return [(a, b) for a in range(state_count) for b in range(state_count) if a != b]
 
 
+def _secular_ordered_coherences(ground_states):
+    """Return within-manifold coherences retained by the ground-HFS model."""
+    return [
+        (a, b)
+        for a, first in enumerate(ground_states)
+        for b, second in enumerate(ground_states)
+        if a != b and np.isclose(float(first["F"]), float(second["F"]))
+    ]
+
+
 def _spin_operator(ground_states, q_axis, lab_axis, target_F):
     """Return one laboratory spin component within the selected F manifold."""
     size = len(ground_states)
@@ -630,6 +640,68 @@ def _local_coherence_generator(result, pairs, er, self_exchange, cross_target):
     )
 
 
+def _single_species_coherence_generator(result):
+    """Build the secular coherence Jacobian for a species-local response.
+
+    This is the one-species counterpart of the coupled A/B coherence blocks.
+    It retains transfer between coherences in the two ground hyperfine
+    manifolds while dropping coherences *between* those manifolds under the
+    hyperfine secular approximation.
+    """
+    ground_states = result["ground_states"]
+    amplitudes = coupled_basis_amplitudes(result["atom"], ground_states)
+    rho = np.diag(np.asarray(result["population"], dtype=complex))
+    nuclear, electron = _density_reductions(amplitudes, rho)
+    partner_electron = np.asarray(
+        result.get("partner_electron_marginal", np.array([0.5, 0.5])),
+        dtype=complex,
+    )
+    if partner_electron.shape != (2, 2):
+        if partner_electron.size == 2:
+            partner_electron = np.diag(partner_electron.reshape(2))
+        else:
+            partner_electron = 0.5 * np.eye(2, dtype=complex)
+
+    pairs = _secular_ordered_coherences(ground_states)
+    pair_index = {pair: index for index, pair in enumerate(pairs)}
+    er = np.zeros((len(pairs), len(pairs)), dtype=complex)
+    self_exchange = np.zeros_like(er)
+    cross_target = np.zeros_like(er)
+    unpolarized_electron = 0.5 * np.eye(2, dtype=complex)
+
+    def project(output, column, matrix):
+        for pair, row in pair_index.items():
+            matrix[row, column] = output[pair]
+
+    for column, (c, d) in enumerate(pairs):
+        perturbation = np.zeros_like(rho)
+        perturbation[c, d] = 1.0
+        delta_nuclear, delta_electron = _density_reductions(
+            amplitudes, perturbation
+        )
+        project(
+            _recombine_density(
+                amplitudes, delta_nuclear, unpolarized_electron
+            ),
+            column,
+            er,
+        )
+        project(
+            _recombine_density(amplitudes, delta_nuclear, electron)
+            + _recombine_density(amplitudes, nuclear, delta_electron),
+            column,
+            self_exchange,
+        )
+        project(
+            _recombine_density(amplitudes, delta_nuclear, partner_electron),
+            column,
+            cross_target,
+        )
+    return pairs, _local_coherence_generator(
+        result, pairs, er, self_exchange, cross_target
+    )
+
+
 def _drive_and_observable_vectors(result, pairs, total_size, offset):
     target_F = result["rf_upper_F"]
     drive = _spin_operator(
@@ -686,25 +758,135 @@ def _resolvent_modes(generator):
 def _resolvent_susceptibility_from_modes(
     modes, source, readout, frequencies_hz
 ):
-    eigenvalues, eigenvectors, inverse_eigenvectors = modes
-    source_modes = inverse_eigenvectors @ source
-    readout_modes = readout @ eigenvectors
-    omega = 2.0 * np.pi * np.asarray(frequencies_hz, dtype=float)
-    denominator = -1j * omega[:, None] - eigenvalues[None, :]
-    denominator[np.abs(denominator) < 1e-12] = 1e-12
-    phasor = np.sum(
-        readout_modes[None, :] * source_modes[None, :] / denominator,
-        axis=1,
+    phasor = _resolvent_phasor_from_modes(
+        modes, source, readout, frequencies_hz
     )
     in_phase = 2.0 * np.real(phasor)
     quadrature = 2.0 * np.imag(phasor)
     return np.hypot(in_phase, quadrature), in_phase, quadrature
 
 
+def _resolvent_phasor_from_modes(
+    modes,
+    source,
+    readout,
+    frequencies_hz,
+    *,
+    omit_stationary_modes=False,
+):
+    """Return the exp(-i omega t) response coefficient from cached modes."""
+    eigenvalues, eigenvectors, inverse_eigenvectors = modes
+    source_modes = inverse_eigenvectors @ source
+    if omit_stationary_modes and eigenvalues.size:
+        scale = max(1.0, float(np.max(np.abs(eigenvalues))))
+        source_modes[np.abs(eigenvalues) <= 1e-10 * scale] = 0.0
+    readout_modes = readout @ eigenvectors
+    omega = 2.0 * np.pi * np.asarray(frequencies_hz, dtype=float)
+    denominator = -1j * omega[:, None] - eigenvalues[None, :]
+    denominator[np.abs(denominator) < 1e-12] = 1e-12
+    return np.sum(
+        readout_modes[None, :] * source_modes[None, :] / denominator,
+        axis=1,
+    )
+
+
 def _resolvent_susceptibility(generator, source, readout, frequencies_hz):
     return _resolvent_susceptibility_from_modes(
         _resolvent_modes(generator), source, readout, frequencies_hz
     )
+
+
+def build_single_species_liouvillian_response_context(result):
+    """Cache population and secular-coherence modes for local optical drives."""
+    population_generator = np.asarray(result["J_population"], dtype=complex)
+    pairs, coherence_generator = _single_species_coherence_generator(result)
+    return {
+        "population_modes": _resolvent_modes(population_generator),
+        "coherence_pairs": pairs,
+        "coherence_modes": _resolvent_modes(coherence_generator),
+    }
+
+
+def weak_liouvillian_source_matrix_readouts(
+    result,
+    source_matrix,
+    readout_operators,
+    *,
+    context=None,
+):
+    """Return weak readouts driven by a general density-matrix source.
+
+    ``source_matrix`` is ``d L(rho_0) / d u`` for a real dimensionless drive
+    ``u(t)``.  Its diagonal part is evolved by the complete population
+    Jacobian, while its within-ground-manifold coherences are evolved by the
+    secular ER/SE coherence generator.  This permits a Stokes perturbation to
+    drive dissipative population redistribution and coherent Raman terms in
+    addition to the usual AC-Stark commutator.
+    """
+    source = np.asarray(source_matrix, dtype=complex)
+    state_count = len(result["ground_states"])
+    if source.shape != (state_count, state_count):
+        raise ValueError("source_matrix must match the ground-state basis size.")
+    readouts = {
+        name: np.asarray(operator, dtype=complex)
+        for name, operator in readout_operators.items()
+    }
+    for operator in readouts.values():
+        if operator.shape != (state_count, state_count):
+            raise ValueError(
+                "Every readout operator must match the ground-state basis size."
+            )
+
+    if context is None:
+        context = build_single_species_liouvillian_response_context(result)
+    frequencies = np.asarray(result["rf_frequencies_hz"], dtype=float)
+
+    # A real cosine perturbation has half its amplitude in the exp(-i omega t)
+    # Fourier component used by the resolvent convention.
+    population_source = 0.5 * np.diag(source).astype(complex, copy=True)
+    population_source -= np.sum(population_source) / max(1, state_count)
+    pairs = context["coherence_pairs"]
+    coherence_source = 0.5 * np.asarray(
+        [source[a, b] for a, b in pairs], dtype=complex
+    )
+
+    responses = {}
+    for name, readout in readouts.items():
+        population_readout = np.diag(readout)
+        coherence_readout = np.asarray(
+            [readout[b, a] for a, b in pairs], dtype=complex
+        )
+        population_phasor = _resolvent_phasor_from_modes(
+            context["population_modes"],
+            population_source,
+            population_readout,
+            frequencies,
+            omit_stationary_modes=True,
+        )
+        coherence_phasor = _resolvent_phasor_from_modes(
+            context["coherence_modes"],
+            coherence_source,
+            coherence_readout,
+            frequencies,
+        )
+        phasor = population_phasor + coherence_phasor
+        in_phase = 2.0 * np.real(phasor)
+        quadrature = 2.0 * np.imag(phasor)
+        responses[name] = (
+            np.hypot(in_phase, quadrature),
+            in_phase,
+            quadrature,
+            {
+                "used_transitions": int(
+                    np.count_nonzero(np.abs(coherence_source) > 1e-15)
+                ),
+                "population_source": bool(
+                    np.any(np.abs(population_source) > 1e-15)
+                ),
+                "generalized_liouvillian": True,
+            },
+        )
+    return responses
 
 
 def coupled_weak_rf_observable_susceptibilities(result_A, result_B):

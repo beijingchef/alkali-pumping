@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.6
+# Alkali Pumping v6.9.7
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -87,11 +87,13 @@ streamlit run alkali_pumping.py
   $F=I-1/2\rightarrow F'=I+1/2$ at zero detuning and 10 µW/cm². These
   relative hyperfine branches are translated when the selected isotope changes.
 - Physical-pump propagation includes rank-1 circular birefringence/dichroism
-  and rank-2 linear birefringence/dichroism feedback into the vector and tensor
-  light shifts. It retains the weak-RF approximation for the modulated atomic
-  response. Orientation-induced and alignment-induced curves are nonlinear
-  counterfactual solutions; the Total curve is the coupled physical solution
-  and is not their sum.
+  and rank-2 linear birefringence/dichroism. Fractional intensity and normalized
+  Stokes changes feed both the dispersive vector/tensor light-shift commutator
+  and a trace-preserving dissipative optical-pumping Liouvillian. Population
+  redistribution and within-ground-manifold Raman coherences are evolved with
+  the existing weak-RF Jacobians. Orientation-induced and alignment-induced
+  curves are nonlinear counterfactual solutions; the Total curve is the
+  coupled physical solution and is not their sum.
 - Probe signals include optical rotation, ellipticity, normalized Stokes
   s1/s2/s3, and fractional transmission. A single selector displays the
   orientation-induced, alignment-induced, or coherent total response; the

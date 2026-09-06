@@ -2,8 +2,16 @@
 
 import numpy as np
 
-from .angular_momentum import build_excited_states, dipole_strength
-from .polarization import spherical_weights_relative_to_quant_axis
+from .angular_momentum import (
+    build_excited_states,
+    dipole_amplitude,
+    dipole_strength,
+)
+from .polarization import (
+    spherical_components_from_lab,
+    spherical_weights_relative_to_quant_axis,
+    transverse_basis_for_k,
+)
 from .spectroscopy import (
     complex_voigt_response_relative,
     doppler_fwhm_MHz,
@@ -288,6 +296,192 @@ def build_optical_L(
         "reference_raw_total_selected_transition": reference_raw_total_selected_transition,
         "normalization_scale": scale,
     }
+
+
+def _beam_stokes_coherency_matrices(k_axis, q_axis, input_stokes):
+    """Return spherical-polarization coherency matrices for I,s1,s2,s3.
+
+    The first matrix is the derivative with respect to fractional beam
+    intensity at the supplied normalized input Stokes vector.  The remaining
+    matrices are derivatives with respect to normalized s1, s2, and s3 at
+    fixed intensity.  Unlike a Jones-vector finite difference, this linear
+    coherency representation defines all three Stokes derivatives even at a
+    fully polarized state on the surface of the Poincare sphere.
+    """
+    stokes = np.asarray(input_stokes, dtype=float)
+    if stokes.shape != (3,):
+        raise ValueError("input_stokes must contain normalized s1, s2, and s3.")
+
+    beam_stokes = {
+        "s1": np.array([[1.0, 0.0], [0.0, -1.0]], dtype=complex),
+        "s2": np.array([[0.0, 1.0], [1.0, 0.0]], dtype=complex),
+        "s3": np.array([[0.0, -1j], [1j, 0.0]], dtype=complex),
+    }
+    identity = np.eye(2, dtype=complex)
+    static = 0.5 * (
+        identity
+        + stokes[0] * beam_stokes["s1"]
+        + stokes[1] * beam_stokes["s2"]
+        + stokes[2] * beam_stokes["s3"]
+    )
+    beam_matrices = {
+        "transmission": static,
+        **{name: 0.5 * matrix for name, matrix in beam_stokes.items()},
+    }
+
+    e1, e2 = transverse_basis_for_k(k_axis)
+    q_values = (-1, 0, +1)
+    transform = np.empty((3, 2), dtype=complex)
+    for column, vector in enumerate((e1, e2)):
+        spherical = spherical_components_from_lab(vector, q_axis)
+        transform[:, column] = [spherical[q] for q in q_values]
+    return {
+        name: transform @ matrix @ np.conjugate(transform.T)
+        for name, matrix in beam_matrices.items()
+    }
+
+
+def optical_pumping_stokes_liouvillian_sources(
+    *,
+    atom,
+    line,
+    ground_states,
+    detuning_MHz,
+    intensity_uW_cm2,
+    k_axis,
+    q_axis,
+    input_stokes,
+    density_matrix,
+    n2_pressure_torr,
+    temperature_C,
+    n2_width_MHz_per_torr,
+    n2_shift_MHz_per_torr,
+):
+    """Return dissipative optical-Liouvillian sources for pump Stokes changes.
+
+    The weak-excitation optical-pumping model is lifted from populations to a
+    trace-preserving ground-state density-matrix dissipator.  For excited state
+    ``e``, its absorption operator ``A_e`` is formed coherently from the signed
+    dipole amplitudes and the beam polarization coherency matrix.  Spontaneous
+    decay then repopulates ground state ``g`` with the same branching ratios as
+    :func:`build_optical_L`::
+
+        D_e(rho) = sum_g b_ge |g><g| Tr(A_e rho)
+                   - 1/2 {A_e, rho}.
+
+    Different-ground-hyperfine Raman terms are omitted under the same secular
+    approximation used by the full-manifold light-shift calculation.  The
+    returned matrices are ``d D(rho_0)`` for fractional intensity and for each
+    normalized Stokes coordinate; each is Hermitian and trace preserving.
+    """
+    rho = np.asarray(density_matrix, dtype=complex)
+    state_count = len(ground_states)
+    if rho.shape != (state_count, state_count):
+        raise ValueError("density_matrix must match the ground-state basis size.")
+    intensity = float(intensity_uW_cm2)
+    if intensity < 0.0:
+        raise ValueError("Beam intensity must be nonnegative.")
+
+    source_names = ("transmission", "s1", "s2", "s3")
+    if intensity == 0.0 or state_count == 0:
+        return {
+            name: np.zeros((state_count, state_count), dtype=complex)
+            for name in source_names
+        }
+
+    excited_states = build_excited_states(atom, line)
+    coherencies = _beam_stokes_coherency_matrices(
+        k_axis, q_axis, input_stokes
+    )
+    q_values = (-1, 0, +1)
+    q_index = {q: index for index, q in enumerate(q_values)}
+
+    pressure_width_MHz = float(n2_width_MHz_per_torr) * float(n2_pressure_torr)
+    pressure_shift_MHz = float(n2_shift_MHz_per_torr) * float(n2_pressure_torr)
+    lorentz_fwhm_MHz = float(atom[line]["gamma_nat_MHz"]) + pressure_width_MHz
+    doppler_fwhm = doppler_fwhm_MHz(atom, line, float(temperature_C))
+    rate_scale = optical_rate_scale_from_intensity(
+        atom=atom,
+        line=line,
+        intensity_uW_cm2=intensity,
+        n2_pressure_torr=n2_pressure_torr,
+        temperature_C=temperature_C,
+        n2_width_MHz_per_torr=n2_width_MHz_per_torr,
+    )
+
+    I = atom["I"]
+    Jg = atom["ground"]["J"]
+    Je = atom[line]["Jp"]
+    profiles = np.zeros((state_count, len(excited_states)), dtype=float)
+    amplitudes = np.zeros_like(profiles)
+    transition_q = np.full_like(profiles, 99, dtype=int)
+    for gi, ground in enumerate(ground_states):
+        for ei, excited in enumerate(excited_states):
+            q_float = float(excited["m"]) - float(ground["m"])
+            q = int(round(q_float))
+            if abs(q_float - q) > 1e-9 or q not in q_index:
+                continue
+            detuning = float(detuning_MHz) - (
+                transition_shift_MHz(ground, excited) + pressure_shift_MHz
+            )
+            response = complex_voigt_response_relative(
+                detuning, lorentz_fwhm_MHz, doppler_fwhm
+            )
+            profiles[gi, ei] = max(0.0, float(np.real(response)))
+            amplitudes[gi, ei] = dipole_amplitude(
+                I,
+                Jg,
+                Je,
+                ground["F"],
+                ground["m"],
+                excited["F"],
+                excited["m"],
+                q,
+            )
+            transition_q[gi, ei] = q
+
+    branching = np.column_stack(
+        [
+            excited_decay_branching(atom, line, ground_states, excited)
+            for excited in excited_states
+        ]
+    )
+    sources = {
+        name: np.zeros((state_count, state_count), dtype=complex)
+        for name in source_names
+    }
+    identity = np.eye(state_count, dtype=complex)
+    for name, coherency in coherencies.items():
+        source = sources[name]
+        for ei, _excited in enumerate(excited_states):
+            absorption = np.zeros((state_count, state_count), dtype=complex)
+            for gi, ground in enumerate(ground_states):
+                qi = transition_q[gi, ei]
+                if qi not in q_index or profiles[gi, ei] <= 0.0:
+                    continue
+                for gj, other in enumerate(ground_states):
+                    if not np.isclose(float(ground["F"]), float(other["F"])):
+                        continue
+                    qj = transition_q[gj, ei]
+                    if qj not in q_index or profiles[gj, ei] <= 0.0:
+                        continue
+                    absorption[gi, gj] = (
+                        rate_scale
+                        * np.sqrt(profiles[gi, ei] * profiles[gj, ei])
+                        * amplitudes[gi, ei]
+                        * amplitudes[gj, ei]
+                        * coherency[q_index[qj], q_index[qi]]
+                    )
+            absorption = 0.5 * (absorption + np.conjugate(absorption.T))
+            absorbed = np.trace(absorption @ rho)
+            source += np.diag(branching[:, ei] * absorbed)
+            source -= 0.5 * (absorption @ rho + rho @ absorption)
+
+        source = 0.5 * (source + np.conjugate(source.T))
+        # Enforce trace preservation against accumulated floating-point error.
+        source -= np.trace(source) * identity / state_count
+        sources[name] = source
+    return sources
 
 
 def light_shift_is_diagonal_for_beam(k_axis, pol, q_axis, tolerance=1e-9):

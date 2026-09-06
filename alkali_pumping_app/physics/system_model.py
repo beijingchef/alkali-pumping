@@ -369,6 +369,7 @@ def _finalize_species(
         "R_SE_cross": float(R_SE_cross),
         "J_population": jacobian_local,
         "electron_marginal": model["electron_marginal"],
+        "partner_electron_marginal": np.asarray(partner_electron, dtype=float),
         "nu_LS": nu_LS,
         "light_shift_available": light_shift_available,
         "bias_larmor_hz": bias_hz,

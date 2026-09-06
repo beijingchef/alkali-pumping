@@ -7,6 +7,11 @@ from alkali_pumping_app.physics.nonlinear_readout import (
     _SIGNALS,
     propagate_stokes_feedback,
 )
+from alkali_pumping_app.physics.optical_pumping import (
+    build_optical_L,
+    optical_pumping_stokes_liouvillian_sources,
+    optical_rate_scale_from_intensity,
+)
 from alkali_pumping_app.physics.rf_response import (
     _spin_operator,
     weak_drive_matrix_readouts,
@@ -100,6 +105,91 @@ class GeneralizedDriveTests(unittest.TestCase):
             np.testing.assert_allclose(actual_values, expected_values, atol=1e-14)
 
 
+class DissipativeStokesSourceTests(unittest.TestCase):
+    def test_sources_are_hermitian_and_trace_preserving(self):
+        atom = ATOMS["Rb87"]
+        states = build_ground_states(atom)
+        population = np.linspace(1.0, 2.0, len(states))
+        population /= population.sum()
+        sources = optical_pumping_stokes_liouvillian_sources(
+            atom=atom,
+            line="D1",
+            ground_states=states,
+            detuning_MHz=500.0,
+            intensity_uW_cm2=20.0,
+            k_axis="x",
+            q_axis="z",
+            input_stokes=np.array([-1.0, 0.0, 0.0]),
+            density_matrix=np.diag(population),
+            n2_pressure_torr=0.0,
+            temperature_C=23.0,
+            n2_width_MHz_per_torr=17.8,
+            n2_shift_MHz_per_torr=-8.25,
+        )
+
+        self.assertEqual(
+            set(sources), {"transmission", "s1", "s2", "s3"}
+        )
+        for source in sources.values():
+            np.testing.assert_allclose(source, source.conj().T, atol=1e-13)
+            self.assertAlmostEqual(float(np.real(np.trace(source))), 0.0, places=12)
+            self.assertAlmostEqual(float(np.imag(np.trace(source))), 0.0, places=12)
+        self.assertGreater(np.linalg.norm(sources["s2"]), 0.0)
+        self.assertGreater(np.linalg.norm(sources["s3"]), 0.0)
+
+    def test_fractional_intensity_source_matches_population_generator(self):
+        atom = ATOMS["Rb87"]
+        states = build_ground_states(atom)
+        population = np.linspace(1.0, 2.0, len(states))
+        population /= population.sum()
+        rate_scale = optical_rate_scale_from_intensity(
+            atom=atom,
+            line="D1",
+            intensity_uW_cm2=20.0,
+            n2_pressure_torr=0.0,
+            temperature_C=23.0,
+            n2_width_MHz_per_torr=17.8,
+        )
+        generator, _info = build_optical_L(
+            atom=atom,
+            line="D1",
+            ground_states=states,
+            detuning_MHz=500.0,
+            pump_rate_s=rate_scale,
+            selected_transition=None,
+            k_axis="x",
+            pol="linear z",
+            q_axis="z",
+            n2_pressure_torr=0.0,
+            temperature_C=23.0,
+            n2_width_MHz_per_torr=17.8,
+            n2_shift_MHz_per_torr=-8.25,
+            normalize_to_selected_total=False,
+        )
+        sources = optical_pumping_stokes_liouvillian_sources(
+            atom=atom,
+            line="D1",
+            ground_states=states,
+            detuning_MHz=500.0,
+            intensity_uW_cm2=20.0,
+            k_axis="x",
+            q_axis="z",
+            input_stokes=np.array([-1.0, 0.0, 0.0]),
+            density_matrix=np.diag(population),
+            n2_pressure_torr=0.0,
+            temperature_C=23.0,
+            n2_width_MHz_per_torr=17.8,
+            n2_shift_MHz_per_torr=-8.25,
+        )
+
+        np.testing.assert_allclose(
+            np.real(np.diag(sources["transmission"])),
+            generator @ population,
+            rtol=1e-12,
+            atol=1e-13,
+        )
+
+
 class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
     def test_physical_pump_returns_every_signal_and_component(self):
         atom = ATOMS["Rb87"]
@@ -157,6 +247,20 @@ class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
         self.assertTrue(result["probe_info"]["nonlinear_available"])
         self.assertEqual(result["probe_info"]["pump_name"], "PumpA1")
         self.assertIn("probe_weak_response", result)
+        self.assertEqual(
+            result["probe_info"]["feedback_coordinates"],
+            ("transmission", "s1", "s2", "s3"),
+        )
+        self.assertIn(
+            "dissipative optical pumping",
+            result["probe_info"]["feedback_contributions"],
+        )
+        self.assertGreater(
+            result["probe_info"]["liouvillian_source_diagnostics"]["s2"][
+                "dissipative_frobenius_norm_s_inv"
+            ],
+            0.0,
+        )
         self.assertEqual(
             set(result["probe_response"]),
             {"total", "scalar", "orientation", "alignment"},

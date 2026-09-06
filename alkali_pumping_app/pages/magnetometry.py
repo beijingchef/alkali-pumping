@@ -737,7 +737,7 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
             intensity = float(st.session_state[f"intensity_{prefix}"])
             message = (
                 f"Using physical {source_spec['pump_name']} with intensity "
-                f"{intensity:g} µW/cm² and self-consistent CBOR+LDOR propagation."
+                f"{intensity:g} µW/cm² and dispersive+dissipative CBOR+LDOR propagation."
             )
         st.caption(accent_caption(message))
     else:
@@ -1543,9 +1543,10 @@ def _render_probe_response(result, label):
                 st.markdown(
                     r"""
 The selected physical pump is both the perturbing beam and its own detector.
-Its RF-induced normalized Stokes vector is propagated self-consistently through
-the cell. Rank-1 circular birefringence/dichroism and rank-2 linear
-birefringence/dichroism both feed the pump's vector/tensor light shifts.
+Its RF-induced fractional intensity and normalized Stokes vector are propagated
+self-consistently through the cell. Rank-1 circular birefringence/dichroism and
+rank-2 linear birefringence/dichroism feed both the pump's vector/tensor light
+shifts and its trace-preserving dissipative optical-pumping Liouvillian.
 
 Orientation induced and Alignment induced are counterfactual nonlinear
 solutions with only that optical feedback channel present. Total is the
