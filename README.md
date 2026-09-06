@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.5
+# Alkali Pumping v6.9.6
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -29,11 +29,17 @@ or loaded with their own JSON format. Custom polarization is specified by the
 beam-frame ellipse azimuth and signed ellipticity, with spherical fractions
 and the dimensionless `E^(2)_0` geometry factor shown separately from shift
 units. Switching the polarization input from Preset to Ellipse initializes the
-ellipse angles to the equivalent current preset. The Components view includes the upper-minus-lower scalar manifold
-shift (labeled `ΔνF`) as an optional bottom panel and reports the vector component as the signed
-fictitious magnetic field `B_fic` in µG. The Zeeman states by component view
+ellipse angles to the equivalent current preset. The Components view provides
+a multi-select dropdown for the scalar, vector, and tensor plots, includes the
+degeneracy-weighted, F-independent common scalar shift and the
+upper-minus-lower scalar manifold shift (labeled `ΔνF`) in the scalar panel,
+and reports the vector component as the signed fictitious magnetic field
+`B_fic` in µG. The Zeeman states by component view
 separates vector and tensor state contributions into two plots. Eigenvalue
 curves are labeled EV1, EV2, and so on.
+
+Atomic-polarizability detuning can be referenced either to the zero-pressure
+line center or to any allowed hyperfine transition on the selected D line.
 
 Run from this directory:
 

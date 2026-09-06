@@ -17,7 +17,7 @@ class LightShiftConditionTests(unittest.TestCase):
         self.assertEqual(
             payload["format"], "alkali_pumping_light_shift_conditions"
         )
-        self.assertEqual(payload["version"], "1.1")
+        self.assertEqual(payload["version"], "1.2")
         self.assertEqual(
             set(payload["conditions"]), set(conditions.LIGHT_SHIFT_DEFAULTS)
         )
@@ -38,6 +38,8 @@ class LightShiftConditionTests(unittest.TestCase):
                 "ellipticity_deg": -13.0,
                 "view": "Eigenvalues",
                 "show_scalar": False,
+                "show_vector": False,
+                "show_tensor": True,
             }
         )
         payload = conditions.build_light_shift_payload(values)
@@ -51,6 +53,8 @@ class LightShiftConditionTests(unittest.TestCase):
         self.assertEqual(session_state["ls_ellipticity_deg"], -13.0)
         self.assertEqual(session_state["ls_view"], "Eigenvalues")
         self.assertFalse(session_state["ls_show_scalar"])
+        self.assertFalse(session_state["ls_show_vector"])
+        self.assertTrue(session_state["ls_show_tensor"])
         self.assertTrue(session_state["_ls_loaded_preserve_range"])
 
     def test_v10_payload_defaults_to_showing_scalar_plot(self):
@@ -63,6 +67,30 @@ class LightShiftConditionTests(unittest.TestCase):
         with patch.object(conditions.st, "session_state", session_state):
             conditions.apply_light_shift_payload(payload)
         self.assertTrue(session_state["ls_show_scalar"])
+        self.assertTrue(session_state["ls_show_vector"])
+        self.assertTrue(session_state["ls_show_tensor"])
+
+    def test_v11_payload_defaults_to_showing_vector_and_tensor_plots(self):
+        payload = conditions.build_light_shift_payload(
+            conditions.LIGHT_SHIFT_DEFAULTS
+        )
+        payload["version"] = "1.1"
+        payload["conditions"].pop("show_vector")
+        payload["conditions"].pop("show_tensor")
+        session_state = {}
+        with patch.object(conditions.st, "session_state", session_state):
+            conditions.apply_light_shift_payload(payload)
+        self.assertTrue(session_state["ls_show_vector"])
+        self.assertTrue(session_state["ls_show_tensor"])
+
+    def test_unknown_version_is_rejected(self):
+        payload = conditions.build_light_shift_payload(
+            conditions.LIGHT_SHIFT_DEFAULTS
+        )
+        payload["version"] = "9.9"
+        with patch.object(conditions.st, "session_state", {}):
+            with self.assertRaisesRegex(ValueError, "Unsupported"):
+                conditions.apply_light_shift_payload(payload)
 
     def test_wrong_condition_format_is_rejected(self):
         payload = conditions.build_light_shift_payload(

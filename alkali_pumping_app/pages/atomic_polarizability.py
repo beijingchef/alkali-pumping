@@ -12,6 +12,7 @@ from alkali_pumping_app.physics.atomic_polarizability import (
     default_polarizability_sweep_range_MHz,
 )
 from alkali_pumping_app.physics.constants import ATOMS, DEFAULT_N2_COEFFS
+from alkali_pumping_app.physics.spectroscopy import hyperfine_transition_choices
 from alkali_pumping_app.ui.atomic_polarizability_conditions import (
     build_atomic_polarizability_payload,
     clean_atomic_polarizability_condition_name,
@@ -55,6 +56,7 @@ ATOMIC_POLARIZABILITY_SETTING_KEYS = (
     "ap_D2_width",
     "ap_D2_shift",
     "ap_line",
+    "ap_reference",
     "ap_lower_MHz",
     "ap_upper_MHz",
     "ap_points",
@@ -88,9 +90,25 @@ def _initialize_state():
         }
         for coefficient_line in ("D1", "D2")
     }
+    transition_rows = hyperfine_transition_choices(
+        ATOMS[atom_name], line, pressure_torr, n2_coeffs, allowed_only=True
+    )
+    reference_labels = ["Zero-pressure line center"] + [
+        f"F={row['Fg']:g} to F'={row['Fe']:g}" for row in transition_rows
+    ]
+    reference = st.session_state["ap_reference"]
+    if reference not in reference_labels:
+        reference = reference_labels[0]
+        st.session_state["ap_reference"] = reference
+    reference_offset = 0.0
+    if reference != reference_labels[0]:
+        reference_offset = float(
+            transition_rows[reference_labels.index(reference) - 1]["detP"]
+        )
     range_signature = (
         atom_name,
         line,
+        reference,
         pressure_torr,
         n2_coeffs[line]["shift"],
     )
@@ -100,8 +118,8 @@ def _initialize_state():
         lower, upper = default_polarizability_sweep_range_MHz(
             ATOMS[atom_name], line, pressure_torr, n2_coeffs
         )
-        st.session_state["ap_lower_MHz"] = lower
-        st.session_state["ap_upper_MHz"] = upper
+        st.session_state["ap_lower_MHz"] = lower - reference_offset
+        st.session_state["ap_upper_MHz"] = upper - reference_offset
         st.session_state["_ap_range_signature"] = range_signature
 
 
@@ -213,12 +231,12 @@ Lorentzian FWHM. The response functions follow Mathur, Tang, and Happer,
     )
 
 
-def _transition_markers(sweep):
+def _transition_markers(sweep, reference_offset=0.0):
     rows = []
     for (Fg, Fe), center in sweep["transition_centers_MHz"].items():
         rows.append(
             {
-                "Detuning (MHz)": float(center),
+                "Detuning (MHz)": float(center) - float(reference_offset),
                 "Transition": f"F={Fg:g} to F'={Fe:g}",
             }
         )
@@ -352,11 +370,39 @@ with st.sidebar:
             key="ap_n2_pressure_torr",
         )
 
-    line = st.segmented_control(
-        "Reference line",
-        ["D1", "D2"],
-        key="ap_line",
+    reference_columns = st.columns(2, gap="xsmall")
+    with reference_columns[0]:
+        line = st.segmented_control(
+            "Reference line",
+            ["D1", "D2"],
+            key="ap_line",
+        )
+    n2_coeffs = {
+        coefficient_line: {
+            coefficient: float(
+                st.session_state[f"ap_{coefficient_line}_{coefficient}"]
+            )
+            for coefficient in ("width", "shift")
+        }
+        for coefficient_line in ("D1", "D2")
+    }
+    transition_rows = hyperfine_transition_choices(
+        ATOMS[atom_name], line, pressure_torr, n2_coeffs, allowed_only=True
     )
+    reference_labels = ["Zero-pressure line center"] + [
+        f"F={row['Fg']:g} to F'={row['Fe']:g}" for row in transition_rows
+    ]
+    with reference_columns[1]:
+        reference = st.selectbox(
+            "Detuning reference",
+            reference_labels,
+            key="ap_reference",
+        )
+    reference_offset = 0.0
+    if reference != reference_labels[0]:
+        reference_offset = float(
+            transition_rows[reference_labels.index(reference) - 1]["detP"]
+        )
 
     st.header("Sweep")
     range_columns = st.columns(2, gap="xsmall")
@@ -412,19 +458,22 @@ if lower_MHz >= upper_MHz:
     st.error("The lower detuning must be smaller than the upper detuning.")
     st.stop()
 
-detunings = np.linspace(float(lower_MHz), float(upper_MHz), int(points))
+display_detunings = np.linspace(float(lower_MHz), float(upper_MHz), int(points))
+absolute_detunings = display_detunings + reference_offset
 width_coefficient = float(st.session_state[f"ap_{line}_width"])
 shift_coefficient = float(st.session_state[f"ap_{line}_shift"])
 sweep = _cached_polarizability_sweep(
     atom_name,
     line,
-    tuple(detunings),
+    tuple(absolute_detunings),
     float(pressure_torr),
     float(temperature_C),
     width_coefficient,
     shift_coefficient,
 )
-markers = _transition_markers(sweep)
+markers = _transition_markers(sweep, reference_offset)
+sweep = dict(sweep)
+sweep["detunings_MHz"] = display_detunings
 
 if not selected_components:
     st.info("Select at least one polarizability component in the sidebar.")

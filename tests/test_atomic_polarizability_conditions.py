@@ -20,7 +20,7 @@ class AtomicPolarizabilityConditionTests(unittest.TestCase):
             payload["format"],
             "alkali_pumping_atomic_polarizability_conditions",
         )
-        self.assertEqual(payload["version"], "1.0")
+        self.assertEqual(payload["version"], "1.1")
         self.assertEqual(
             set(payload["conditions"]),
             set(conditions.ATOMIC_POLARIZABILITY_DEFAULTS),
@@ -35,6 +35,7 @@ class AtomicPolarizabilityConditionTests(unittest.TestCase):
                 "temperature_C": 68.0,
                 "n2_pressure_torr": 120.0,
                 "line": "D2",
+                "reference": "F=4 to F'=5",
                 "lower_MHz": -7200.0,
                 "upper_MHz": 8800.0,
                 "points": 801,
@@ -50,6 +51,7 @@ class AtomicPolarizabilityConditionTests(unittest.TestCase):
         self.assertEqual(session_state["ap_atom_name"], "Cs133")
         self.assertEqual(session_state["ap_n2_pressure_torr"], 120.0)
         self.assertEqual(session_state["ap_line"], "D2")
+        self.assertEqual(session_state["ap_reference"], "F=4 to F'=5")
         self.assertEqual(session_state["ap_lower_MHz"], -7200.0)
         self.assertTrue(session_state["ap_plot_alpha_eq"])
         self.assertFalse(session_state["ap_plot_alpha_gt"])
@@ -58,6 +60,26 @@ class AtomicPolarizabilityConditionTests(unittest.TestCase):
             DEFAULT_N2_COEFFS["Cs133"]["D2"]["width"],
         )
         self.assertTrue(session_state["_ap_loaded_preserve_range"])
+
+    def test_v10_payload_uses_zero_pressure_reference(self):
+        payload = conditions.build_atomic_polarizability_payload(
+            conditions.ATOMIC_POLARIZABILITY_DEFAULTS
+        )
+        payload["version"] = "1.0"
+        payload["conditions"].pop("reference")
+        session_state = {}
+        with patch.object(conditions.st, "session_state", session_state):
+            conditions.apply_atomic_polarizability_payload(payload)
+        self.assertEqual(session_state["ap_reference"], "Zero-pressure line center")
+
+    def test_unknown_version_is_rejected(self):
+        payload = conditions.build_atomic_polarizability_payload(
+            conditions.ATOMIC_POLARIZABILITY_DEFAULTS
+        )
+        payload["version"] = "9.9"
+        with patch.object(conditions.st, "session_state", {}):
+            with self.assertRaisesRegex(ValueError, "Unsupported"):
+                conditions.apply_atomic_polarizability_payload(payload)
 
     def test_wrong_condition_format_is_rejected(self):
         payload = conditions.build_atomic_polarizability_payload(

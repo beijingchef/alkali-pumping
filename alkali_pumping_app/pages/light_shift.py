@@ -49,7 +49,14 @@ COMPONENT_LABELS = {
     "tensor_m0": "Tensor m=0 shift",
 }
 FICTITIOUS_FIELD_LABEL = "Fictitious magnetic field"
+SCALAR_COMMON_SERIES = "Common scalar shift"
 SCALAR_DIFFERENCE_SERIES = "Δν_F"
+COMPONENT_PLOT_OPTIONS = ("Scalar shift", "Vector shift", "Tensor shift")
+COMPONENT_PLOT_FIELDS = {
+    "Scalar shift": "show_scalar",
+    "Vector shift": "show_vector",
+    "Tensor shift": "show_tensor",
+}
 STATE_COMPONENT_LABELS = {
     "scalar": "Scalar",
     "vector": "Vector",
@@ -75,6 +82,21 @@ def coefficient_dataframe(sweep, display_detunings_MHz, scale=1.0):
                         "Shift": float(scale * value),
                     }
                 )
+    if manifolds:
+        total_degeneracy = sum(2.0 * float(row["F"]) + 1.0 for row in manifolds)
+        common_scalar = sum(
+            (2.0 * float(row["F"]) + 1.0) * np.asarray(row["scalar"])
+            for row in manifolds
+        ) / total_degeneracy
+        for detuning, value in zip(display_detunings_MHz, common_scalar):
+            rows.append(
+                {
+                    "Detuning (MHz)": float(detuning),
+                    "F": SCALAR_COMMON_SERIES,
+                    "Component": "Scalar shift",
+                    "Shift": float(scale * value),
+                }
+            )
     if len(manifolds) >= 2:
         lower = min(manifolds, key=lambda row: float(row["F"]))
         upper = max(manifolds, key=lambda row: float(row["F"]))
@@ -230,7 +252,12 @@ def light_shift_export_dataframe(
 ):
     """Return a wide plot-data export with a units row below the headers."""
     detuning_column = "Laser detuning"
-    detunings = np.sort(plotted["Detuning (MHz)"].unique())
+    if not plotted.empty:
+        detunings = np.sort(plotted["Detuning (MHz)"].unique())
+    elif scattering is not None and not scattering.empty:
+        detunings = np.sort(scattering["Detuning (MHz)"].unique())
+    else:
+        detunings = np.array([], dtype=float)
     numeric = pd.DataFrame({detuning_column: detunings})
     units = {detuning_column: "MHz"}
 
@@ -280,6 +307,15 @@ def light_shift_export_dataframe(
     return pd.concat([pd.DataFrame([units]), numeric], ignore_index=True)
 
 
+def transition_view_y_axis_title(normalization, transition_quantity, frequency_title):
+    """Return the Transition-view y-axis title for the selected quantity."""
+    if transition_quantity != "Equivalent field":
+        return frequency_title
+    if normalization == "Per intensity":
+        return "Equivalent field/intensity (nT/(µW/cm²))"
+    return "Equivalent field (nT)"
+
+
 def _render_light_shift_help(
     atom_name,
     line,
@@ -311,6 +347,15 @@ $s_1^2+s_2^2+s_3^2=1$.
 
 **Rank-2 polarization.** $E_{{20}}={sweep['E20']:+.4f}$ is the dimensionless
 rank-2 polarization tensor component that weights the tensor light shift.
+
+**Common scalar shift.** The common-mode curve is the coefficient of the
+identity operator over the complete ground-state space. It is the
+degeneracy-weighted mean of the manifold scalar shifts,
+$\nu_{{\mathrm{{common}}}}^{{(S)}}=
+\sum_F(2F+1)\nu_F^{{(S)}}/\sum_F(2F+1)$. It shifts every ground state equally
+and therefore cancels from ground-state transition frequencies. The
+$\Delta\nu_F$ curve is the upper-manifold scalar shift minus the lower-manifold
+scalar shift.
 
 **Line widths.** The Doppler and Lorentzian full widths at half maximum are
 $\Gamma_D={sweep['doppler_fwhm_MHz']:.1f}\,\mathrm{{MHz}}$ and
@@ -447,7 +492,7 @@ def _scalar_chart_with_difference_legend(
 ):
     """Render the scalar chart with a simple ΔνF difference label."""
     series = list(dict.fromkeys(dataframe["F"].tolist()))
-    palette = ["#4C78A8", "#F58518", "#E45756"]
+    palette = ["#4C78A8", "#F58518", "#54A24B", "#E45756"]
     color_scale = alt.Scale(domain=series, range=palette[: len(series)])
     legend = alt.Legend(
         title=None,
@@ -475,6 +520,11 @@ def _render_framed_chart(chart):
         st.altair_chart(chart, width="stretch")
 
 
+def _render_component_plot_title(title):
+    """Render a black component heading about 10% larger than a caption."""
+    st.markdown(f":black[{title}]")
+
+
 def _render_component_plots(
     dataframe,
     markers,
@@ -482,12 +532,16 @@ def _render_component_plots(
     field_y_title,
     symlog,
     show_scalar=True,
+    show_vector=True,
+    show_tensor=True,
 ):
-    for component, y_title in (
-        (FICTITIOUS_FIELD_LABEL, field_y_title),
-        ("Tensor m=0 shift", frequency_y_title),
-    ):
-        st.caption(component)
+    components = []
+    if show_vector:
+        components.append((FICTITIOUS_FIELD_LABEL, field_y_title))
+    if show_tensor:
+        components.append(("Tensor m=0 shift", frequency_y_title))
+    for component, y_title in components:
+        _render_component_plot_title(component)
         subset = dataframe[dataframe["Component"] == component]
         chart = _layered_line_chart(
             subset,
@@ -510,7 +564,7 @@ def _render_component_plots(
 
 def _render_scalar_component_plot(dataframe, markers, y_title, symlog):
     """Render the optional scalar component panel."""
-    st.caption("Scalar shift")
+    _render_component_plot_title("Scalar shift")
     subset = dataframe[dataframe["Component"] == "Scalar shift"]
     _render_framed_chart(
         _scalar_chart_with_difference_legend(subset, markers, y_title, symlog)
@@ -802,7 +856,8 @@ def render_light_shift_explorer(
                 plotted, markers, y_title, field_y_title, symlog
             )
             st.caption(
-                "The scalar panel also shows the upper-manifold shift minus the lower-manifold shift. "
+                "The scalar panel also shows the F-independent common-mode shift and the "
+                "upper-manifold shift minus the lower-manifold shift. "
                 "The vector panel shows B_fic=V_F/γ_F using each manifold's signed gyromagnetic ratio. "
                 "The tensor curve is <F,m=0|delta E2|F,m=0>/h. "
                 "E20 is dimensionless and is reported separately above; it is not part of the y-axis unit."
@@ -865,7 +920,9 @@ def render_light_shift_explorer(
                 )
         else:
             plotted = adjacent_transition_dataframe(sweep, display_detunings, scale)
-            transition_y_title = y_title
+            transition_y_title = transition_view_y_axis_title(
+                normalization, transition_quantity, y_title
+            )
             if transition_quantity == "Equivalent field":
                 upper_gamma_hz_per_nT = upper_larmor_frequency_from_field_nT(
                     atom_name, 1.0
@@ -877,11 +934,6 @@ def render_light_shift_explorer(
                     )
                     mask = np.isclose(plotted["F"], F)
                     plotted.loc[mask, "Shift"] /= gamma_hz_per_nT
-                transition_y_title = (
-                    "Equivalent light-shift field / intensity (nT/(µW/cm²))"
-                    if normalization == "Per intensity"
-                    else "Equivalent light-shift field (nT)"
-                )
             for F in manifolds:
                 subset = plotted[np.isclose(plotted["F"], F)]
                 st.caption(f"F={F:g} adjacent-m transition shifts")
@@ -947,6 +999,25 @@ def _prime_light_shift_multiselect(field, options):
 
 def _store_light_shift_control(field):
     st.session_state[state_key(field)] = st.session_state[_light_shift_widget_key(field)]
+
+
+def _prime_light_shift_component_plots():
+    """Build the Components-view multi-select from the saved boolean fields."""
+    selected = [
+        label
+        for label, field in COMPONENT_PLOT_FIELDS.items()
+        if bool(st.session_state.get(state_key(field), LIGHT_SHIFT_DEFAULTS[field]))
+    ]
+    widget_key = _light_shift_widget_key("component_plots")
+    st.session_state[widget_key] = selected
+    return widget_key
+
+
+def _store_light_shift_component_plots():
+    """Synchronize the component multi-select back to saved condition fields."""
+    selected = set(st.session_state[_light_shift_widget_key("component_plots")])
+    for label, field in COMPONENT_PLOT_FIELDS.items():
+        st.session_state[state_key(field)] = label in selected
 
 
 def _store_light_shift_name():
@@ -1145,25 +1216,28 @@ def render_light_shift_page():
             on_change=_store_light_shift_polarization_mode,
         )
         if polarization_mode == "Ellipse":
-            azimuth = st.slider(
-                "Azimuth ψ (degrees)",
-                0.0,
-                180.0,
-                step=1.0,
-                key=_prime_light_shift_control("azimuth_deg"),
-                on_change=_store_light_shift_control,
-                args=("azimuth_deg",),
-            )
-            ellipticity = st.slider(
-                "Ellipticity χ (degrees)",
-                -45.0,
-                45.0,
-                step=1.0,
-                key=_prime_light_shift_control("ellipticity_deg"),
-                on_change=_store_light_shift_control,
-                args=("ellipticity_deg",),
-                help="−45° is σ−, 0° is linear, and +45° is σ+.",
-            )
+            ellipse_columns = st.columns(2, gap="xsmall")
+            with ellipse_columns[0]:
+                azimuth = st.slider(
+                    "Azimuth ψ (degrees)",
+                    0.0,
+                    180.0,
+                    step=1.0,
+                    key=_prime_light_shift_control("azimuth_deg"),
+                    on_change=_store_light_shift_control,
+                    args=("azimuth_deg",),
+                )
+            with ellipse_columns[1]:
+                ellipticity = st.slider(
+                    "Ellipticity χ (degrees)",
+                    -45.0,
+                    45.0,
+                    step=1.0,
+                    key=_prime_light_shift_control("ellipticity_deg"),
+                    on_change=_store_light_shift_control,
+                    args=("ellipticity_deg",),
+                    help="−45° is σ−, 0° is linear, and +45° is σ+.",
+                )
             E_lab = polarization_ellipse_vector(k_axis, azimuth, ellipticity)
         else:
             polarization_options = allowed_polarizations(k_axis)
@@ -1242,6 +1316,12 @@ def render_light_shift_page():
                 on_change=_store_light_shift_control,
                 args=("upper_MHz",),
             )
+        show_scattering = st.checkbox(
+            "Scattering rate",
+            key=_prime_light_shift_control("show_scattering"),
+            on_change=_store_light_shift_control,
+            args=("show_scattering",),
+        )
         view_options = [
             "Components",
             "Zeeman states",
@@ -1256,6 +1336,31 @@ def render_light_shift_page():
             on_change=_store_light_shift_control,
             args=("view",),
         )
+        show_scalar = bool(
+            st.session_state.get(
+                state_key("show_scalar"), LIGHT_SHIFT_DEFAULTS["show_scalar"]
+            )
+        )
+        show_vector = bool(
+            st.session_state.get(
+                state_key("show_vector"), LIGHT_SHIFT_DEFAULTS["show_vector"]
+            )
+        )
+        show_tensor = bool(
+            st.session_state.get(
+                state_key("show_tensor"), LIGHT_SHIFT_DEFAULTS["show_tensor"]
+            )
+        )
+        if view == "Components":
+            selected_component_plots = st.multiselect(
+                "Components",
+                COMPONENT_PLOT_OPTIONS,
+                key=_prime_light_shift_component_plots(),
+                on_change=_store_light_shift_component_plots,
+            )
+            show_scalar = "Scalar shift" in selected_component_plots
+            show_vector = "Vector shift" in selected_component_plots
+            show_tensor = "Tensor shift" in selected_component_plots
         transition_quantity = "Frequency shift"
         if view == "Transitions":
             quantity_options = ["Frequency shift", "Equivalent field"]
@@ -1268,24 +1373,6 @@ def render_light_shift_page():
             )
         y_scale = "Linear"
         st.session_state[state_key("y_scale")] = y_scale
-        show_scalar = bool(
-            st.session_state.get(
-                state_key("show_scalar"), LIGHT_SHIFT_DEFAULTS["show_scalar"]
-            )
-        )
-        if view == "Components":
-            show_scalar = st.toggle(
-                "Show scalar shift",
-                key=_prime_light_shift_control("show_scalar"),
-                on_change=_store_light_shift_control,
-                args=("show_scalar",),
-            )
-        show_scattering = st.toggle(
-            "Show scattering rate",
-            key=_prime_light_shift_control("show_scattering"),
-            on_change=_store_light_shift_control,
-            args=("show_scattering",),
-        )
 
         ground_states = build_ground_states(atom)
         manifolds = sorted({float(state["F"]) for state in ground_states})
@@ -1312,14 +1399,6 @@ def render_light_shift_page():
 
         sweep_columns = st.columns(2, gap="xsmall")
         with sweep_columns[0]:
-            points = st.segmented_control(
-                "Sweep points",
-                [201, 401, 801],
-                key=_prime_light_shift_control("points", [201, 401, 801]),
-                on_change=_store_light_shift_control,
-                args=("points",),
-            )
-        with sweep_columns[1]:
             normalization = st.selectbox(
                 "Shift units",
                 ["Per intensity", "Absolute"],
@@ -1328,6 +1407,14 @@ def render_light_shift_page():
                 ),
                 on_change=_store_light_shift_control,
                 args=("normalization",),
+            )
+        with sweep_columns[1]:
+            points = st.segmented_control(
+                "Sweep points",
+                [201, 401, 801],
+                key=_prime_light_shift_control("points", [201, 401, 801]),
+                on_change=_store_light_shift_control,
+                args=("points",),
             )
 
         # Synchronize before preparing the download so its first click uses the
@@ -1433,6 +1520,14 @@ def render_light_shift_page():
             "µG/(µW/cm²)" if normalization == "Per intensity" else "µG",
             "Hz/(µW/cm²)" if normalization == "Per intensity" else "Hz",
         )
+        selected_component_labels = []
+        if show_scalar:
+            selected_component_labels.append("Scalar shift")
+        if show_vector:
+            selected_component_labels.append(FICTITIOUS_FIELD_LABEL)
+        if show_tensor:
+            selected_component_labels.append("Tensor m=0 shift")
+        plotted = plotted[plotted["Component"].isin(selected_component_labels)]
         _render_component_plots(
             plotted,
             markers,
@@ -1440,12 +1535,16 @@ def render_light_shift_page():
             field_y_title,
             symlog,
             show_scalar=False,
+            show_vector=show_vector,
+            show_tensor=show_tensor,
         )
-        st.caption(
-            "The scalar panel also shows the upper-manifold shift minus the lower-manifold shift. "
-            "The vector panel shows B_fic=V_F/γ_F using each manifold's signed gyromagnetic ratio. "
-            "The tensor curve is ⟨F,m=0|δE²|F,m=0⟩/h. E₂₀ is dimensionless and is reported separately above."
-        )
+        if selected_component_labels:
+            st.caption(
+                "The scalar panel also shows the F-independent common-mode shift and the "
+                "upper-manifold shift minus the lower-manifold shift. "
+                "The vector panel shows B_fic=V_F/γ_F using each manifold's signed gyromagnetic ratio. "
+                "The tensor curve is ⟨F,m=0|δE²|F,m=0⟩/h. E₂₀ is dimensionless and is reported separately above."
+            )
     elif view == "Zeeman states":
         plotted = state_shift_dataframe(sweep, display_detunings, scale)
         plotted = plotted[
@@ -1501,18 +1600,15 @@ def render_light_shift_page():
             )
     else:
         plotted = adjacent_transition_dataframe(sweep, display_detunings, scale)
-        transition_y_title = y_title
+        transition_y_title = transition_view_y_axis_title(
+            normalization, transition_quantity, y_title
+        )
         if transition_quantity == "Equivalent field":
             upper_gamma_hz_per_nT = upper_larmor_frequency_from_field_nT(atom_name, 1.0)
             for F in manifolds:
                 gamma_hz_per_nT = bias_info["ratio_by_F"][F] * upper_gamma_hz_per_nT
                 mask = np.isclose(plotted["F"], F)
                 plotted.loc[mask, "Shift"] /= gamma_hz_per_nT
-            transition_y_title = (
-                "Equivalent light-shift field / intensity (nT/(µW/cm²))"
-                if normalization == "Per intensity"
-                else "Equivalent light-shift field (nT)"
-            )
         for F in manifolds:
             subset = plotted[np.isclose(plotted["F"], F)]
             st.caption(f"F={F:g} adjacent-m transition shifts")

@@ -8,8 +8,8 @@ import streamlit as st
 from ..physics.constants import DEFAULT_N2_COEFFS
 
 
-LIGHT_SHIFT_CONDITION_VERSION = "1.1"
-LEGACY_LIGHT_SHIFT_CONDITION_VERSION = "1.0"
+LIGHT_SHIFT_CONDITION_VERSION = "1.2"
+LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS = ("1.0", "1.1")
 LIGHT_SHIFT_PREFIX = "ls_"
 
 LIGHT_SHIFT_DEFAULTS = {
@@ -39,6 +39,8 @@ LIGHT_SHIFT_DEFAULTS = {
     "transition_quantity": "Frequency shift",
     "y_scale": "Linear",
     "show_scalar": True,
+    "show_vector": True,
+    "show_tensor": True,
     "show_scattering": False,
     "state_manifolds": None,
     "state_components": ["Total diagonal"],
@@ -103,7 +105,7 @@ def apply_light_shift_payload(payload):
     payload_version = payload.get("version")
     if payload_version not in (
         LIGHT_SHIFT_CONDITION_VERSION,
-        LEGACY_LIGHT_SHIFT_CONDITION_VERSION,
+        *LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS,
     ):
         raise ValueError(
             f"Unsupported light-shift condition version; expected {LIGHT_SHIFT_CONDITION_VERSION}."
@@ -112,8 +114,11 @@ def apply_light_shift_payload(payload):
     if not isinstance(conditions, dict):
         raise ValueError("The JSON file does not contain a conditions object.")
     conditions = dict(conditions)
-    if payload_version == LEGACY_LIGHT_SHIFT_CONDITION_VERSION:
+    if payload_version == "1.0":
         conditions.setdefault("show_scalar", True)
+    if payload_version in LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS:
+        conditions.setdefault("show_vector", True)
+        conditions.setdefault("show_tensor", True)
     missing = [field for field in LIGHT_SHIFT_DEFAULTS if field not in conditions]
     if missing:
         raise ValueError("The condition file is missing required fields: " + ", ".join(missing))

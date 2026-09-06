@@ -1,5 +1,27 @@
 # Changelog
 
+## 6.9.6 - 2026-09-06
+
+### Changed
+
+- Added a Detuning reference selector beside the Atomic polarizability D-line
+  selector. It offers the zero-pressure line center and every allowed
+  hyperfine transition, and consistently shifts the automatic range, plot
+  axis, transition markers, and CSV detunings.
+- Added a Light shift Scattering rate checkbox and a Components-view
+  multi-select dropdown for the scalar, vector, and tensor plots. Component
+  selections also determine which component curves are exported.
+- Added the F-independent common scalar shift to the Light shift scalar panel
+  and CSV. It is calculated as the ground-state-degeneracy-weighted mean of
+  the two hyperfine-manifold scalar shifts.
+- Placed the Light shift azimuth and ellipticity sliders on one row and swapped
+  the sidebar positions of Shift units and Sweep points.
+- Made the Light shift component plot headings black and approximately 10%
+  larger, and relabeled the Transition-view field axis as Equivalent
+  field/intensity with its units.
+- Advanced Atomic polarizability conditions to v1.1 and Light shift conditions
+  to v1.2, with migrations for the prior formats.
+
 ## 6.9.5 - 2026-09-04
 
 ### Changed

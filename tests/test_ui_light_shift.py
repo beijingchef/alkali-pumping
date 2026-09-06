@@ -14,6 +14,8 @@ from alkali_pumping_app.physics import (
 from alkali_pumping_app.pages.light_shift import (
     TRANSITION_MARKER_COLOR,
     TRANSITION_MARKER_OPACITY,
+    SCALAR_COMMON_SERIES,
+    _store_light_shift_component_plots,
     _layered_line_chart,
     _scattering_chart,
     adjacent_transition_dataframe,
@@ -23,6 +25,7 @@ from alkali_pumping_app.pages.light_shift import (
     light_shift_export_dataframe,
     scattering_dataframe,
     state_shift_dataframe,
+    transition_view_y_axis_title,
 )
 
 
@@ -49,8 +52,32 @@ class LightShiftPlotDataTests(unittest.TestCase):
             set(frame["Component"]),
             {"Scalar shift", "Vector coefficient", "Tensor m=0 shift"},
         )
-        self.assertEqual(set(frame["F"]), {"F=1", "F=2", "Δν_F"})
-        self.assertEqual(len(frame), 2 * 2 * 3 + 2)
+        self.assertEqual(
+            set(frame["F"]),
+            {"F=1", "F=2", SCALAR_COMMON_SERIES, "Δν_F"},
+        )
+        self.assertEqual(len(frame), 2 * 2 * 3 + 2 + 2)
+
+    def test_common_scalar_shift_is_ground_state_degeneracy_weighted(self):
+        frame = coefficient_dataframe(self.sweep, self.detunings)
+        scalar = frame[frame["Component"] == "Scalar shift"]
+        lower = scalar[scalar["F"] == "F=1"]["Shift"].to_numpy()
+        upper = scalar[scalar["F"] == "F=2"]["Shift"].to_numpy()
+        common = scalar[scalar["F"] == SCALAR_COMMON_SERIES]["Shift"].to_numpy()
+        np.testing.assert_allclose(common, (3.0 * lower + 5.0 * upper) / 8.0)
+
+    def test_common_scalar_shift_is_included_in_csv_export(self):
+        plotted = coefficient_dataframe(self.sweep, self.detunings)
+        plotted["Unit"] = "Hz/(µW/cm²)"
+        exported = light_shift_export_dataframe(
+            plotted,
+            normalization="Per intensity",
+            view="Components",
+        )
+        self.assertIn(
+            f"Scalar shift | {SCALAR_COMMON_SERIES}",
+            exported.columns,
+        )
 
     def test_scalar_difference_is_upper_minus_lower_manifold(self):
         frame = coefficient_dataframe(self.sweep, self.detunings)
@@ -124,6 +151,30 @@ class LightShiftPlotDataTests(unittest.TestCase):
         self.assertEqual(exported.shape, (3, 4))
         np.testing.assert_allclose(exported.iloc[1:, 1].astype(float), [1.0, 2.0])
 
+    def test_scattering_only_export_uses_scattering_detunings(self):
+        plotted = pd.DataFrame(
+            columns=["Detuning (MHz)", "F", "Component", "Shift", "Unit"]
+        )
+        scattering = pd.DataFrame(
+            {
+                "Detuning (MHz)": [-1.0, 1.0],
+                "F": ["F=1", "F=1"],
+                "Scattering rate": [5.0, 6.0],
+            }
+        )
+        exported = light_shift_export_dataframe(
+            plotted,
+            normalization="Absolute",
+            view="Components",
+            scattering=scattering,
+        )
+        self.assertEqual(
+            exported.columns.tolist(),
+            ["Laser detuning", "Mean scattering rate | F=1"],
+        )
+        self.assertEqual(exported.iloc[0].tolist(), ["MHz", "s⁻¹"])
+        np.testing.assert_allclose(exported.iloc[1:, 0].astype(float), [-1.0, 1.0])
+
     def test_transition_center_rules_are_dark_and_scattering_legend_is_untitled(self):
         markers = pd.DataFrame(
             {"Detuning (MHz)": [0.0], "Transition": ["F=1 to F'=2"]}
@@ -176,6 +227,39 @@ class LightShiftPlotDataTests(unittest.TestCase):
         self.assertEqual(state["ls_polarization_mode"], "Ellipse")
         self.assertEqual(state["ls_azimuth_deg"], 90.0)
         self.assertEqual(state["ls_ellipticity_deg"], 0.0)
+
+    def test_component_multiselect_updates_saved_plot_fields(self):
+        state = {
+            "_ls_widget_component_plots": ["Scalar shift", "Tensor shift"],
+            "ls_show_scalar": False,
+            "ls_show_vector": True,
+            "ls_show_tensor": False,
+        }
+        with patch.object(light_shift_page.st, "session_state", state):
+            _store_light_shift_component_plots()
+        self.assertTrue(state["ls_show_scalar"])
+        self.assertFalse(state["ls_show_vector"])
+        self.assertTrue(state["ls_show_tensor"])
+
+    def test_transition_equivalent_field_axis_titles_include_units(self):
+        self.assertEqual(
+            transition_view_y_axis_title(
+                "Per intensity", "Equivalent field", "Frequency shift"
+            ),
+            "Equivalent field/intensity (nT/(µW/cm²))",
+        )
+        self.assertEqual(
+            transition_view_y_axis_title(
+                "Absolute", "Equivalent field", "Frequency shift"
+            ),
+            "Equivalent field (nT)",
+        )
+        self.assertEqual(
+            transition_view_y_axis_title(
+                "Per intensity", "Frequency shift", "Frequency shift/intensity"
+            ),
+            "Frequency shift/intensity",
+        )
 
 
 if __name__ == "__main__":
