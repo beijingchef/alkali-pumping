@@ -5,7 +5,7 @@ import numpy as np
 from alkali_pumping_app.physics import ATOMS, build_ground_states, compute_alkali_system
 from alkali_pumping_app.physics.nonlinear_readout import (
     _SIGNALS,
-    propagate_stokes_feedback,
+    propagate_uniform_atomic_feedback,
 )
 from alkali_pumping_app.physics.optical_pumping import (
     build_optical_L,
@@ -18,49 +18,6 @@ from alkali_pumping_app.physics.rf_response import (
     weak_rf_matrix_susceptibility,
 )
 from alkali_pumping_app.physics.spectroscopy import line_center_frequency_MHz
-
-
-class StokesFeedbackPropagationTests(unittest.TestCase):
-    def test_zero_feedback_reproduces_weak_full_cell_response(self):
-        base = {
-            signal: np.array([index + 1j * (index + 0.5)])
-            for index, signal in enumerate(_SIGNALS)
-        }
-        feedback = {
-            signal: {
-                stokes: np.zeros(1, dtype=complex)
-                for stokes in ("s1", "s2", "s3")
-            }
-            for signal in _SIGNALS
-        }
-
-        result, radius = propagate_stokes_feedback(base, feedback)
-
-        for signal in _SIGNALS:
-            np.testing.assert_allclose(result[signal], base[signal], atol=1e-14)
-        np.testing.assert_allclose(radius, 0.0, atol=1e-14)
-
-    def test_single_stokes_loop_matches_analytic_exponential(self):
-        loop_gain = 0.3
-        base = {
-            signal: np.zeros(1, dtype=complex)
-            for signal in _SIGNALS
-        }
-        base["s2"][:] = 2.0 - 0.5j
-        feedback = {
-            signal: {
-                stokes: np.zeros(1, dtype=complex)
-                for stokes in ("s1", "s2", "s3")
-            }
-            for signal in _SIGNALS
-        }
-        feedback["s2"]["s2"][:] = loop_gain
-
-        result, radius = propagate_stokes_feedback(base, feedback)
-
-        expected = base["s2"] * np.expm1(loop_gain) / loop_gain
-        np.testing.assert_allclose(result["s2"], expected, rtol=1e-13)
-        np.testing.assert_allclose(radius, loop_gain, rtol=1e-13)
 
 
 class GeneralizedDriveTests(unittest.TestCase):
@@ -190,13 +147,67 @@ class DissipativeStokesSourceTests(unittest.TestCase):
         )
 
 
+class UniformAtomicFeedbackTests(unittest.TestCase):
+    @staticmethod
+    def _base(**overrides):
+        values = {
+            signal: np.array([0.0j, 0.0j]) for signal in _SIGNALS
+        }
+        values.update(overrides)
+        return values
+
+    @staticmethod
+    def _feedback():
+        return {
+            signal: {
+                coordinate: np.array([0.0j, 0.0j])
+                for coordinate in ("transmission", "s1", "s2", "s3")
+            }
+            for signal in _SIGNALS
+        }
+
+    def test_zero_feedback_reproduces_direct_response(self):
+        base = self._base(rotation=np.array([1.0 + 2.0j, -3.0j]))
+        propagated, spectral_radius = propagate_uniform_atomic_feedback(
+            base, self._feedback()
+        )
+
+        for signal in _SIGNALS:
+            np.testing.assert_allclose(propagated[signal], base[signal])
+        np.testing.assert_allclose(spectral_radius, 0.0)
+
+    def test_path_average_halves_the_closed_loop_gain(self):
+        base = self._base(s1=np.array([1.0 + 0.0j, 2.0 + 0.0j]))
+        feedback = self._feedback()
+        feedback["s1"]["s1"] = np.array([0.4 + 0.0j, 0.4 + 0.0j])
+
+        propagated, spectral_radius = propagate_uniform_atomic_feedback(
+            base, feedback
+        )
+
+        np.testing.assert_allclose(propagated["s1"], base["s1"] / 0.8)
+        np.testing.assert_allclose(spectral_radius, 0.2)
+
+    def test_path_average_drives_cross_signal_response(self):
+        base = self._base(s1=np.array([2.0 + 0.0j, 4.0 + 0.0j]))
+        feedback = self._feedback()
+        feedback["rotation"]["s1"] = np.array([3.0 + 0.0j, 3.0 + 0.0j])
+
+        propagated, spectral_radius = propagate_uniform_atomic_feedback(
+            base, feedback
+        )
+
+        np.testing.assert_allclose(propagated["rotation"], np.array([3.0, 6.0]))
+        np.testing.assert_allclose(spectral_radius, 0.0)
+
+
 class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
-    def test_physical_pump_returns_every_signal_and_component(self):
+    def test_physical_pump_uses_one_path_averaged_atomic_response(self):
         atom = ATOMS["Rb87"]
         absolute_frequency = line_center_frequency_MHz(atom, "D1") + 500.0
         probe = {
             "source": "PumpA1",
-            "mode": "nonlinear",
+            "mode": "physical",
             "pump_name": "PumpA1",
             "pump_intensity_uW_cm2": 20.0,
             "line": "D1",
@@ -244,22 +255,25 @@ class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
 
         result = compute_alkali_system(species, None, [beam], common)["A"]
 
-        self.assertTrue(result["probe_info"]["nonlinear_available"])
+        self.assertTrue(result["probe_info"]["physical_pump_available"])
         self.assertEqual(result["probe_info"]["pump_name"], "PumpA1")
         self.assertIn("probe_weak_response", result)
         self.assertEqual(
-            result["probe_info"]["feedback_coordinates"],
-            ("transmission", "s1", "s2", "s3"),
+            result["probe_info"]["atomic_state_spatial_model"],
+            "one density matrix shared by the full cell",
+        )
+        self.assertEqual(
+            result["probe_info"]["stokes_atomic_feedback"],
+            "optical-path average",
+        )
+        self.assertFalse(result["probe_info"]["input_intensity_adjusted"])
+        self.assertEqual(
+            set(result["probe_info"]["feedback_coordinates"]),
+            {"transmission", "s1", "s2", "s3"},
         )
         self.assertIn(
             "dissipative optical pumping",
             result["probe_info"]["feedback_contributions"],
-        )
-        self.assertGreater(
-            result["probe_info"]["liouvillian_source_diagnostics"]["s2"][
-                "dissipative_frobenius_norm_s_inv"
-            ],
-            0.0,
         )
         self.assertEqual(
             set(result["probe_response"]),
@@ -270,6 +284,13 @@ class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
             for response in component.values():
                 self.assertEqual(response["amplitude"].shape, (2,))
                 self.assertTrue(np.isfinite(response["amplitude"]).all())
+        self.assertGreater(
+            result["probe_info"]["liouvillian_source_diagnostics"]["s2"][
+                "dissipative_frobenius_norm_s_inv"
+            ],
+            0.0,
+        )
+
         def phasor(component, signal):
             response = result["probe_response"][component][signal]
             return response["in_phase"] + 1j * response["quadrature"]
@@ -278,10 +299,9 @@ class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
         rank_sum = phasor("orientation", "rotation") + phasor(
             "alignment", "rotation"
         )
-        self.assertFalse(
-            np.allclose(total, rank_sum, rtol=1e-8, atol=1e-20),
-            "The coupled nonlinear total must not be reconstructed by adding "
-            "the two counterfactual rank responses.",
+        self.assertGreater(
+            np.max(np.abs(total - rank_sum)),
+            1e-20,
         )
 
 

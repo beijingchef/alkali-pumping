@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.7
+# Alkali Pumping v6.9.8
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -80,20 +80,22 @@ streamlit run alkali_pumping.py
 - Each probe source lists both `PumpN weak` and `PumpN`. The weak item inherits
   that pump's spectrum, direction, and polarization while ignoring its
   intensity. The plain pump item represents the physical pump beam and uses
-  its intensity in a distributed, self-consistent Stokes calculation. New
+  one spatially uniform atomic density matrix driven by the path-averaged
+  Stokes perturbation. The configured pump intensity is used unchanged; no
+  beam-area or cell-area intensity scaling is applied. New
   sessions default Probe-A to `PumpA1 weak` and Probe-B to `PumpB1 weak`.
 - Pump1 defaults to the D1 $F=I+1/2\rightarrow F'=I+1/2$ transition at
   +450 MHz and 10 µW/cm². Pump2 defaults to
   $F=I-1/2\rightarrow F'=I+1/2$ at zero detuning and 10 µW/cm². These
   relative hyperfine branches are translated when the selected isotope changes.
-- Physical-pump propagation includes rank-1 circular birefringence/dichroism
-  and rank-2 linear birefringence/dichroism. Fractional intensity and normalized
-  Stokes changes feed both the dispersive vector/tensor light-shift commutator
-  and a trace-preserving dissipative optical-pumping Liouvillian. Population
-  redistribution and within-ground-manifold Raman coherences are evolved with
-  the existing weak-RF Jacobians. Orientation-induced and alignment-induced
-  curves are nonlinear counterfactual solutions; the Total curve is the
-  coupled physical solution and is not their sum.
+- Physical-pump readout includes rank-1 circular birefringence/dichroism and
+  rank-2 linear birefringence/dichroism. Rather than assigning a different
+  atomic state to every longitudinal slice, the solver closes the full
+  dispersive and dissipative Liouvillian feedback through one cell-wide
+  RF-driven density matrix. That state responds to the path-average of the
+  generated fractional intensity and normalized Stokes changes. Total closes
+  the coupled rank-1 plus rank-2 response; the Orientation and Alignment curves
+  are separately closed counterfactuals and therefore need not add to Total.
 - Probe signals include optical rotation, ellipticity, normalized Stokes
   s1/s2/s3, and fractional transmission. A single selector displays the
   orientation-induced, alignment-induced, or coherent total response; the

@@ -1,21 +1,16 @@
-"""Self-consistent physical-pump Stokes readout in the weak-RF limit.
+"""Spatially uniform physical-pump Stokes feedback in the weak-RF limit.
 
-The ordinary probe is a detector only.  A physical pump is different: its
-RF-induced Stokes change rotates the same vector/tensor light-shift Hamiltonian
-that creates the atomic response.  This module closes that feedback loop while
-retaining the application's first-order RF density-matrix approximation.
+All configured pumps determine one steady atomic density matrix. For a linked
+physical-pump readout, RF-induced fractional intensity and normalized Stokes
+changes drive one additional density-matrix response shared by the entire
+cell. The atom responds to the optical-path average of that perturbation; it
+does not acquire an independent polarization in each longitudinal slice.
 
-The longitudinal coordinate is normalized to the selected path length.  The
-weak full-cell response supplies the inhomogeneous propagation term. Fractional
-intensity and normalized Stokes changes drive both the dispersive light-shift
-commutator and the dissipative optical-pumping Liouvillian. Rank-1 and rank-2
-optical readouts are propagated either separately as counterfactual diagnostics
-or together as the physical coherent total. The latter is not the sum of the
-two nonlinear counterfactual solutions.
+The configured pump intensity is used unchanged. This module does not infer a
+beam/cell filling factor or replace the entered intensity by a spatial average.
 """
 
 import numpy as np
-from scipy.linalg import expm
 
 from .optical_pumping import (
     build_optical_L,
@@ -43,14 +38,7 @@ def _axis_name(vector):
 
 
 def _rank_coefficients_from_circular_reference(result, beam, common):
-    """Return per-manifold vector and linear-tensor shift coefficients.
-
-    A sigma+ calculation with quantization along k supplies the intrinsic
-    vector coefficient directly.  Its rank-2 coefficient is -1/2 of the
-    coefficient for a linearly polarized field, because the symmetric
-    polarization dyadic of circular light is half the transverse projector.
-    Returned coefficients are angular frequencies in rad/s.
-    """
+    """Return per-manifold vector and linear-tensor shift coefficients."""
     atom = result["atom"]
     states = result["ground_states"]
     line = beam["line"]
@@ -157,17 +145,22 @@ def _complex_response(response):
     )
 
 
-def propagate_stokes_feedback(base_by_signal, feedback_by_signal_and_stokes):
-    """Integrate a uniform full-cell response with distributed pump feedback.
+def propagate_uniform_atomic_feedback(
+    base_by_signal, feedback_by_signal_and_stokes
+):
+    """Close Stokes feedback through one spatially uniform atomic response.
 
-    The independent coordinate is t=z/L.  If ``b`` is the ordinary weak
-    full-cell response and ``K`` is the full-cell response to a spatially
-    uniform normalized-Stokes perturbation, propagation obeys
+    ``b`` is the direct weak full-cell response and ``K`` is the full-cell
+    response to a spatially uniform fractional-intensity/normalized-Stokes
+    perturbation. If ``u`` is the path-average of the generated transmission
+    and s1/s2/s3 perturbations, uniform atomic polarization gives
 
-        dy/dt = b + K @ (y_T, y_s1, y_s2, y_s3),  y(0)=0.
+        u = 0.5 * P @ (b + K @ u)
+        y_out = b + K @ u.
 
-    The matrix exponential integrates this constant-coefficient equation
-    without a slice-count or fixed-point convergence parameter.
+    The factor one half is the path average of a perturbation generated
+    linearly from zero at the cell entrance. No beam-area intensity scaling is
+    performed here.
     """
     sample = next(iter(base_by_signal.values()))
     frequency_count = np.asarray(sample).size
@@ -187,22 +180,28 @@ def propagate_stokes_feedback(base_by_signal, feedback_by_signal_and_stokes):
 
     output = np.empty_like(base)
     spectral_radius = np.empty(frequency_count, dtype=float)
-    feedback_indices = [
-        _SIGNALS.index(name) for name in _FEEDBACK_COLUMNS
-    ]
+    feedback_indices = [_SIGNALS.index(name) for name in _FEEDBACK_COLUMNS]
     for frequency_index in range(frequency_count):
-        propagation = np.zeros(
-            (len(_SIGNALS) + 1, len(_SIGNALS) + 1), dtype=complex
-        )
-        for column, signal_index in enumerate(feedback_indices):
-            propagation[:-1, signal_index] = feedback[frequency_index, :, column]
-        propagation[:-1, -1] = base[frequency_index]
-        initial = np.zeros(len(_SIGNALS) + 1, dtype=complex)
-        initial[-1] = 1.0
-        output[frequency_index] = (expm(propagation) @ initial)[:-1]
         loop = feedback[frequency_index, feedback_indices, :]
+        averaged_loop = 0.5 * loop
+        mean_incident_response = 0.5 * base[
+            frequency_index, feedback_indices
+        ]
+        closure = np.eye(len(_FEEDBACK_COLUMNS), dtype=complex) - averaged_loop
+        try:
+            mean_feedback_coordinates = np.linalg.solve(
+                closure, mean_incident_response
+            )
+        except np.linalg.LinAlgError:
+            mean_feedback_coordinates = np.linalg.lstsq(
+                closure, mean_incident_response, rcond=None
+            )[0]
+        output[frequency_index] = (
+            base[frequency_index]
+            + feedback[frequency_index] @ mean_feedback_coordinates
+        )
         spectral_radius[frequency_index] = float(
-            np.max(np.abs(np.linalg.eigvals(loop)))
+            np.max(np.abs(np.linalg.eigvals(averaged_loop)))
         )
     return {
         signal: output[:, index]
@@ -220,15 +219,15 @@ def _unavailable_response(response):
                 "amplitude": nan,
                 "in_phase": nan.copy(),
                 "quadrature": nan.copy(),
-                "info": {**values["info"], "nonlinear_available": False},
+                "info": {**values["info"], "physical_pump_available": False},
             }
     return unavailable
 
 
 def apply_physical_pump_readout(result, common):
-    """Replace one weak linked-probe response by physical-pump propagation."""
+    """Apply physical-pump feedback to one cell-wide atomic response."""
     probe = result.get("probe", {})
-    if probe.get("mode") != "nonlinear":
+    if probe.get("mode") != "physical":
         return result
 
     pump_name = probe.get("pump_name")
@@ -245,10 +244,10 @@ def apply_physical_pump_readout(result, common):
         result["probe_response"] = _unavailable_response(result["probe_response"])
         result["probe_info"] = {
             **result["probe_info"],
-            "mode": "nonlinear physical pump",
+            "mode": "uniform-state physical pump",
             "pump_name": pump_name,
-            "nonlinear_available": False,
-            "nonlinear_reason": "The selected physical pump has zero intensity.",
+            "physical_pump_available": False,
+            "physical_pump_reason": "The selected physical pump has zero intensity.",
         }
         return result
 
@@ -313,16 +312,14 @@ def apply_physical_pump_readout(result, common):
             if response[3]["population_source"]:
                 population_source_coordinates.append(coordinate)
 
-    nonlinear_response = {}
+    physical_response = {}
     feedback_diagnostics = {}
-    for component, operators in result["probe_readout_operators"].items():
+    for component in result["probe_readout_operators"]:
         base_by_signal = {
             signal: _complex_response(result["probe_response"][component][signal])
             for signal in _SIGNALS
         }
-        feedback_by_signal_and_stokes = {
-            signal: {} for signal in _SIGNALS
-        }
+        feedback_by_signal_and_stokes = {signal: {} for signal in _SIGNALS}
         for coordinate in _FEEDBACK_COLUMNS:
             responses = feedback_responses[coordinate]
             for signal in _SIGNALS:
@@ -331,22 +328,22 @@ def apply_physical_pump_readout(result, common):
                     np.asarray(response[1], dtype=float)
                     + 1j * np.asarray(response[2], dtype=float)
                 )
-        propagated, spectral_radius = propagate_stokes_feedback(
+        propagated, spectral_radius = propagate_uniform_atomic_feedback(
             base_by_signal, feedback_by_signal_and_stokes
         )
-        nonlinear_response[component] = {}
+        physical_response[component] = {}
         for signal, complex_values in propagated.items():
             base_info = result["probe_response"][component][signal]["info"]
             in_phase = np.real(complex_values)
             quadrature = np.imag(complex_values)
-            nonlinear_response[component][signal] = {
+            physical_response[component][signal] = {
                 "amplitude": np.hypot(in_phase, quadrature),
                 "in_phase": in_phase,
                 "quadrature": quadrature,
                 "info": {
                     **base_info,
-                    "nonlinear": True,
                     "physical_pump": pump_name,
+                    "uniform_atomic_feedback": True,
                     "used_feedback_transitions": used_transitions,
                 },
             }
@@ -355,13 +352,16 @@ def apply_physical_pump_readout(result, common):
             "max_spectral_radius": float(np.max(spectral_radius)),
         }
 
-    result["probe_response"] = nonlinear_response
+    result["probe_response"] = physical_response
     result["probe_info"] = {
         **result["probe_info"],
-        "mode": "nonlinear physical pump",
+        "mode": "uniform-state physical pump",
         "pump_name": pump_name,
         "pump_intensity_uW_cm2": float(probe["pump_intensity_uW_cm2"]),
-        "nonlinear_available": True,
+        "physical_pump_available": True,
+        "input_intensity_adjusted": False,
+        "atomic_state_spatial_model": "one density matrix shared by the full cell",
+        "stokes_atomic_feedback": "optical-path average",
         "feedback_coordinates": tuple(_FEEDBACK_COLUMNS),
         "feedback_contributions": (
             "dispersive light shift",
@@ -373,8 +373,6 @@ def apply_physical_pump_readout(result, common):
             dict.fromkeys(population_source_coordinates)
         ),
         "feedback_diagnostics": feedback_diagnostics,
-        "model": (
-            "distributed weak-RF dispersive+dissipative pump Liouvillian readout"
-        ),
+        "model": "spatially uniform weak-RF pump Liouvillian feedback",
     }
     return result

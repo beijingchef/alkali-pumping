@@ -491,7 +491,7 @@ def _probe_source_spec(label, source):
         return {"pump_name": None, "mode": "weak"}
     return {
         "pump_name": pump_name,
-        "mode": "weak" if source.endswith(" weak") else "nonlinear",
+        "mode": "weak" if source.endswith(" weak") else "physical",
     }
 
 
@@ -630,8 +630,9 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
             help=(
                 "Custom enables an independent weak probe. A 'weak' pump source "
                 "copies that pump's optical settings but ignores intensity. A "
-                "plain pump source uses the physical pump intensity in a "
-                "self-consistent Stokes calculation."
+                "plain pump source detects with the physical pump using one "
+                "cell-wide density matrix driven by the path-averaged Stokes "
+                "change. The configured pump intensity is not rescaled."
             ),
         )
     source_spec = _probe_source_spec(label, source)
@@ -737,7 +738,8 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
             intensity = float(st.session_state[f"intensity_{prefix}"])
             message = (
                 f"Using physical {source_spec['pump_name']} with intensity "
-                f"{intensity:g} µW/cm² and dispersive+dissipative CBOR+LDOR propagation."
+                f"{intensity:g} µW/cm² and spatially uniform CBOR+LDOR "
+                "feedback."
             )
         st.caption(accent_caption(message))
     else:
@@ -1489,7 +1491,9 @@ def _render_probe_response(result, label):
         "transmission": "Fractional transmission",
     }
     signal = st.session_state[f"probe_signal_{label}"]
-    nonlinear = result["probe_info"].get("mode") == "nonlinear physical pump"
+    physical_pump = (
+        result["probe_info"].get("mode") == "uniform-state physical pump"
+    )
     pump_name = result["probe_info"].get("pump_name")
     response = result["probe_response"]
     response_choice = st.session_state[f"probe_response_component_{label}"]
@@ -1517,13 +1521,15 @@ def _render_probe_response(result, label):
         result["rf_frequencies_hz"], response, signal,
         rf_rabi_rad_s_per_nT=rf_rabi_rad_s_per_nT,
     )
-    export["readout_mode"] = "nonlinear physical pump" if nonlinear else "weak probe"
+    export["readout_mode"] = (
+        "uniform-state physical pump" if physical_pump else "weak probe"
+    )
     export["physical_pump"] = pump_name or ""
     title_col, download_col, help_col = st.columns([0.74, 0.18, 0.08], gap="small")
     with title_col:
         readout_title = (
-            f"{pump_name} nonlinear optical readout"
-            if nonlinear
+            f"{pump_name} uniform-state optical readout"
+            if physical_pump
             else f"Probe-{label} weak optical readout"
         )
         _compact_title(f"{readout_title} — {signal_labels[signal]}")
@@ -1539,21 +1545,22 @@ def _render_probe_response(result, label):
             )
     with help_col:
         with st.popover("❓"):
-            if nonlinear:
+            if physical_pump:
                 st.markdown(
                     r"""
 The selected physical pump is both the perturbing beam and its own detector.
-Its RF-induced fractional intensity and normalized Stokes vector are propagated
-self-consistently through the cell. Rank-1 circular birefringence/dichroism and
-rank-2 linear birefringence/dichroism feed both the pump's vector/tensor light
-shifts and its trace-preserving dissipative optical-pumping Liouvillian.
+All configured pumps first determine one steady atomic polarization. The RF
+response then uses one additional density-matrix perturbation shared by the
+entire cell, driven self-consistently by the optical-path average of the
+generated intensity and Stokes changes. There are no independently repumped
+longitudinal slices, and the configured pump intensity is used without a
+beam-area or cell-area rescaling.
 
-Orientation induced and Alignment induced are counterfactual nonlinear
-solutions with only that optical feedback channel present. Total is the
-physical coupled solution; because of feedback, it is not the sum of the two
-counterfactual curves. Optical rotation, ellipticity, normalized Stokes
-signals, and fractional transmission all come from the same propagated
-response.
+Orientation induced and Alignment induced are the rank-1 and rank-2 readouts
+with their own counterfactual closures. Total closes the full rank-1 plus
+rank-2 response together, so it need not equal the sum of the two separately
+closed curves. Optical rotation, ellipticity, normalized Stokes signals, and
+fractional transmission all use the same spatially uniform approximation.
 """
                 )
             else:
@@ -1638,9 +1645,11 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
         if not result["light_shift_available"]:
             st.warning("Probe response is unavailable because the RF atomic response is unavailable.")
             return
-        if nonlinear and not result["probe_info"].get("nonlinear_available", False):
+        if physical_pump and not result["probe_info"].get(
+            "physical_pump_available", False
+        ):
             st.warning(result["probe_info"].get(
-                "nonlinear_reason", "The nonlinear pump response is unavailable."
+                "physical_pump_reason", "The physical-pump response is unavailable."
             ))
             return
         show_amplitude = bool(st.session_state[f"probe_show_amplitude_{label}"])

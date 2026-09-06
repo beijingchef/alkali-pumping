@@ -1,5 +1,19 @@
 # Changelog
 
+## 6.9.8 - 2026-09-06
+
+### Changed
+
+- Removed slice-by-slice atomic-state changes from physical-pump readout.
+- Physical-pump readout now uses one spatially uniform RF-driven density-matrix
+  perturbation for the full cell, closed self-consistently against the
+  optical-path average of the generated fractional intensity and normalized
+  Stokes changes.
+- The entered pump intensity remains unchanged; the uniform-state model does
+  not introduce beam/cell filling-factor intensity averaging.
+- Full dispersive and dissipative CBOR/LDOR feedback remains active, but no
+  independent downstream-slice atomic states are created.
+
 ## 6.9.7 - 2026-09-06
 
 ### Changed
