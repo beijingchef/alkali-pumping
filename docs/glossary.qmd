@@ -1,0 +1,71 @@
+# Glossary {.unnumbered #glossary}
+
+## Symbols {#glossary-symbols}
+
+(A)
+: Nonnegative RF response amplitude, (A=\sqrt{X^2+Y^2}).
+
+(mathbf b)
+: Direct full-cell weak-RF optical response before physical-pump Stokes feedback.
+
+(G)
+: Context dependent. In the RF chapter it denotes a coherence generator. In the feedback chapter (G=PK/2) denotes the optical loop matrix. The surrounding link should make the meaning explicit.
+
+(K)
+: Complex (6\times4) matrix mapping path-averaged fractional-intensity and normalized-Stokes perturbations to detected optical signals.
+
+(P)
+: (4\times6) selection matrix that extracts (delta T,\delta s_1,\delta s_2,\delta s_3) from the six optical outputs.
+
+(S_0,S_1,S_2,S_3)
+: Unnormalized Stokes parameters. (S_0) is total intensity.
+
+(s_1,s_2,s_3)
+: Normalized Stokes parameters (s_i=S_i/S_0).
+
+(T)
+: In optical plots, fractional transmitted-intensity change, (delta T=\delta S_0/S_0). It is not absolute transmission.
+
+(X,Y)
+: In-phase and quadrature components relative to an RF cosine reference.
+
+(chi)
+: Polarization ellipticity angle.
+
+(phi) or (psi)
+: Polarization ellipse azimuth; its small change is optical rotation. The app commonly displays (psi), while the theory pages use (phi) where convenient.
+
+(ho_0)
+: Zero-RF steady ground-state density matrix.
+
+(ho(G))
+: Spectral radius, the largest magnitude of the eigenvalues of matrix (G).
+
+(Omega_{\mathrm{rf}})
+: RF angular Rabi frequency in rad/s.
+
+## Terms {#glossary-terms}
+
+ACC
+: Antirelaxation coated cell.
+
+Alignment
+: Rank-2, quadrupolar component of the atomic density matrix.
+
+CBOR
+: Circular birefringence optical rotation, associated with rank-1 vector polarizability and atomic orientation.
+
+LDOR
+: Linear-dichroism optical rotation, associated with rank-2 tensor polarizability and atomic alignment; the same tensor channel also contains linear birefringence.
+
+Orientation
+: Rank-1, vector component of the atomic density matrix.
+
+Physical pump
+: A pump beam used as its own detected optical source, including dispersive and dissipative Stokes-to-atom feedback.
+
+Weak probe
+: A detector whose intensity does not change pumping, light shifts, broadening, or the steady state.
+
+Voigt response
+: Complex spectral response combining Doppler and Lorentzian broadening; its real and imaginary parts supply absorption and dispersion according to the app convention.

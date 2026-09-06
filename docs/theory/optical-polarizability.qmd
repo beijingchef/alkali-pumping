@@ -1,0 +1,43 @@
+# Optical polarizability {.unnumbered #optical-polarizability-theory}
+
+## Response functions {#polarizability-response-functions}
+
+The optical readout follows the scalar, vector, and tensor response functions of Mathur, Tang, and Happer [@mathur1970]. The application displays:
+
+- (alpha_{\mathrm{eq}}): equilibrium isotropic response;
+- (alpha_{\mathrm{hfs}}): scalar hyperfine-dependent response;
+- (alpha_{\mathrm{gt}}(F,F)): rank-1 vector response;
+- (alpha_{\mathrm{br}}(F,F)): rank-2 tensor response.
+
+For each response, the real part is dispersive and the imaginary part is absorptive.
+
+## Polarizability operator {#polarizability-operator}
+
+The ground-state polarizability is represented as an operator-valued Cartesian tensor:
+
+$$
+\boldsymbol\alpha
+=\boldsymbol\alpha^{(0)}
++\boldsymbol\alpha^{(1)}
++\boldsymbol\alpha^{(2)}.
+$$
+
+The vector term contains the antisymmetric tensor coupled to atomic orientation. The tensor term contains a traceless symmetric quadrupole coupled to alignment.
+
+## Tensor normalization {#tensor-normalization}
+
+The Atomic polarizability page displays Mathur's normalized rank-2 coefficient. The optical readout converts it to the raw Cartesian convention
+
+$$
+Q_{ij}=\frac12(F_iF_j+F_jF_i)
+-\delta_{ij}\frac{F(F+1)}{3}.
+$$
+
+For manifold (F), the conversion factor is
+
+$$
+c_F=-\sqrt{\frac{30}
+{F(F+1)(2F-1)(2F+1)(2F+3)}}.
+$$
+
+This sign and normalization are essential for the LDOR contribution discussed in [CBOR and LDOR](cbor-and-ldor.qmd).

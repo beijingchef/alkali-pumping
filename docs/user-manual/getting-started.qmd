@@ -1,0 +1,42 @@
+# Getting started {.unnumbered #getting-started}
+
+## Purpose {#getting-started-purpose}
+
+Alkali Pumping calculates steady ground-state populations, light shifts, relaxation rates, weak-RF responses, and optical readout signals for one or two alkali species. Its main page is the [ACC Magnetometer](acc-magnetometer.qmd).
+
+## Install and run {#install-and-run}
+
+From the repository root, install the packages listed in `requirements.txt`, then start Streamlit:
+
+```powershell
+streamlit run alkali_pumping.py
+```
+
+The browser opens on **Analysis → ACC Magnetometer**.
+
+## Navigation {#application-navigation}
+
+The top menu is divided into two groups:
+
+- **Analysis → ACC Magnetometer** contains the coupled pumping, RF, and optical-readout calculation.
+- **Reference → Light shift** explores scalar, vector, and tensor light shifts.
+- **Reference → Atomic polarizability** displays the complex scalar, vector, and tensor optical response functions.
+- **Reference → Atomic properties** displays vapor, collision, and transition-strength reference data.
+
+Each analysis page manages its own settings. Navigating to another page does not intentionally reset the saved page state.
+
+## Recommended first calculation {#recommended-first-calculation}
+
+1. Select the alkali isotope and cell temperature.
+2. Configure Pump A1 and Pump A2.
+3. Choose the static-field and quantization axes consistently.
+4. Select an RF axis and frequency interval.
+5. Begin with `PumpA1 weak` as the probe source.
+6. Compare with `PumpA1` only when physical-pump feedback is desired.
+7. Save the conditions before making a large parameter scan.
+
+The distinction between weak and physical pump readout is explained in [Probe source modes](acc-magnetometer.qmd#probe-source-modes).
+
+## Reading notation {#reading-notation}
+
+Angular frequencies such as Rabi frequency are written in rad/s, while displayed RF sweep frequencies and light shifts are generally in Hz or MHz. Stokes parameters (s_1,s_2,s_3) are normalized by total intensity. See the [glossary](../glossary.qmd) for symbols and abbreviations.

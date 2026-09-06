@@ -1,0 +1,23 @@
+# Data export {.unnumbered #data-export}
+
+## CSV downloads {#csv-downloads}
+
+Response panels provide CSV downloads containing the RF frequency axis and the calculated Amplitude, In phase, and Quadrature values. Optical exports also identify the signal and readout mode.
+
+Downloads contain the numerical values before any visual interpolation. Units and applied display factors are recorded in the export where supported.
+
+## Reproducible records {#reproducible-records}
+
+For an experimental comparison, retain together:
+
+- the condition JSON file;
+- the relevant CSV exports;
+- the application version;
+- the physics-model identifier;
+- notes describing experimental power, beam diameter, cell geometry, and calibration.
+
+The condition file stores intensity in µW/cm², not optical power and beam diameter separately. Any conversion from measured power to local beam intensity must therefore be documented outside the condition file.
+
+## Plot sign controls {#export-and-sign-controls}
+
+The **Add (pi)** display controls change the plotted sign of In phase or Quadrature. When comparing CSV data with a plotted curve, consult the export columns that distinguish raw and plotted values.

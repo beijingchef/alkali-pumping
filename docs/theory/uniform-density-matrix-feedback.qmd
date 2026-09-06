@@ -1,0 +1,85 @@
+# Uniform density-matrix feedback {.unnumbered #uniform-density-matrix-feedback}
+
+## State variables {#feedback-state-variables}
+
+At each RF frequency, collect the six complex optical responses into
+
+$$
+\mathbf y=
+\begin{pmatrix}
+\delta T & \delta s_1 & \delta s_2 & \delta s_3 &
+\delta\phi & \delta\chi
+\end{pmatrix}^{T}.
+$$
+
+The first four quantities can change the physical pump interaction. Rotation and ellipticity are derived detector outputs.
+
+The selection matrix is
+
+$$
+P=
+\begin{pmatrix}
+1&0&0&0&0&0\\
+0&1&0&0&0&0\\
+0&0&1&0&0&0\\
+0&0&0&1&0&0
+\end{pmatrix}.
+$$
+
+It has no atomic-physics meaning beyond selecting (delta T,\delta s_1,\delta s_2,\delta s_3).
+
+## Direct response and feedback matrix {#direct-response-and-feedback-matrix}
+
+Let (mathbf b(\omega)) be the direct weak-RF optical response. For each selected Stokes coordinate (q), the solver constructs a density-matrix source
+
+$$
+S_q=-i[\partial_q(H_{\mathrm{LS}}/\hbar),\rho_0]
++\partial_q\mathcal D_{\mathrm{OP}}(\rho_0).
+$$
+
+The first term is dispersive light-shift feedback; the second is dissipative optical-pumping feedback. Evolving these sources and applying the optical readout operators produces a (6\times4) complex response matrix (K(\omega)).
+
+## Feedback closure {#feedback-closure}
+
+The model assumes that the generated optical perturbation begins at zero at the cell entrance and grows linearly along a cell containing one uniform RF-induced atomic response. Its path average is therefore
+
+$$
+\bar{\mathbf u}=\frac12P\mathbf y_{\mathrm{out}}.
+$$
+
+The output obeys
+
+$$
+\mathbf y_{\mathrm{out}}=\mathbf b+K\bar{\mathbf u}.
+$$
+
+Combining them gives the implemented (4\times4) solve:
+
+$$
+\left(I-\frac12PK\right)\bar{\mathbf u}
+=\frac12P\mathbf b,
+$$
+
+followed by
+
+$$
+\mathbf y_{\mathrm{out}}=\mathbf b+K\bar{\mathbf u}.
+$$
+
+No longitudinal slice cascade is performed, and no beam-area filling factor is applied to the configured pump intensity.
+
+## Repeated-feedback interpretation {#repeated-feedback-interpretation}
+
+Define (G=PK/2). When every eigenvalue of (G) has magnitude below one,
+
+$$
+(I-G)^{-1}=I+G+G^2+\cdots.
+$$
+
+The successive terms can be interpreted as direct RF response, one Stokes-to-atom feedback cycle, two cycles, and so forth. The code evaluates the matrix inverse directly rather than iterating this series.
+
+If the spectral radius reaches or exceeds one, the geometric series interpretation fails even when the algebraic inverse exists. Such a result indicates a strong-feedback regime and should be judged together with the [model limitations](assumptions-and-limitations.qmd).
+
+## Meaning of nonlinear {#meaning-of-nonlinear-feedback}
+
+For fixed operating conditions, this remains a linear small-signal response in RF amplitude. “Nonlinear” refers to the self-consistent, non-additive dependence on optical feedback, path length, and the simultaneous rank-1/rank-2 channels. It is not a finite-RF nonlinear Maxwell–Bloch calculation.

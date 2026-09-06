@@ -1,0 +1,48 @@
+# Physical model overview {.unnumbered #physical-model-overview}
+
+## Calculation sequence {#physical-calculation-sequence}
+
+The ACC Magnetometer calculation has four conceptual stages:
+
+1. Construct optical-pumping and relaxation generators for every active alkali.
+2. Solve the zero-RF steady ground-state populations.
+3. Linearize the density-matrix dynamics with respect to a weak RF field.
+4. Apply optical readout operators and, for a physical pump, close the path-averaged Stokes feedback.
+
+The principal chain is
+
+$$
+\text{conditions}
+\longrightarrow \rho_0
+\longrightarrow \delta\rho_{\mathrm{RF}}(\omega)
+\longrightarrow \delta\mathbf S(\omega)
+\longrightarrow \{\delta\phi,\delta\chi,\delta T\}.
+$$
+
+## Uniform steady state {#uniform-steady-state}
+
+All active pumps contribute to one zero-RF steady state for each alkali species. The model does not resolve transverse beam profiles or atomic trajectories. In the current physical-pump readout, the RF-induced perturbation is also represented by one density matrix shared by the full optical path.
+
+Uniform does not mean that the entered optical intensity is reduced to a cell average. The configured intensity is used directly in optical pumping, light shifts, and physical-pump feedback.
+
+## Weak-RF expansion {#weak-rf-expansion}
+
+The RF calculation expands the density matrix around zero RF drive:
+
+$$
+\rho(t)=\rho_0+\Omega_{\mathrm{rf}}\rho^{(1)}(t)
++\mathcal O(\Omega_{\mathrm{rf}}^2).
+$$
+
+Every plotted RF curve is therefore a susceptibility per unit RF Rabi frequency, or a converted response per unit magnetic field. RF saturation and finite-drive power broadening are outside the model.
+
+## Related topics {#model-overview-related-topics}
+
+- [Atomic structure and basis](atomic-structure.qmd)
+- [Optical pumping](optical-pumping.qmd)
+- [Relaxation and spin exchange](relaxation-and-spin-exchange.qmd)
+- [RF response](rf-response.qmd)
+- [Optical polarizability](optical-polarizability.qmd)
+- [CBOR and LDOR](cbor-and-ldor.qmd)
+- [Uniform density-matrix feedback](uniform-density-matrix-feedback.qmd)
+- [Assumptions and limitations](assumptions-and-limitations.qmd)

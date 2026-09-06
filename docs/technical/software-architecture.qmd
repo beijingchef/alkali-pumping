@@ -1,0 +1,37 @@
+# Software architecture {.unnumbered #software-architecture}
+
+## Entry point and pages {#entry-point-and-pages}
+
+`alkali_pumping.py` defines the top navigation with Streamlit `st.navigation` and `st.Page`. Page scripts live in `alkali_pumping_app/pages/`:
+
+- `ACC-Magnetometer.py`
+- `light_shift.py`
+- `atomic_polarizability.py`
+- `atomic_properties.py`
+
+Page scripts assemble controls and presentation. Reusable physics is kept out of page scripts whenever practical.
+
+## Physics package {#physics-package}
+
+`alkali_pumping_app/physics/` contains the numerical model:
+
+- `constants.py`: atomic, vapor, and collision data;
+- `angular_momentum.py`: basis construction and coupling algebra;
+- `spectroscopy.py`: hyperfine transitions and detuning conventions;
+- `optical_pumping.py`: absorption, repopulation, and light-shift inputs;
+- `spin_exchange.py` and `multi_species.py`: collision maps and coupled steady states;
+- `rf_response.py`: weak-RF and generalized Liouvillian resolvents;
+- `atomic_polarizability.py`: complex Mathur response functions;
+- `optical_readout.py`: Stokes and derived-signal readout operators;
+- `nonlinear_readout.py`: spatially uniform physical-pump feedback closure;
+- `system_model.py`: high-level construction of complete A/B results.
+
+## UI package {#ui-package}
+
+`alkali_pumping_app/ui/` contains condition-file handling, persistent page state, tables, captions, plot transformations, and CSV exports. These helpers keep saved state and exported quantities synchronized with the displayed controls.
+
+## Tests {#test-package}
+
+`tests/` contains regression, physical-invariant, condition-migration, export, and navigation tests. Pure numerical behavior is tested without Streamlit. Page routing is also exercised through Streamlit's `AppTest` framework during release verification.
+
+See [Solver data flow](solver-data-flow.qmd) for the order in which these modules interact.

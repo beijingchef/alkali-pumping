@@ -1,0 +1,38 @@
+# CBOR and LDOR {.unnumbered #cbor-and-ldor}
+
+## Rank-1 channel: CBOR {#cbor}
+
+The rank-1 vector polarizability couples to atomic orientation. Its dispersive part distinguishes the two circular optical components and produces circular birefringence optical rotation (CBOR). Its absorptive part describes circular dichroism.
+
+## Rank-2 channel: LDOR {#ldor}
+
+The rank-2 tensor polarizability couples to atomic alignment. It produces linear birefringence and linear-dichroism optical rotation (LDOR), depending on the relative orientation of the input polarization and the atomic alignment axes.
+
+CBOR and LDOR are not inserted as two independent rotation angles. They first produce changes in the transmitted Stokes vector.
+
+## Rotation from Stokes parameters {#rotation-from-stokes}
+
+For ellipse azimuth (phi) and ellipticity angle (chi),
+
+$$
+s_1=\cos(2\chi)\cos(2\phi),\qquad
+s_2=\cos(2\chi)\sin(2\phi),\qquad
+s_3=\sin(2\chi).
+$$
+
+Linearization gives
+
+$$
+\delta\phi=
+\frac12
+\frac{s_1\delta s_2-s_2\delta s_1}
+{s_1^2+s_2^2}.
+$$
+
+Thus both CBOR and LDOR are included through their contributions to (delta s_1) and (delta s_2). For an initially linear beam on a Stokes axis, this reduces to (delta\phi=\delta s_2/(2s_1)).
+
+## Weak and physical-pump totals {#cbor-ldor-total}
+
+For a weak detector, orientation and alignment readout operators add at the complex-susceptibility level before amplitude is taken.
+
+For a physical pump, Total is obtained by closing the full rank-1 plus rank-2 feedback together. The displayed Orientation-induced and Alignment-induced curves are separately closed counterfactuals. Therefore, they generally do not add to Total. See the [feedback closure](uniform-density-matrix-feedback.qmd#feedback-closure).

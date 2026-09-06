@@ -15,11 +15,19 @@ navigation = st.navigation(
     {
         "Analysis": [
             st.Page(
+                "alkali_pumping_app/pages/ACC-Magnetometer.py",
+                title="ACC Magnetometer",
+                icon=":material/explore:",
+                url_path="acc-magnetometer",
+                default=True,
+            ),
+        ],
+        "Reference": [
+            st.Page(
                 "alkali_pumping_app/pages/light_shift.py",
                 title="Light shift",
                 icon=":material/waves:",
                 url_path="light-shift",
-                default=True,
             ),
             st.Page(
                 "alkali_pumping_app/pages/atomic_polarizability.py",
@@ -27,14 +35,6 @@ navigation = st.navigation(
                 icon=":material/ssid_chart:",
                 url_path="atomic-polarizability",
             ),
-            st.Page(
-                "alkali_pumping_app/pages/magnetometry.py",
-                title="Magnetometry",
-                icon=":material/explore:",
-                url_path="magnetometry",
-            ),
-        ],
-        "Reference": [
             st.Page(
                 "alkali_pumping_app/pages/atomic_properties.py",
                 title="Atomic properties",

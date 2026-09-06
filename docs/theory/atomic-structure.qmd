@@ -1,0 +1,40 @@
+# Atomic structure and basis {.unnumbered #atomic-structure-and-basis}
+
+## Ground-state basis {#ground-state-basis}
+
+The solver uses the coupled ground-state basis
+
+$$
+|F,m\rangle,
+\qquad F=I\pm\frac12,
+$$
+
+for alkali atoms with electronic ground angular momentum (J=1/2). The selected quantization axis defines (m) and the matrix representation of laboratory spin operators.
+
+The steady population model retains the diagonal entries
+
+$$
+p_{Fm}=\langle F,m|\rho_0|F,m\rangle.
+$$
+
+The RF calculation adds selected ground-state coherences around this diagonal state.
+
+## Optical transitions {#optical-transitions}
+
+D1 and D2 excited states are constructed in the same hyperfine notation. Dipole matrix elements enforce the spherical selection rule
+
+$$
+\Delta m=q,\qquad q\in\{-1,0,+1\}.
+$$
+
+Transition strengths are calculated from angular-momentum coupling coefficients. Pressure shifts, Doppler broadening, natural width, and hyperfine offsets determine the complex spectral response at each laser frequency.
+
+## Quantization and laboratory axes {#quantization-and-laboratory-axes}
+
+Pump propagation, RF drive, static field, and detected observables are entered as laboratory axes. The solver transforms the associated spin and polarization operators into the local frame defined by the chosen quantization axis.
+
+The population approximation is most consistent when the static magnetic field is parallel to that quantization axis. Transverse static-field mixing is not included in the steady population solve.
+
+## Multipole interpretation {#atomic-multipoles}
+
+Atomic orientation is the rank-1, vector part of the density matrix and is detected through vector optical polarizability. Atomic alignment is the rank-2, quadrupolar part and is detected through tensor optical polarizability. These connections are developed in [CBOR and LDOR](cbor-and-ldor.qmd).

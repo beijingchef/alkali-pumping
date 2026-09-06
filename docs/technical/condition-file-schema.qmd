@@ -1,0 +1,25 @@
+# Condition-file schema {.unnumbered #condition-file-schema}
+
+## Public interface {#condition-schema-public-interface}
+
+Saved condition files are versioned public interfaces. A file contains application identification, a format name, a schema version, a timestamp, and a `conditions` object containing every persistent user setting for that page.
+
+The ACC Magnetometer currently writes schema **6.9**. Light shift and Atomic polarizability use their own independently versioned formats.
+
+## Loading {#condition-loading}
+
+The loader validates application and format identifiers before applying values. A complete current-schema file must contain the required fields. Supported older versions pass through explicit migration steps before their settings enter session state.
+
+## Compatibility principles {#condition-compatibility-principles}
+
+- A migrated field must preserve its former physical meaning.
+- New defaults must not overwrite values loaded from a file.
+- Renaming a page or navigation route does not by itself require a schema change.
+- Changing the meaning, units, or structure of a stored field does require a new schema and migration.
+- Unknown future schema versions are rejected rather than guessed.
+
+## Probe-source migration {#probe-source-migration}
+
+Schema 6.9 distinguishes explicit weak sources (`PumpN weak`) from physical pump sources (`PumpN`). Older plain pump links that historically meant a weak detector are migrated to the weak form.
+
+User workflow is described in [Condition files](../user-manual/condition-files.qmd).

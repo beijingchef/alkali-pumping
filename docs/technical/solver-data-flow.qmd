@@ -1,0 +1,43 @@
+# Solver data flow {.unnumbered #solver-data-flow}
+
+## ACC Magnetometer request {#acc-solver-request}
+
+The ACC page converts Streamlit session state into four plain structures:
+
+- Alkali-A configuration;
+- optional Alkali-B configuration;
+- active physical beams;
+- common cell and static-field settings.
+
+These structures are passed to `compute_alkali_system` and are suitable for caching because UI-only objects are removed first.
+
+## Model construction {#model-construction}
+
+For each species, `build_species_linear_model`:
+
+1. builds the (|F,m\rangle) basis;
+2. evaluates every active beam at that species' transition frequencies;
+3. sums optical population generators;
+4. adds electron-randomization dynamics;
+5. calculates density-dependent self-exchange information.
+
+The one- or two-species steady-state solver then returns normalized populations and population Jacobians.
+
+## Finalization {#species-finalization}
+
+`_finalize_species` calculates:
+
+- light-shift and magnetic state frequencies;
+- population and coherence relaxation diagnostics;
+- the Zeeman result table;
+- atomic weak-RF susceptibilities;
+- optical readout operators;
+- the direct weak-probe response.
+
+## Physical-pump readout {#physical-pump-data-flow}
+
+If the selected probe mode is physical, `apply_physical_pump_readout` stores the direct response as `probe_weak_response`, constructs dispersive and dissipative Stokes sources, evaluates their generalized Liouvillian responses, and applies the [uniform feedback closure](../theory/uniform-density-matrix-feedback.qmd#feedback-closure).
+
+## Presentation and export {#presentation-and-export}
+
+The page converts raw susceptibility units into the selected display units, applies optional sign flips only to displayed phase components, draws plots, and constructs CSV tables. Scientific transformations used by both plots and exports belong in reusable UI helpers so they can be regression tested.

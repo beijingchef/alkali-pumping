@@ -1,0 +1,35 @@
+# Documentation home {.unnumbered #documentation-home}
+
+This is the documentation for **Alkali Pumping v6.9.9**, a Streamlit application for modeling optical pumping and weak-RF magnetometry in alkali-vapor cells. The principal analysis is the **ACC Magnetometer**, where ACC means *antirelaxation coated cell*.
+
+The documentation is organized by audience. It deliberately uses descriptive internal links rather than numbered chapters and equations.
+
+## Choose a starting point {#choose-a-starting-point}
+
+- **Operating the application:** start with [Getting started](user-manual/getting-started.qmd) and the [ACC Magnetometer workflow](user-manual/acc-magnetometer.qmd).
+- **Understanding the model:** start with the [physical model overview](theory/model-overview.qmd), then follow links to optical pumping, RF response, and optical rotation.
+- **Maintaining the code:** start with [software architecture](technical/software-architecture.qmd) and [solver data flow](technical/solver-data-flow.qmd).
+- **Looking up a term or symbol:** use the [glossary](glossary.qmd).
+
+## Current physical model {#current-physical-model}
+
+The ACC Magnetometer first calculates a steady atomic state from optical pumping, electron randomization, and spin exchange. It then calculates a weak-RF density-matrix response and converts that response into atomic observables and transmitted-light Stokes signals.
+
+When a physical pump is selected as its own probe, the configured pump intensity is used unchanged. The RF perturbation uses one [spatially uniform atomic density matrix](theory/uniform-density-matrix-feedback.qmd) driven by the path-averaged Stokes perturbation. The current solver does not create a different atomic state in every longitudinal slice.
+
+## Legacy derivations {#legacy-derivations}
+
+The original detailed derivations remain available in their source and rendered forms:
+
+- [Ground-state light shifts](alkali_ground_state_light_shifts_v1.4.pdf)
+- [Rotating-frame light-shift derivation](light_shift_derivation_rotating_frame_v1.0.pdf)
+- [Rotating-frame LaTeX source](light_shift_derivation_rotating_frame_v1.0.tex)
+- [Weak-RF susceptibility solver](rf_susceptibility_solver.pdf)
+- [Weak-RF susceptibility LaTeX source](rf_susceptibility_solver.tex)
+- [Positive/negative-frequency convention](positive_negative_frequency_convention_v1.0.tex)
+
+These files are retained as technical references while their durable results are incorporated into the linked theory chapters.
+
+## Documentation status {#documentation-status}
+
+This first Quarto edition establishes the structure, terminology, main equations, operating workflow, and model limitations. The application and its automated tests remain the authority when documentation and implementation disagree; such a disagreement should be treated as a defect and corrected.

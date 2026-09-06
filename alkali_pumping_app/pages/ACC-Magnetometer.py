@@ -1,4 +1,4 @@
-"""Magnetometry analysis page for the Alkali Pumping application."""
+"""ACC-Magnetometer analysis page for the Alkali Pumping application."""
 
 import json
 

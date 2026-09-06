@@ -42,3 +42,7 @@ experiments/
 # docs/
 # sim_conditions/
 # sim_results/
+
+# Generated Quarto output and execution cache
+docs/_book/
+docs/.quarto/

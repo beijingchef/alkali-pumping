@@ -1,0 +1,45 @@
+# Interpreting results {.unnumbered #interpreting-results}
+
+## In phase, quadrature, and amplitude {#rf-components}
+
+The RF reference is (cos(omega t)). A real response is written
+
+$$
+R(t)=X(omega)cos(omega t)+Y(omega)sin(omega t).
+$$
+
+Here (X) is In phase, (Y) is Quadrature, and
+
+$$
+A(omega)=\sqrt{X(\omega)^2+Y(\omega)^2}
+$$
+
+is the nonnegative Amplitude. The optional **Add (pi)** controls reverse a displayed signed component; they do not change the calculated amplitude or underlying susceptibility.
+
+## Resonance locations and widths {#resonance-locations-and-widths}
+
+Resonance positions include the selected static field and diagonal pump light shifts. Widths contain optical-pumping, electron-randomization, and spin-exchange contributions. Multiple Zeeman coherences can overlap and produce an asymmetric total curve even when each individual mode is Lorentzian-like.
+
+## Optical signals {#interpreting-optical-signals}
+
+- Fractional transmission is (delta T=delta S_0/S_0).
+- (s_i=S_i/S_0) are normalized Stokes parameters.
+- Rotation (phi) is the change of the polarization ellipse azimuth.
+- Ellipticity (chi) measures the change toward circular polarization.
+
+For a noncircular input beam,
+
+$$
+\delta\phi=
+\frac{1}{2}
+\frac{s_1\,\delta s_2-s_2\,\delta s_1}
+{s_1^2+s_2^2}.
+$$
+
+Both the [CBOR and LDOR channels](../theory/cbor-and-ldor.qmd) can contribute to (delta s_1) and (delta s_2).
+
+## Comparing weak and physical-pump curves {#weak-versus-physical-curves}
+
+`PumpN weak` shows the direct weak readout. `PumpN` additionally closes dispersive and dissipative Stokes-to-atom feedback. A difference between these curves therefore measures a model prediction, not merely a different normalization.
+
+If physical-pump feedback strongly shifts a peak or creates a shoulder, check path length, density, detuning, intensity, and the reported loop diagnostic. The [limitations chapter](../theory/assumptions-and-limitations.qmd) explains why a strong closed-loop result can be more sensitive than the weak curve.

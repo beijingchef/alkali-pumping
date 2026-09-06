@@ -1,0 +1,40 @@
+# Optical pumping {.unnumbered #optical-pumping-theory}
+
+## Population generator {#optical-population-generator}
+
+For every active beam, the solver calculates absorption from each ground state (g) to each excited state (e), followed by spontaneous repopulation of the ground manifold. In population form this produces a rate generator (L_{\mathrm{OP}}):
+
+$$
+\dot{\mathbf p}=L_{\mathrm{OP}}\mathbf p.
+$$
+
+Its columns conserve total probability. The optical rate is proportional to the configured beam intensity and the absorptive part of the Doppler- and pressure-broadened line profile.
+
+## Steady state {#optical-steady-state}
+
+For one species, the zero-RF steady state is schematically determined by
+
+$$
+0=\left[L_{\mathrm{OP}}
++R_{\mathrm{ER}}(M_{\mathrm{ER}}-I)
++L_{\mathrm{SE}}\right]\mathbf p_0,
+\qquad \mathbf 1^T\mathbf p_0=1.
+$$
+
+Spin exchange is population dependent, so its steady state is found by a fixed-point calculation. In a two-species system, the A and B populations are solved together.
+
+## Polarization dependence {#pumping-polarization-dependence}
+
+The beam polarization is decomposed into spherical components relative to the quantization axis. Their weights determine which (Delta m) transitions absorb. Preset linear and circular polarizations and arbitrary polarization ellipses are converted to the same underlying representation.
+
+## Dissipative density-matrix source {#dissipative-stokes-source}
+
+For physical-pump feedback, the population generator is lifted to a trace-preserving ground-state dissipator. For excited state (e), the implemented structure is
+
+$$
+\mathcal D_e(\rho)
+=\sum_g b_{ge}|g\rangle\langle g|\operatorname{Tr}(A_e\rho)
+-\frac12\{A_e,\rho\},
+$$
+
+where (A_e) is the polarization-dependent absorption operator and (b_{ge}) is the spontaneous branching fraction. Derivatives with respect to fractional intensity and (s_1,s_2,s_3) supply the dissipative part of the [uniform feedback](uniform-density-matrix-feedback.qmd).

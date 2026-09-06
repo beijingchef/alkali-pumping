@@ -1,0 +1,25 @@
+# Condition files {.unnumbered #condition-files}
+
+## Purpose {#condition-file-purpose}
+
+Condition files preserve user inputs and display selections as JSON. ACC Magnetometer conditions, Light shift conditions, and Atomic polarizability conditions are independent formats even when they contain similarly named quantities.
+
+## ACC Magnetometer schema {#acc-condition-schema}
+
+The current ACC Magnetometer condition schema is **6.9**. The application migrates supported older schemas when loading them. A migrated value is intended to retain its historical physical meaning.
+
+The application version and condition-schema version are separate. A UI release can change without changing the saved condition structure.
+
+## Safe workflow {#condition-safe-workflow}
+
+1. Enter a descriptive setting name.
+2. Save the JSON file before a parameter study.
+3. Keep the original file when testing a new app version.
+4. After loading, inspect atom choices, pump intensities, detunings, path length, and probe-source mode.
+5. Save under a new name after a migration if the original must remain usable by an older release.
+
+## Probe-source compatibility {#probe-source-compatibility}
+
+Beginning with schema 6.9, `PumpN weak` explicitly means a non-perturbing detector and plain `PumpN` means the physical pump. Older plain-pump links are migrated to the weak form when necessary to preserve their earlier meaning.
+
+Technical details and validation rules are documented in [Condition-file schema](../technical/condition-file-schema.qmd).

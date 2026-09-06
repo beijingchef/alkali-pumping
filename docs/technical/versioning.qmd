@@ -1,0 +1,28 @@
+# Versioning {.unnumbered #versioning}
+
+## Three versions {#three-versions}
+
+The application distinguishes:
+
+- **Application version:** user-visible release, currently 6.9.9.
+- **Condition schema:** saved ACC settings format, currently 6.9.
+- **Physics-model identifier:** a descriptive string naming the active scientific model.
+
+They change for different reasons. A navigation rename changes the application version but not the condition schema or physical equations.
+
+## Release documentation {#release-documentation}
+
+User-visible and physics changes are recorded in `CHANGELOG.md`. `README.md` describes current workflow, defaults, supported behavior, and repository layout. This Quarto book holds durable operating instructions, scientific conventions, derivations, and maintenance notes.
+
+## Updating documentation {#updating-documentation}
+
+When a solver changes:
+
+1. update the governing theory and limitations;
+2. update technical data flow or numerical details;
+3. update the user manual if controls or interpretation change;
+4. add or revise regression tests;
+5. update application and model metadata;
+6. record verification in the changelog and commit summary.
+
+Semantic links should point to concepts and stable section anchors rather than equation numbers or source-code line numbers.

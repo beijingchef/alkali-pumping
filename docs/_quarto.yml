@@ -1,0 +1,56 @@
+project:
+  type: book
+  output-dir: _book
+
+book:
+  title: "Alkali Pumping"
+  subtitle: "ACC Magnetometer user manual, physical theory, and technical notes"
+  author: "Alkali Pumping application"
+  date: last-modified
+  page-navigation: true
+  search: true
+  chapters:
+    - index.qmd
+    - part: "User manual"
+      chapters:
+        - user-manual/getting-started.qmd
+        - user-manual/acc-magnetometer.qmd
+        - user-manual/condition-files.qmd
+        - user-manual/interpreting-results.qmd
+        - user-manual/data-export.qmd
+    - part: "Physical theory"
+      chapters:
+        - theory/model-overview.qmd
+        - theory/atomic-structure.qmd
+        - theory/optical-pumping.qmd
+        - theory/relaxation-and-spin-exchange.qmd
+        - theory/light-shifts.qmd
+        - theory/rf-response.qmd
+        - theory/optical-polarizability.qmd
+        - theory/cbor-and-ldor.qmd
+        - theory/uniform-density-matrix-feedback.qmd
+        - theory/assumptions-and-limitations.qmd
+    - part: "Technical notes"
+      chapters:
+        - technical/software-architecture.qmd
+        - technical/solver-data-flow.qmd
+        - technical/numerical-methods.qmd
+        - technical/condition-file-schema.qmd
+        - technical/testing-and-validation.qmd
+        - technical/versioning.qmd
+    - glossary.qmd
+    - references.qmd
+
+bibliography: references.bib
+number-sections: false
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    toc-depth: 3
+    code-copy: true
+    anchor-sections: true
+
+execute:
+  freeze: auto

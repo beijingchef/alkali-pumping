@@ -1,0 +1,49 @@
+# ACC Magnetometer {.unnumbered #acc-magnetometer}
+
+ACC means **antirelaxation coated cell**. The page is designed for weak-RF magnetometry calculations in which wall relaxation can be represented by the entered electron-randomization rate, while optical pumping and spin exchange prepare the atomic state.
+
+## Atom and cell settings {#atom-and-cell-settings}
+
+Alkali A is always active. Alkali B becomes active only when it is a different isotope or element from A. Enter the temperature, nitrogen pressure, electron-randomization rates, mixture density model, and static magnetic field.
+
+The population model is diagonal in the selected quantization basis. For the supported secular RF calculation, choose the static-field direction parallel to the quantization axis. A transverse static field would mix states in a way that the current population model does not retain.
+
+## Pump configuration {#pump-configuration}
+
+Each species has up to three named pumps. A pump specifies:
+
+- D1 or D2 spectral line;
+- hyperfine reference transition and relative detuning;
+- intensity in µW/cm²;
+- propagation direction;
+- polarization.
+
+Every active optical frequency is evaluated against every active alkali species. A pump aimed at one species can therefore produce off-resonant pumping of another species, although reported target-specific light shifts follow the selected pump target.
+
+## RF configuration {#rf-configuration}
+
+RF-A drives and reads Alkali A; RF-B is defined conversely. The two species retain self- and cross-spin-exchange coupling even though only one RF source is applied for each displayed response.
+
+Choose the RF axis, sweep bounds, and either a spin observable (F_i) or the cyclic off-diagonal alignment observable (Q_{ij}). The plotted curves are derivatives with respect to RF Rabi frequency or, for optical signals, may be converted to response per nT.
+
+## Probe source modes {#probe-source-modes}
+
+Every pump appears twice in the probe-source selector:
+
+- `PumpN weak` copies the pump spectrum, direction, and polarization but ignores its intensity. It is a non-perturbing detector.
+- `PumpN` selects the actual pump as the detected beam. Its configured intensity participates in the spatially uniform [physical-pump feedback model](../theory/uniform-density-matrix-feedback.qmd).
+- `Custom` defines an independent weak detector.
+
+The physical-pump solver does **not** scale the configured intensity by the ratio of beam area to cell area.
+
+## Results {#acc-results}
+
+The results are divided into three sections:
+
+1. Ground-state Zeeman properties and populations.
+2. Atomic weak-RF response.
+3. Optical response of the selected probe source.
+
+The optical panel can display fractional transmission, normalized Stokes parameters, rotation, or ellipticity. It can also display Total, Orientation induced, or Alignment induced responses. For physical-pump readout, the last two are separately closed counterfactual calculations and generally do not add to Total.
+
+See [Interpreting results](interpreting-results.qmd) for the phase convention and line-shape guidance.

@@ -1,5 +1,19 @@
 # Changelog
 
+## 6.9.9 - 2026-09-06
+
+### Changed
+
+- Renamed the Magnetometry navigation item and page to **ACC Magnetometer**,
+  short for antirelaxation coated cell magnetometer, and renamed its source
+  file to `ACC-Magnetometer.py` with route `acc-magnetometer`.
+- Made **Analysis → ACC Magnetometer** the default page.
+- Moved **Light shift** and **Atomic polarizability** from the Analysis menu to
+  the Reference menu alongside **Atomic properties**.
+- Added an unnumbered, cross-linked Quarto book containing an initial user
+  manual, physical theory, technical notes, glossary, bibliography, and links
+  to the retained legacy derivations.
+
 ## 6.9.8 - 2026-09-06
 
 ### Changed

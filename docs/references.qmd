@@ -1,0 +1,15 @@
+# References {.unnumbered #references}
+
+The bibliography below is generated from `references.bib`.
+
+::: {#refs}
+:::
+
+## Additional data sources {#additional-data-sources}
+
+- D. A. Steck, [Alkali D-line data](https://steck.us/alkalidata/).
+- Jarrett, *Physical Review* **133**, A111 (1964), [DOI 10.1103/PhysRev.133.A111](https://doi.org/10.1103/PhysRev.133.A111).
+- Gibbs and Hull, *Physical Review* **153**, 132 (1967), [DOI 10.1103/PhysRev.153.132](https://doi.org/10.1103/PhysRev.153.132).
+- Kartoshkin, *Optics and Spectroscopy* **113**, 235 (2012), [DOI 10.1134/S0030400X12090081](https://doi.org/10.1134/S0030400X12090081).
+
+The corresponding numerical conventions are documented next to the constants in the source code and protected by regression tests where practical.

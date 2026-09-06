@@ -1,0 +1,31 @@
+# Relaxation and spin exchange {.unnumbered #relaxation-and-spin-exchange}
+
+## Electron randomization {#electron-randomization}
+
+Electron-randomization collisions relax electronic polarization while preserving the nuclear reduced state according to the implemented collision map. The user enters the effective rate (R_{\mathrm{ER}}). In a coated cell this rate can represent residual wall relaxation and other electron-randomizing processes not modeled microscopically.
+
+## Self spin exchange {#self-spin-exchange}
+
+The self-exchange rate is calculated from the alkali density, thermal mean relative speed, and a species-specific cross section. The collision map is linearized about the calculated steady state for the RF response.
+
+Spin exchange can transfer perturbations between coherences. It is therefore represented by a matrix contribution, not only by a scalar linewidth.
+
+## Unlike-alkali exchange {#unlike-alkali-exchange}
+
+When A and B are different active alkalis, the steady populations and small-signal responses are coupled. The joint coherence generator has the block form
+
+$$
+G=
+\begin{pmatrix}
+G_A & R_{A\leftarrow B}M_{A\leftarrow B}\\
+R_{B\leftarrow A}M_{B\leftarrow A} & G_B
+\end{pmatrix}.
+$$
+
+For the A response, only A is directly driven and read out, but B can influence A through the off-diagonal blocks. The B response is defined conversely.
+
+## Relaxation reported in the app {#reported-relaxation}
+
+The Zeeman table separates optical-pumping, electron-randomization, self-exchange, and cross-exchange contributions. Adjacent-coherence widths enter the RF susceptibility, while population fractional rates describe redistribution of the zero-RF populations.
+
+The numerical constants and literature sources are summarized in [References](../references.qmd).

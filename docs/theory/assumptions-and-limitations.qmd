@@ -1,0 +1,50 @@
+# Assumptions and limitations {.unnumbered #assumptions-and-limitations}
+
+## Included approximations {#included-approximations}
+
+The current ACC Magnetometer model includes:
+
+- full ground-state hyperfine and Zeeman populations;
+- optical pumping with spontaneous repopulation;
+- diagonal light shifts from the complex Voigt response;
+- electron randomization;
+- self and unlike-alkali spin exchange;
+- weak-RF coherences and complex phase response;
+- scalar, vector, and tensor optical readout;
+- dispersive and dissipative physical-pump Stokes feedback.
+
+## Spatial approximation {#spatial-approximation}
+
+The model uses one atomic density matrix for the cell. It does not resolve:
+
+- Gaussian transverse intensity profiles;
+- atomic trajectories through finite beams;
+- diffusion and repeated wall-to-beam motion;
+- longitudinal steady-state pump depletion;
+- a separate atomic state for every propagation slice.
+
+The path-average factor (1/2) assumes that the small optical perturbation is generated approximately linearly along the uniform path.
+
+## Dynamical approximation {#dynamical-approximation}
+
+The RF response is first order in (Omega_{\mathrm{rf}}). RF saturation, finite-drive power broadening, harmonics, and time-dependent buildup from arbitrary initial conditions are not calculated.
+
+The optical-pumping dissipator is a weak-excitation ground-state model. Explicit excited-state dynamics and strong optical saturation are omitted. Ground-hyperfine optical coherences are removed under a secular approximation.
+
+## Optical-readout approximation {#optical-readout-approximation}
+
+The transmitted Stokes response is linearized in the vapor polarizability and RF-induced density-matrix perturbation. Physical-pump feedback closes these linear blocks algebraically, but it does not replace them with an exact nonlinear propagation calculation.
+
+## Strong-feedback warning {#strong-feedback-warning}
+
+The matrix (G=PK/2) measures the path-averaged small-signal optical loop. As an engineering diagnostic:
+
+- (ho(G)\ll1): feedback is perturbative;
+- (ho(G)) near one: line shapes can be very sensitive;
+- (ho(G)>1): the repeated-feedback series does not converge and the algebraic closure should not be interpreted as successive stable feedback passes.
+
+A shoulder or large peak displacement appearing only in the physical-pump curve should therefore be tested against experiment and against parameter changes in path length, density, detuning, and intensity.
+
+## Experimental comparison {#experimental-comparison}
+
+Record optical power, beam diameter and profile, cell dimensions, coating behavior, RF calibration, and detector geometry separately. The condition file accepts an intensity, not enough geometric information to derive these effects automatically.

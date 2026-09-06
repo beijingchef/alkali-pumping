@@ -1,26 +1,27 @@
-# Alkali Pumping v6.9.8
+# Alkali Pumping v6.9.9
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
 vapor.
 
-The app starts on **Analysis → Light shift**, and the top navigation separates
+The app starts on **Analysis → ACC Magnetometer**, and the top navigation separates
 four workflows:
 
-- **Analysis → Light shift** has independent sidebar controls and settings
+- **Analysis → ACC Magnetometer** models an antirelaxation coated cell
+  magnetometer with dual-alkali population and Zeeman diagnostics, independent
+  RF-A/RF-B drives, atomic-moment susceptibilities, and independent weak or
+  physical Pump-A/Pump-B Stokes readouts. Its Zeeman tables have per-species
+  column selectors while retaining complete CSV exports.
+- **Reference → Light shift** has independent sidebar controls and settings
   files for atom, cell, static field, arbitrary beam polarization, detuning,
   and plot selection. Its main panel plots scalar, vector, tensor,
   state-resolved, eigenvalue, adjacent-transition, and scattering results.
-- **Analysis → Atomic polarizability** plots the complex Mathur equilibrium,
+- **Reference → Atomic polarizability** plots the complex Mathur equilibrium,
   hyperfine, vector $\alpha_{\mathrm{gt}}$, and tensor $\alpha_{\mathrm{br}}$
   response functions for D1 or D2
   light. The real curves describe phase response and the imaginary curves
   describe attenuation; diagonal vector and tensor responses are
   shown for each ground hyperfine manifold.
-- **Analysis → Magnetometry** provides dual-alkali population and Zeeman
-  diagnostics, independent RF-A/RF-B drives, atomic-moment susceptibilities,
-  and independent weak Probe-A/Probe-B Stokes readouts. Its Zeeman tables have
-  per-species column selectors while retaining complete CSV exports.
 - **Reference → Atomic properties** presents the former Settings dialog as a
   full page with thermal, buffer-gas, and transition-strength tabs.
 
@@ -149,13 +150,20 @@ mean relative speed and the collision partner's number density.
 Native Streamlit theme settings can be added in `.streamlit/config.toml`.
 See `CHANGELOG.md` for user-visible and physics-model updates.
 
+The unnumbered, cross-linked Quarto documentation starts at
+[`docs/index.qmd`](docs/index.qmd). From the `docs` directory, render its HTML
+book with `quarto render` after installing Quarto. Generated output is written
+to `docs/_book/` and is intentionally excluded from Git.
+
 ## Layout
 
 - `alkali_pumping.py`: top-level Streamlit navigation entry point.
-- `alkali_pumping_app/pages/`: complete Light shift, Atomic polarizability, Magnetometry, and Atomic properties page implementations.
+- `alkali_pumping_app/pages/`: complete ACC-Magnetometer, Light shift, Atomic polarizability, and Atomic properties page implementations.
 - `alkali_pumping_app/physics/`: single- and dual-species numerical models.
 - `alkali_pumping_app/ui/`: condition-file and table-rendering helpers.
 - `tests/`: regression and physical-consistency tests.
+- `docs/`: Quarto user manual, physical theory, technical notes, bibliography,
+  and retained legacy derivations.
 - `../archive/alkali_pumping_v6.7.13/`: application snapshot immediately before the independent dual-probe readout implementation.
 
 Run the tests with:

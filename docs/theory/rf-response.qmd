@@ -1,0 +1,56 @@
+# Weak-RF response {.unnumbered #weak-rf-response}
+
+## RF drive convention {#rf-drive-convention}
+
+The RF Hamiltonian is
+
+$$
+\frac{H_{\mathrm{rf}}(t)}{\hbar}
+=\Omega_{\mathrm{rf}}F_i\cos(\omega t).
+$$
+
+The real cosine contains positive- and negative-frequency components. Both co-rotating and counter-rotating responses are retained.
+
+## Adjacent-coherence response {#adjacent-coherence-response}
+
+For (|a\rangle=|F,m\rangle) and (|b\rangle=|F,m-1\rangle), the positive-frequency coefficient per unit RF Rabi frequency is
+
+$$
+\frac{\partial\rho_{ab,+}}{\partial\Omega_{\mathrm{rf}}}
+=\frac{i(F_i)_{ab}(p_a-p_b)/2}
+{\Gamma_{ab}+i(\omega_{ab}-\omega)}.
+$$
+
+The reverse ordered coherence supplies the counter-rotating denominator. An arbitrary Hermitian readout operator (O) gives
+
+$$
+\chi_+(\omega)=\sum_{a,b}O_{ba}
+\frac{\partial\rho_{ab,+}}{\partial\Omega_{\mathrm{rf}}}.
+$$
+
+## Full resolvent {#rf-resolvent}
+
+When coherence transfer must be retained, the solver uses
+
+$$
+\chi_+(\omega)=
+\mathbf r^T(-i\omega I-G)^{-1}\mathbf s,
+$$
+
+where (G) is the coherence generator, (mathbf s) is the RF source, and (mathbf r) represents the selected readout.
+
+## Phase components {#rf-phase-components}
+
+The app reports
+
+$$
+X=2\operatorname{Re}\chi_+,
+\qquad
+Y=2\operatorname{Im}\chi_+,
+\qquad
+A=\sqrt{X^2+Y^2}.
+$$
+
+The factor of two reconstructs the real cosine response from its (e^{-i\omega t}) Fourier coefficient.
+
+For a longer derivation, see the [weak-RF solver PDF](../rf_susceptibility_solver.pdf), its [LaTeX source](../rf_susceptibility_solver.tex), and the [frequency-convention note](../positive_negative_frequency_convention_v1.0.tex).

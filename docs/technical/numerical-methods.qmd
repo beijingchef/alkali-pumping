@@ -1,0 +1,50 @@
+# Numerical methods {.unnumbered #numerical-methods}
+
+## Steady population solve {#steady-population-solve}
+
+Linear rate equations are solved subject to population normalization. Self and unlike-alkali spin exchange depend on the electron marginal of the current population, so the complete steady state uses a fixed-point iteration and reports convergence and residual diagnostics.
+
+Probability-conserving generators and collision maps are tested for normalization. Small negative numerical populations are not silently accepted as physical states.
+
+## Spectral profiles {#spectral-profile-method}
+
+Absorption and light shifts are evaluated from the real and imaginary parts of a shared complex Voigt response. This avoids switching to a far-wing (Delta/\Gamma) approximation near the Doppler-broadened line.
+
+## RF resolvent {#numerical-rf-resolvent}
+
+For a generator (G), source (mathbf s), and readout (mathbf r), the response is
+
+$$
+\chi_+(\omega)=\mathbf r^T(-i\omega I-G)^{-1}\mathbf s.
+$$
+
+The implementation diagonalizes (G=V\Lambda V^{-1}) once and evaluates
+
+$$
+\chi_+(\omega)=
+\sum_k\frac{(\mathbf r^TV)_k(V^{-1}\mathbf s)_k}
+{-i\omega-\lambda_k}
+$$
+
+over the requested frequency grid.
+
+## Uniform optical closure {#numerical-optical-closure}
+
+At every RF frequency, the physical-pump calculation solves a complex (4\times4) system:
+
+$$
+\left(I-\frac12PK\right)\bar{\mathbf u}
+=\frac12P\mathbf b.
+$$
+
+The ordinary solver is used first. A least-squares solution is used only if the matrix is numerically singular. The maximum spectral radius of (PK/2) is retained as a feedback-strength diagnostic.
+
+## Numerical invariants {#numerical-invariants}
+
+The implementation explicitly protects:
+
+- population normalization;
+- trace preservation of density-matrix sources;
+- Hermiticity of physical source and readout operators;
+- consistent Hz and rad/s conversion;
+- matched array lengths for plotted and exported frequency samples.

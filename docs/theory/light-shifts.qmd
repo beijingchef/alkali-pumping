@@ -1,0 +1,37 @@
+# Light shifts {.unnumbered #light-shifts-theory}
+
+## Complex spectral response {#complex-spectral-response}
+
+The same complex Voigt response is used for absorption and AC Stark shifts. Its real part supplies the absorptive optical-pumping profile; its imaginary part supplies the dispersive light shift. This keeps the two responses consistent when detuning is comparable to the Doppler width.
+
+## Scalar, vector, and tensor components {#light-shift-components}
+
+Within one hyperfine manifold, the diagonal shift is decomposed as
+
+$$
+\nu(F,m)=\nu_{\mathrm{scalar}}
++c_{\mathrm{vector}}m
++c_{\mathrm{tensor}}\left[3m^2-F(F+1)\right].
+$$
+
+The scalar contribution shifts the manifold without distinguishing (m). The vector contribution acts like a fictitious magnetic field. The tensor contribution produces an (m^2)-dependent splitting.
+
+## Use in the RF solver {#light-shifts-in-rf-response}
+
+The state frequency used by the secular RF solver is
+
+$$
+\nu_a=\nu_{B,a}+\nu_{\mathrm{LS},a}.
+$$
+
+Adjacent transition frequencies are differences of these state frequencies. Consequently, pump detuning and intensity can move individual RF resonances even when the pump is used only as a weak optical detector.
+
+## Detailed derivations {#light-shift-legacy-derivations}
+
+The original complete derivations are retained as:
+
+- [Ground-state light shifts PDF](../alkali_ground_state_light_shifts_v1.4.pdf)
+- [Rotating-frame derivation PDF](../light_shift_derivation_rotating_frame_v1.0.pdf)
+- [Rotating-frame LaTeX source](../light_shift_derivation_rotating_frame_v1.0.tex)
+
+These derive the rotating-wave effective Hamiltonian, second-order ground-manifold shift, Hermiticity, and the conditions under which the approximation is valid.

@@ -1,0 +1,32 @@
+# Testing and validation {.unnumbered #testing-and-validation}
+
+## Test layers {#test-layers}
+
+The repository separates several forms of verification:
+
+- unit tests for angular momentum, spectra, rates, and matrix construction;
+- physical-invariant tests for conservation, Hermiticity, trace, and units;
+- regression tests for signs and normalization, including LDOR;
+- condition-file round-trip and migration tests;
+- export and display-transformation tests;
+- navigation and Streamlit runtime smoke tests.
+
+## Running the suite {#running-the-test-suite}
+
+From the repository root:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+On the development computer, project guidance specifies the exact installed Python executable rather than a Windows alias.
+
+## Streamlit page verification {#streamlit-page-verification}
+
+Multipage tests initialize `alkali_pumping.py` as the entrypoint and then switch to a child page. Initializing a child page directly can change relative routing semantics and is not an equivalent test.
+
+## Scientific review {#scientific-review}
+
+Automated tests protect implemented equations but do not establish that every approximation describes a particular experiment. Comparisons should include weak versus physical-pump curves, limiting cases, dimensional checks, and sensitivity to path length, density, intensity, detuning, and relaxation.
+
+Strong feedback, transverse beam motion, and coated-cell transport require particular caution; see [Assumptions and limitations](../theory/assumptions-and-limitations.qmd).
