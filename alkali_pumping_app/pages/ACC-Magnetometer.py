@@ -887,12 +887,32 @@ def _physical_beam_config(beam):
 
 
 @st.cache_data(max_entries=24, show_spinner=False)
-def _compute_alkali_system_cached(
+def _compute_alkali_equilibrium_cached(
     species_A_config, species_B_config, physical_beams, common
 ):
     return compute_alkali_system(
         species_A_config, species_B_config, physical_beams, common
     )
+
+
+@st.cache_data(max_entries=48, show_spinner=False)
+def _compute_alkali_responses_cached(equilibrium, response_A, response_B, common):
+    return compute_alkali_responses(equilibrium, response_A, response_B, common)
+
+response_A = {
+    "rf_axis": st.session_state["rf_axis_A"],
+    "rf_observable": st.session_state["rf_observable_A"],
+    "rf_frequencies_hz": rf_frequencies_A,
+    "probe": probe_A,
+}
+response_B = None
+if active_B:
+    response_B = {
+        "rf_axis": st.session_state["rf_axis_B"],
+        "rf_observable": st.session_state["rf_observable_B"],
+        "rf_frequencies_hz": rf_frequencies_B,
+        "probe": probe_B,
+    }
 
 species_A_config = {
     "label": "A",
@@ -901,9 +921,12 @@ species_A_config = {
     "R_ER": R_ER_A,
     "n2_coeffs": n2_coeffs_A,
     "q_axis": q_axis_A,
-    "rf_axis": st.session_state["rf_axis_A"],
-    "rf_observable": st.session_state["rf_observable_A"],
-    "rf_frequencies_hz": rf_frequencies_A,
+    # The equilibrium does not depend on RF scan settings or probe readout.
+    # Keep one inexpensive placeholder response so the legacy solver can
+    # finalize its static diagnostics; actual responses are attached below.
+    "rf_axis": "x",
+    "rf_observable": "Fx",
+    "rf_frequencies_hz": np.array([0.0]),
     "probe": probe_A,
 }
 species_B_config = None
@@ -915,9 +938,9 @@ if active_B:
         "R_ER": R_ER_B,
         "n2_coeffs": n2_coeffs_B,
         "q_axis": q_axis_B,
-        "rf_axis": st.session_state["rf_axis_B"],
-        "rf_observable": st.session_state["rf_observable_B"],
-        "rf_frequencies_hz": rf_frequencies_B,
+        "rf_axis": "x",
+        "rf_observable": "Fx",
+        "rf_frequencies_hz": np.array([0.0]),
         "probe": probe_B,
     }
 common = {
@@ -931,8 +954,11 @@ physical_beams = [
     for beam in all_beams
     if float(beam["intensity"]) > 0.0
 ]
-system = _compute_alkali_system_cached(
+equilibrium = _compute_alkali_equilibrium_cached(
     species_A_config, species_B_config, physical_beams, common
+)
+system = _compute_alkali_responses_cached(
+    equilibrium, response_A, response_B, common
 )
 
 

@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+from copy import deepcopy
 
 from .angular_momentum import build_ground_states
 from .constants import (
@@ -533,3 +534,87 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
         "J_blocks": blocks,
         "solve": solve,
     }
+
+
+def _attach_local_response(result, response_config, common):
+    """Attach RF and probe calculations to an already-solved species result."""
+    result.update(response_config)
+    states = result["ground_states"]
+    probe = response_config["probe"]
+    operators, probe_info = weak_probe_readout_operators(
+        atom=result["atom"], ground_states=states, q_axis=result["q_axis"],
+        line=probe["line"], detuning_MHz=probe["detuning_MHz"],
+        k_axis=probe["k_axis"], azimuth_deg=probe["azimuth_deg"],
+        ellipticity_deg=probe["ellipticity_deg"], path_length_cm=probe["path_length_cm"],
+        density_cm3=result["density_cm3"], n2_pressure_torr=common["n2_pressure_torr"],
+        temperature_C=common["temperature_C"],
+        n2_width_MHz_per_torr=result["n2_coeffs"][probe["line"]]["width"],
+        n2_shift_MHz_per_torr=result["n2_coeffs"][probe["line"]]["shift"],
+        include_scalar=probe["include_scalar"],
+        include_orientation=probe["include_orientation"],
+        include_alignment=probe["include_alignment"],
+    )
+    frequencies = result["rf_frequencies_hz"]
+    upper_F = result["rf_upper_F"]
+    if result["light_shift_available"]:
+        amplitude, in_phase, quadrature, info = weak_rf_observable_susceptibility(
+            frequencies_hz=frequencies, ground_states=states,
+            populations=result["population"],
+            adjacent_transition_hz=result["df_pop"]["nu_m"].to_numpy(dtype=float),
+            gamma_op=result["df_pop"]["Gamma_OP"].to_numpy(dtype=float),
+            gamma_er=result["df_pop"]["Gamma_ER"].to_numpy(dtype=float),
+            gamma_se=result["df_pop"]["Gamma_SE"].to_numpy(dtype=float),
+            q_axis=result["q_axis"], rf_axis=result["rf_axis"],
+            observable=result["rf_observable"], target_F=upper_F,
+        )
+        flat_response = {
+            name: weak_rf_matrix_susceptibility(
+                frequencies_hz=frequencies, ground_states=states,
+                populations=result["population"],
+                adjacent_transition_hz=result["df_pop"]["nu_m"].to_numpy(dtype=float),
+                gamma_op=result["df_pop"]["Gamma_OP"].to_numpy(dtype=float),
+                gamma_er=result["df_pop"]["Gamma_ER"].to_numpy(dtype=float),
+                gamma_se=result["df_pop"]["Gamma_SE"].to_numpy(dtype=float),
+                q_axis=result["q_axis"], rf_axis=result["rf_axis"],
+                readout_operator=operator, target_F=upper_F,
+            )
+            for name, operator in _flatten_probe_operators(operators).items()
+        }
+    else:
+        amplitude = in_phase = quadrature = np.full_like(frequencies, np.nan, dtype=float)
+        info = {"used_transitions": 0, "nonpositive_linewidths": 0}
+        unavailable = (amplitude, in_phase, quadrature, {"used_transitions": 0})
+        flat_response = {name: unavailable for name in _flatten_probe_operators(operators)}
+    result.update({
+        "rf_amplitude": amplitude, "rf_in_phase": in_phase,
+        "rf_quadrature": quadrature, "rf_info": info,
+        "probe_readout_operators": operators, "probe_info": probe_info,
+        "probe_response": _nested_probe_responses(flat_response),
+    })
+
+
+def compute_alkali_responses(equilibrium, response_A, response_B, common):
+    """Reuse a population equilibrium while recalculating RF/probe responses."""
+    system = deepcopy(equilibrium)
+    result_A, result_B = system["A"], system["B"]
+    _attach_local_response(result_A, response_A, common)
+    if result_B is None:
+        apply_physical_pump_readout(result_A, common)
+        return system
+    _attach_local_response(result_B, response_B, common)
+    coupled_rf = coupled_weak_rf_observable_susceptibilities(result_A, result_B)
+    if coupled_rf is not None:
+        for label, result in (("A", result_A), ("B", result_B)):
+            amplitude, in_phase, quadrature, info = coupled_rf[label]
+            result.update({"rf_amplitude": amplitude, "rf_in_phase": in_phase,
+                           "rf_quadrature": quadrature, "rf_info": info})
+    coupled_probe = coupled_weak_rf_matrix_readouts(
+        result_A, result_B, _flatten_probe_operators(result_A["probe_readout_operators"]),
+        _flatten_probe_operators(result_B["probe_readout_operators"]),
+    )
+    if coupled_probe is not None:
+        result_A["probe_response"] = _nested_probe_responses(coupled_probe["A"])
+        result_B["probe_response"] = _nested_probe_responses(coupled_probe["B"])
+    apply_physical_pump_readout(result_A, common)
+    apply_physical_pump_readout(result_B, common)
+    return system
