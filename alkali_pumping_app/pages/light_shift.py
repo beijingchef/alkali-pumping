@@ -348,6 +348,20 @@ $s_1^2+s_2^2+s_3^2=1$.
 **Rank-2 polarization.** $E_{{20}}={sweep['E20']:+.4f}$ is the dimensionless
 rank-2 polarization tensor component that weights the tensor light shift.
 
+**Vector-shift plot.** The Components-view vector curve plots the signed
+fictitious magnetic field $B_{{\mathrm{{fic}},F}}=V_F/\gamma_F$ for each
+hyperfine manifold, rather than the shift of one particular Zeeman state.
+Here $V_F$ is the vector-shift coefficient and $\gamma_F$ is that manifold's
+signed gyromagnetic ratio. The vector shift of an individual state is
+$\nu_V(F,m)=mV_F=m\gamma_FB_{{\mathrm{{fic}},F}}$; use **Zeeman states by
+component** to view these state shifts directly.
+
+**Tensor-shift plot.** Within a manifold, the tensor shift of a Zeeman state is
+$\nu_T(F,m)=c_T[3m^2-F(F+1)]$. The Components-view tensor curve is the
+$m=0$ value, $\nu_T(F,0)=-F(F+1)c_T$. Thus a state with magnetic quantum number
+$m$ has $\nu_T(F,m)=[1-3m^2/(F(F+1))]\nu_T(F,0)$; use **Zeeman states by
+component** to view these individual state shifts.
+
 **Common scalar shift.** The common-mode curve is the coefficient of the
 identity operator over the complete ground-state space. It is the
 degeneracy-weighted mean of the manifold scalar shifts,
@@ -522,7 +536,11 @@ def _render_framed_chart(chart):
 
 def _render_component_plot_title(title):
     """Render a black component heading about 10% larger than a caption."""
-    st.markdown(f":black[{title}]")
+    # ``:black[...]`` is not a supported Streamlit color directive; it is
+    # displayed literally (for example, ``:black[Scalar shift]``).  Ordinary
+    # Markdown inherits the page's normal text color, and bold supplies the
+    # intended heading emphasis.
+    st.markdown(f"**{title}**")
 
 
 def _render_component_plots(

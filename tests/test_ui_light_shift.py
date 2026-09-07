@@ -15,7 +15,9 @@ from alkali_pumping_app.pages.light_shift import (
     TRANSITION_MARKER_COLOR,
     TRANSITION_MARKER_OPACITY,
     SCALAR_COMMON_SERIES,
+    _render_light_shift_help,
     _store_light_shift_component_plots,
+    _render_component_plot_title,
     _layered_line_chart,
     _scattering_chart,
     adjacent_transition_dataframe,
@@ -240,6 +242,28 @@ class LightShiftPlotDataTests(unittest.TestCase):
         self.assertTrue(state["ls_show_scalar"])
         self.assertFalse(state["ls_show_vector"])
         self.assertTrue(state["ls_show_tensor"])
+
+    def test_component_plot_title_does_not_use_unsupported_black_color_syntax(self):
+        with patch.object(light_shift_page.st, "markdown") as markdown:
+            _render_component_plot_title("Scalar shift")
+        markdown.assert_called_once_with("**Scalar shift**")
+
+    def test_help_relates_tensor_state_shift_to_component_plot(self):
+        sweep = {
+            "E20": 0.125,
+            "doppler_fwhm_MHz": 100.0,
+            "lorentz_fwhm_MHz": 20.0,
+        }
+        with patch.object(light_shift_page.st, "markdown") as markdown:
+            _render_light_shift_help(
+                "Rb87", "D1", 1.0, "z", {-1: 0.0, 0: 1.0, 1: 0.0},
+                (0.0, 0.0, 0.0), sweep, 0.0,
+            )
+        help_text = markdown.call_args.args[0]
+        self.assertIn("The Components-view vector curve plots the signed", help_text)
+        self.assertIn(r"\nu_V(F,m)=mV_F=m\gamma_FB_{\mathrm{fic},F}", help_text)
+        self.assertIn("The Components-view tensor curve is the", help_text)
+        self.assertIn(r"\nu_T(F,m)=[1-3m^2/(F(F+1))]\nu_T(F,0)", help_text)
 
     def test_transition_equivalent_field_axis_titles_include_units(self):
         self.assertEqual(
