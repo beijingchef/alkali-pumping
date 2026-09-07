@@ -2,7 +2,6 @@
 
 from .angular_momentum import *
 from .atomic_polarizability import *
-from .atomic_properties import *
 from .constants import *
 from .electron_randomization import *
 from .light_shift import *

@@ -110,7 +110,6 @@ def build_optical_L(
     selected_transition=None,
     normalize_to_selected_total=True,
     reference_at_resonance_center=False,
-    normalize_to_unpolarized=None,
 ):
     """
     Build optical-pumping generator L for one beam.
@@ -129,9 +128,6 @@ def build_optical_L(
         the selected transition's resonance center instead of at the laser
         detuning used for the dynamics.
 
-    normalize_to_unpolarized:
-        Backward-compatible alias for normalize_to_selected_total. New callers
-        should use normalize_to_selected_total.
     """
     N = len(ground_states)
     L = np.zeros((N, N), dtype=float)
@@ -239,9 +235,6 @@ def build_optical_L(
             reference_raw_total_selected_transition = R_ge[reference_indices].sum()
     else:
         reference_raw_total_selected_transition = 0.0
-
-    if normalize_to_unpolarized is not None:
-        normalize_to_selected_total = bool(normalize_to_unpolarized)
 
     if normalize_to_selected_total:
         scale = (

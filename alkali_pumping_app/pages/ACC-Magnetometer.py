@@ -8,7 +8,6 @@ import pandas as pd
 import streamlit as st
 
 from alkali_pumping_app.physics import *
-from alkali_pumping_app.physics.optical_pumping import build_optical_L
 from alkali_pumping_app.ui.conditions import *
 from alkali_pumping_app.ui.downloads import save_button_with_immediate_download
 from alkali_pumping_app.ui.exports import (
@@ -77,16 +76,6 @@ st.html(
 
 for _key, _value in DEFAULT_STARTUP_CONDITION.items():
     st.session_state.setdefault(_key, _value)
-# A browser session can survive an in-place app upgrade without loading a
-# condition file. Preserve the v6.8 meaning of its existing plain pump links
-# exactly once; subsequent plain-pump selections are intentional v6.9 modes.
-if st.session_state.get("_probe_source_semantics_version") != "6.9":
-    for _label in ("A", "B"):
-        _source_key = f"probe_source_{_label}"
-        _source = st.session_state.get(_source_key)
-        if _source in {f"Pump{_label}{_number}" for _number in (1, 2, 3)}:
-            st.session_state[_source_key] = f"{_source} weak"
-    st.session_state["_probe_source_semantics_version"] = "6.9"
 st.session_state.setdefault(
     "_condition_save_name",
     clean_condition_name(st.session_state["condition_name"]),
@@ -156,67 +145,6 @@ def _initialize_atom_coefficients(label, atom_name):
     st.session_state["_last_atom_names_for_defaults"][label] = atom_name
 
 
-def _migrate_legacy_beam_intensity(
-    prefix, atom, n2_coeffs, line, transition, det_rel, q_axis_value
-):
-    legacy_inputs = st.session_state.get("_legacy_pump_inputs", {})
-    legacy = legacy_inputs.get(prefix)
-    if legacy is None:
-        return
-    relative_detuning = 0.0 if legacy.get("rate_reference") == "At resonance" else det_rel
-    detuning, selected = absolute_detuning_from_transition_choice(
-        atom=atom,
-        line=line,
-        transition_label=transition,
-        relative_detuning_MHz=relative_detuning,
-        n2_pressure_torr=n2_pressure_torr,
-        n2_coeffs=n2_coeffs,
-        allowed_only=show_allowed_only,
-    )
-    k_axis = st.session_state.get(f"k_{prefix}", "x")
-    pol_options = allowed_polarizations(k_axis)
-    pol = st.session_state.get(f"pol_{prefix}", pol_options[0])
-    if pol not in pol_options:
-        pol = pol_options[0]
-    states = build_ground_states(atom)
-    rate_scale = optical_rate_scale_from_intensity(
-        atom=atom,
-        line=line,
-        intensity_uW_cm2=1.0,
-        n2_pressure_torr=n2_pressure_torr,
-        temperature_C=temperature_C,
-        n2_width_MHz_per_torr=n2_coeffs[line]["width"],
-    )
-    _, info = build_optical_L(
-        atom=atom,
-        line=line,
-        ground_states=states,
-        detuning_MHz=detuning,
-        pump_rate_s=rate_scale,
-        selected_transition=selected,
-        k_axis=k_axis,
-        pol=pol,
-        q_axis=q_axis_value,
-        n2_pressure_torr=n2_pressure_torr,
-        temperature_C=temperature_C,
-        n2_width_MHz_per_torr=n2_coeffs[line]["width"],
-        n2_shift_MHz_per_torr=n2_coeffs[line]["shift"],
-        normalize_to_selected_total=False,
-    )
-    indices = np.ix_(info["reference_ground_indices"], info["reference_excited_indices"])
-    rate_per_uW = float(info["R_ge"][indices].sum())
-    st.session_state[f"intensity_{prefix}"] = (
-        max(0.0, float(legacy.get("rate", 0.0))) / rate_per_uW
-        if rate_per_uW > 0.0
-        else 0.0
-    )
-    del legacy_inputs[prefix]
-    if legacy_inputs:
-        st.session_state["_legacy_pump_inputs"] = legacy_inputs
-    else:
-        st.session_state.pop("_legacy_pump_inputs", None)
-
-
 def _prepare_beam_state(prefix, atom_name, n2_coeffs, default_Fg, q_axis_value):
     """Normalize a pump's state before any tab-local widgets are instantiated."""
     atom = ATOMS[atom_name]
@@ -247,15 +175,6 @@ def _prepare_beam_state(prefix, atom_name, n2_coeffs, default_Fg, q_axis_value):
             default_Fg,
             allowed_only=show_allowed_only,
         )
-    _migrate_legacy_beam_intensity(
-        prefix,
-        atom,
-        n2_coeffs,
-        line,
-        st.session_state[transition_key],
-        float(st.session_state[f"det_rel_{prefix}"]),
-        q_axis_value,
-    )
     # These keys were widget-bound before v6.1.2. Reassigning them detaches
     # existing sessions from Streamlit's stale-widget cleanup during upgrade.
     for field in ("line", "transition", "det_rel", "intensity", "k", "pol"):

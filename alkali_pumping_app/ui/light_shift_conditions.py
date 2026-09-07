@@ -9,7 +9,6 @@ from ..physics.constants import DEFAULT_N2_COEFFS
 
 
 LIGHT_SHIFT_CONDITION_VERSION = "1.2"
-LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS = ("1.0", "1.1")
 LIGHT_SHIFT_PREFIX = "ls_"
 
 LIGHT_SHIFT_DEFAULTS = {
@@ -103,10 +102,7 @@ def apply_light_shift_payload(payload):
     if payload.get("format") != "alkali_pumping_light_shift_conditions":
         raise ValueError("This is not a light-shift condition file.")
     payload_version = payload.get("version")
-    if payload_version not in (
-        LIGHT_SHIFT_CONDITION_VERSION,
-        *LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS,
-    ):
+    if payload_version != LIGHT_SHIFT_CONDITION_VERSION:
         raise ValueError(
             f"Unsupported light-shift condition version; expected {LIGHT_SHIFT_CONDITION_VERSION}."
         )
@@ -114,11 +110,6 @@ def apply_light_shift_payload(payload):
     if not isinstance(conditions, dict):
         raise ValueError("The JSON file does not contain a conditions object.")
     conditions = dict(conditions)
-    if payload_version == "1.0":
-        conditions.setdefault("show_scalar", True)
-    if payload_version in LEGACY_LIGHT_SHIFT_CONDITION_VERSIONS:
-        conditions.setdefault("show_vector", True)
-        conditions.setdefault("show_tensor", True)
     missing = [field for field in LIGHT_SHIFT_DEFAULTS if field not in conditions]
     if missing:
         raise ValueError("The condition file is missing required fields: " + ", ".join(missing))

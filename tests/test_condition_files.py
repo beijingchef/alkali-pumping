@@ -129,7 +129,7 @@ class ConditionFileTests(unittest.TestCase):
         }
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(
-                ValueError, "Expected 6.9, legacy 6.8, 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0"
+                ValueError, "expected 6.9"
             ):
                 conditions.apply_loaded_condition_dict(payload)
 
@@ -146,6 +146,7 @@ class ConditionFileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "rf_axis_A"):
                 conditions.apply_loaded_condition_dict(payload)
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v60_condition_migrates_field_and_independent_rf_controls(self):
         payload = {
             "app": "alkali_pumping",
@@ -167,6 +168,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["intensity_A3"], 0.0)
         self.assertEqual(session_state["intensity_B3"], 0.0)
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v61_condition_adds_zero_intensity_third_pumps(self):
         values = {
             key: value
@@ -188,6 +190,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["intensity_A3"], 0.0)
         self.assertEqual(session_state["intensity_B3"], 0.0)
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v62_condition_drops_obsolete_spin_exchange_toggle(self):
         values = dict(conditions.DEFAULT_STARTUP_CONDITION)
         values["include_spin_exchange"] = False
@@ -202,6 +205,7 @@ class ConditionFileTests(unittest.TestCase):
             conditions.apply_loaded_condition_dict(payload)
         self.assertNotIn("include_spin_exchange", session_state)
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v63_condition_preserves_relative_concentration_value(self):
         values = dict(conditions.DEFAULT_STARTUP_CONDITION)
         values["density_mode"] = "Relative concentration"
@@ -218,6 +222,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["density_mode"], "Relative concentration")
         self.assertEqual(session_state["density_ratio_B_to_A"], 0.375)
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v64_condition_adds_disabled_pi_shift_controls(self):
         values = {
             key: value
@@ -238,6 +243,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertFalse(session_state["rf_add_pi_in_phase_B"])
         self.assertFalse(session_state["rf_add_pi_quadrature_B"])
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v65_condition_adds_independent_probe_defaults(self):
         values = {
             key: value
@@ -258,6 +264,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["probe_response_component_A"], "Total")
         self.assertEqual(session_state["probe_response_component_B"], "Total")
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v66_condition_adds_custom_probe_source_defaults(self):
         values = {
             key: value
@@ -276,6 +283,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["probe_source_A"], "Custom")
         self.assertEqual(session_state["probe_source_B"], "Custom")
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v67_condition_migrates_probe_rank_switches(self):
         values = dict(conditions.DEFAULT_STARTUP_CONDITION)
         values.pop("probe_response_component_A")
@@ -304,6 +312,7 @@ class ConditionFileTests(unittest.TestCase):
             session_state["probe_response_component_B"], "Alignment induced"
         )
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v68_pump_links_migrate_to_explicit_weak_sources(self):
         values = dict(conditions.DEFAULT_STARTUP_CONDITION)
         values["probe_source_A"] = "PumpA1"
@@ -320,6 +329,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["probe_source_A"], "PumpA1 weak")
         self.assertEqual(session_state["probe_source_B"], "PumpB3 weak")
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_v5_condition_migrates_legacy_third_pump_to_A3(self):
         payload = {
             "app": "alkali_pumping",
@@ -343,6 +353,7 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(session_state["static_field_axis"], "y")
         self.assertEqual(session_state["q_axis_A"], "y")
 
+    @unittest.skip("Legacy condition migration was removed in v6.9.")
     def test_legacy_rate_fields_are_staged_for_intensity_migration(self):
         values = legacy_v5_conditions()
         for number, rate in ((1, 1200.0), (2, 400.0)):

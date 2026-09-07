@@ -5,7 +5,6 @@ from datetime import datetime
 
 import streamlit as st
 
-from ..physics.constants import field_nT_from_upper_larmor_frequency
 from ..version import CONDITION_SCHEMA_VERSION
 
 
@@ -269,185 +268,6 @@ def normalize_rf_frequency_bounds(label="A", prefer="lower"):
     st.session_state[upper_key] = upper
 
 
-def _copy_legacy_rf(conditions, migrated):
-    for field in RF_FIELDS:
-        old_key = f"rf_{field}"
-        if old_key not in conditions:
-            continue
-        for label in ("A", "B"):
-            migrated[f"rf_{field}_{label}"] = conditions[old_key]
-
-
-def _legacy_condition_defaults():
-    """Return current defaults without relinking probes in older files."""
-    migrated = dict(DEFAULT_STARTUP_CONDITION)
-    migrated["probe_source_A"] = "Custom"
-    migrated["probe_source_B"] = "Custom"
-    return migrated
-
-
-def _migrate_v6_conditions(conditions):
-    """Translate a v6.0 dual-alkali condition into the species-control schema."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    old_q = conditions.get("q_axis", "z")
-    migrated["static_field_axis"] = old_q
-    migrated["q_axis_A"] = old_q
-    migrated["q_axis_B"] = old_q
-    atom_A_name = conditions.get("atom_A_name", migrated["atom_A_name"])
-    migrated["static_field_nT"] = field_nT_from_upper_larmor_frequency(
-        atom_A_name, conditions.get("bias_larmor_hz_A", 0.0)
-    )
-    _copy_legacy_rf(conditions, migrated)
-    return migrated, {}
-
-
-def _migrate_v61_conditions(conditions):
-    """Add the zero-intensity third pump for each species to a v6.1 file."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _migrate_v62_conditions(conditions):
-    """Drop the obsolete spin-exchange toggle from a v6.2 condition."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _migrate_v63_conditions(conditions):
-    """Load v6.3 values; relative concentration now means liquid mole B/A."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _migrate_v64_conditions(conditions):
-    """Add independent, initially disabled π shifts to a v6.4 file."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _migrate_v65_conditions(conditions):
-    """Add independent weak Probe-A and Probe-B settings to a v6.5 file."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _migrate_v66_conditions(conditions):
-    """Add pump-linked probe source selectors to a v6.6 file."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return migrated, {}
-
-
-def _legacy_probe_response_component(conditions, label):
-    orientation = bool(conditions.get(f"probe_include_orientation_{label}", True))
-    alignment = bool(conditions.get(f"probe_include_alignment_{label}", True))
-    if orientation and not alignment:
-        return "Orientation induced"
-    if alignment and not orientation:
-        return "Alignment induced"
-    return "Total"
-
-
-def _migrate_v67_conditions(conditions):
-    """Replace the independent rank switches with one probe-response selector."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    for label in ("A", "B"):
-        migrated[f"probe_response_component_{label}"] = (
-            _legacy_probe_response_component(conditions, label)
-        )
-    return migrated, {}
-
-
-def _mark_linked_probes_as_weak(conditions):
-    """Preserve the pre-v6.9 meaning of pump-linked probe sources."""
-    migrated = dict(conditions)
-    for label in ("A", "B"):
-        key = f"probe_source_{label}"
-        source = migrated.get(key)
-        if source in {f"Pump{label}{number}" for number in (1, 2, 3)}:
-            migrated[key] = f"{source} weak"
-    return migrated
-
-
-def _migrate_v68_conditions(conditions):
-    """Distinguish legacy weak pump links from v6.9 physical-pump modes."""
-    migrated = _legacy_condition_defaults()
-    for key in CONDITION_KEYS:
-        if key in conditions:
-            migrated[key] = conditions[key]
-    return _mark_linked_probes_as_weak(migrated), {}
-
-
-def _migrate_v5_conditions(conditions):
-    """Translate a v5 single-alkali condition into the current A/B schema."""
-    migrated = _legacy_condition_defaults()
-    # v5 had no Alkali B. Keep its pumps inactive instead of inheriting new-
-    # session defaults introduced by later versions.
-    for prefix in ("B1", "B2", "B3"):
-        migrated[f"intensity_{prefix}"] = 0.0
-    direct_map = {
-        "condition_name": "condition_name",
-        "atom_name": "atom_A_name",
-        "gamma_ER": "gamma_ER_A",
-        "temperature_C_for_table": "temperature_C_for_table",
-        "n2_pressure_torr": "n2_pressure_torr",
-        "D1_width": "D1_width_A",
-        "D2_width": "D2_width_A",
-        "D1_shift": "D1_shift_A",
-        "D2_shift": "D2_shift_A",
-        "show_allowed_only": "show_allowed_only",
-        "show_rate_matrices": "show_rate_matrices",
-    }
-    for old_key, new_key in direct_map.items():
-        if old_key in conditions:
-            migrated[new_key] = conditions[old_key]
-    old_q = conditions.get("q_axis", "z")
-    migrated["static_field_axis"] = old_q
-    migrated["q_axis_A"] = old_q
-    migrated["q_axis_B"] = old_q
-    migrated["static_field_nT"] = field_nT_from_upper_larmor_frequency(
-        migrated["atom_A_name"], conditions.get("bias_larmor_hz", 0.0)
-    )
-    _copy_legacy_rf(conditions, migrated)
-
-    legacy_pump_inputs = {}
-    for old_number, new_prefix in ((1, "A1"), (2, "A2"), (3, "A3")):
-        for field in ("line", "transition", "det_rel", "intensity", "k", "pol"):
-            old_key = f"{field}{old_number}"
-            if old_key in conditions:
-                migrated[f"{field}_{new_prefix}"] = conditions[old_key]
-        if f"intensity{old_number}" not in conditions and f"rate{old_number}" in conditions:
-            legacy_pump_inputs[new_prefix] = {
-                "rate": conditions[f"rate{old_number}"],
-                "rate_reference": conditions.get(f"rate_reference{old_number}", "At detuning"),
-            }
-    migrated["atom_B_name"] = "None"
-    return migrated, legacy_pump_inputs
-
-
 def apply_loaded_condition_dict(payload):
     if not isinstance(payload, dict):
         raise ValueError("The loaded file is not a JSON object.")
@@ -460,50 +280,20 @@ def apply_loaded_condition_dict(payload):
         raise ValueError("The JSON file does not contain a conditions object.")
 
     version = payload.get("version")
-    if version == CONDITION_SCHEMA_VERSION:
-        loaded_conditions = dict(conditions)
-        missing = [key for key in CONDITION_KEYS if key not in loaded_conditions]
-        if missing:
-            raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
-        legacy_pump_inputs = {}
-    elif version == "6.8":
-        loaded_conditions, legacy_pump_inputs = _migrate_v68_conditions(conditions)
-    elif version == "6.7":
-        loaded_conditions, legacy_pump_inputs = _migrate_v67_conditions(conditions)
-    elif version == "6.6":
-        loaded_conditions, legacy_pump_inputs = _migrate_v66_conditions(conditions)
-    elif version == "6.5":
-        loaded_conditions, legacy_pump_inputs = _migrate_v65_conditions(conditions)
-    elif version == "6.4":
-        loaded_conditions, legacy_pump_inputs = _migrate_v64_conditions(conditions)
-    elif version == "6.3":
-        loaded_conditions, legacy_pump_inputs = _migrate_v63_conditions(conditions)
-    elif version == "6.2":
-        loaded_conditions, legacy_pump_inputs = _migrate_v62_conditions(conditions)
-    elif version == "6.1":
-        loaded_conditions, legacy_pump_inputs = _migrate_v61_conditions(conditions)
-    elif version == "6.0":
-        loaded_conditions, legacy_pump_inputs = _migrate_v6_conditions(conditions)
-    elif version == "5.0":
-        loaded_conditions, legacy_pump_inputs = _migrate_v5_conditions(conditions)
-    else:
-        raise ValueError(
-            "Unsupported condition-file version. Expected "
-            f"{CONDITION_SCHEMA_VERSION}, legacy 6.8, 6.7, 6.6, 6.5, 6.4, 6.3, 6.2, 6.1, 6.0, or 5.0."
-        )
-
     if version != CONDITION_SCHEMA_VERSION:
-        loaded_conditions = _mark_linked_probes_as_weak(loaded_conditions)
+        raise ValueError(
+            f"Unsupported condition-file version; expected {CONDITION_SCHEMA_VERSION}."
+        )
+    loaded_conditions = dict(conditions)
+    missing = [key for key in CONDITION_KEYS if key not in loaded_conditions]
+    if missing:
+        raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
 
     loaded_name = clean_condition_name(loaded_conditions["condition_name"])
     for key in CONDITION_KEYS:
         value = loaded_conditions.get(key)
         if value is not None:
             st.session_state[key] = value
-    if legacy_pump_inputs:
-        st.session_state["_legacy_pump_inputs"] = legacy_pump_inputs
-    else:
-        st.session_state.pop("_legacy_pump_inputs", None)
     st.session_state["_condition_save_name"] = loaded_name
     normalize_rf_frequency_bounds("A")
     normalize_rf_frequency_bounds("B")

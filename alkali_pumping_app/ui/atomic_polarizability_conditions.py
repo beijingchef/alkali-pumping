@@ -9,7 +9,6 @@ from ..physics.constants import DEFAULT_N2_COEFFS
 
 
 ATOMIC_POLARIZABILITY_CONDITION_VERSION = "1.1"
-LEGACY_ATOMIC_POLARIZABILITY_CONDITION_VERSION = "1.0"
 ATOMIC_POLARIZABILITY_PREFIX = "ap_"
 
 ATOMIC_POLARIZABILITY_DEFAULTS = {
@@ -86,10 +85,7 @@ def apply_atomic_polarizability_payload(payload):
     if payload.get("format") != "alkali_pumping_atomic_polarizability_conditions":
         raise ValueError("This is not an atomic-polarizability condition file.")
     payload_version = payload.get("version")
-    if payload_version not in (
-        ATOMIC_POLARIZABILITY_CONDITION_VERSION,
-        LEGACY_ATOMIC_POLARIZABILITY_CONDITION_VERSION,
-    ):
+    if payload_version != ATOMIC_POLARIZABILITY_CONDITION_VERSION:
         raise ValueError(
             "Unsupported atomic-polarizability condition version; expected "
             f"{ATOMIC_POLARIZABILITY_CONDITION_VERSION}."
@@ -98,8 +94,6 @@ def apply_atomic_polarizability_payload(payload):
     if not isinstance(conditions, dict):
         raise ValueError("The JSON file does not contain a conditions object.")
     conditions = dict(conditions)
-    if payload_version == LEGACY_ATOMIC_POLARIZABILITY_CONDITION_VERSION:
-        conditions.setdefault("reference", "Zero-pressure line center")
     missing = [
         field for field in ATOMIC_POLARIZABILITY_DEFAULTS if field not in conditions
     ]
