@@ -146,7 +146,7 @@ def _complex_response(response):
 
 
 def propagate_uniform_atomic_feedback(
-    base_by_signal, feedback_by_signal_and_stokes
+    base_by_signal, feedback_by_signal_and_stokes, *, return_coordinates=False
 ):
     """Close Stokes feedback through one spatially uniform atomic response.
 
@@ -179,6 +179,7 @@ def propagate_uniform_atomic_feedback(
             )
 
     output = np.empty_like(base)
+    mean_coordinates = np.empty((frequency_count, len(_FEEDBACK_COLUMNS)), dtype=complex)
     spectral_radius = np.empty(frequency_count, dtype=float)
     feedback_indices = [_SIGNALS.index(name) for name in _FEEDBACK_COLUMNS]
     for frequency_index in range(frequency_count):
@@ -200,13 +201,17 @@ def propagate_uniform_atomic_feedback(
             base[frequency_index]
             + feedback[frequency_index] @ mean_feedback_coordinates
         )
+        mean_coordinates[frequency_index] = mean_feedback_coordinates
         spectral_radius[frequency_index] = float(
             np.max(np.abs(np.linalg.eigvals(averaged_loop)))
         )
-    return {
+    propagated = {
         signal: output[:, index]
         for index, signal in enumerate(_SIGNALS)
-    }, spectral_radius
+    }
+    if return_coordinates:
+        return propagated, spectral_radius, mean_coordinates
+    return propagated, spectral_radius
 
 
 def _unavailable_response(response):
@@ -224,7 +229,7 @@ def _unavailable_response(response):
     return unavailable
 
 
-def apply_physical_pump_readout(result, common):
+def apply_physical_pump_readout(result, common, *, context=None):
     """Apply physical-pump feedback to one cell-wide atomic response."""
     probe = result.get("probe", {})
     if probe.get("mode") != "physical":
@@ -240,8 +245,13 @@ def apply_physical_pump_readout(result, common):
         None,
     )
     result["probe_weak_response"] = result["probe_response"]
+    result["probe_weak_manifold_response"] = result.get("probe_manifold_response", {})
     if diagnostic is None or float(probe.get("pump_intensity_uW_cm2", 0.0)) <= 0.0:
         result["probe_response"] = _unavailable_response(result["probe_response"])
+        result["probe_manifold_response"] = {
+            name: _unavailable_response(response)
+            for name, response in result.get("probe_manifold_response", {}).items()
+        }
         result["probe_info"] = {
             **result["probe_info"],
             "mode": "uniform-state physical pump",
@@ -293,7 +303,13 @@ def apply_physical_pump_readout(result, common):
         for component, operators in result["probe_readout_operators"].items()
         for signal, operator in operators.items()
     }
-    response_context = build_single_species_liouvillian_response_context(result)
+    for manifold, ranks in result.get("probe_manifold_operators", {}).items():
+        flat_readouts.update({
+            f"{manifold}:{component}:{signal}": operator
+            for component, operators in ranks.items()
+            for signal, operator in operators.items()
+        })
+    response_context = context or build_single_species_liouvillian_response_context(result)
     feedback_responses = {}
     used_transitions = 0
     population_source_coordinates = []
@@ -313,6 +329,7 @@ def apply_physical_pump_readout(result, common):
                 population_source_coordinates.append(coordinate)
 
     physical_response = {}
+    physical_manifolds = {name: {} for name in result.get("probe_manifold_operators", {})}
     feedback_diagnostics = {}
     for component in result["probe_readout_operators"]:
         base_by_signal = {
@@ -328,8 +345,8 @@ def apply_physical_pump_readout(result, common):
                     np.asarray(response[1], dtype=float)
                     + 1j * np.asarray(response[2], dtype=float)
                 )
-        propagated, spectral_radius = propagate_uniform_atomic_feedback(
-            base_by_signal, feedback_by_signal_and_stokes
+        propagated, spectral_radius, mean_coordinates = propagate_uniform_atomic_feedback(
+            base_by_signal, feedback_by_signal_and_stokes, return_coordinates=True
         )
         physical_response[component] = {}
         for signal, complex_values in propagated.items():
@@ -347,12 +364,30 @@ def apply_physical_pump_readout(result, common):
                     "used_feedback_transitions": used_transitions,
                 },
             }
+        # Project detection onto Fa/Fb *after* closing the shared atomic
+        # response. Both projections see the same path-averaged Stokes field;
+        # they are additive and are not separate feedback counterfactuals.
+        for manifold in physical_manifolds:
+            physical_manifolds[manifold][component] = {}
+            for signal in _SIGNALS:
+                base = result["probe_manifold_response"][manifold][component][signal]
+                values = _complex_response(base).copy()
+                for coordinate, column in _FEEDBACK_COLUMNS.items():
+                    response = feedback_responses[coordinate][f"{manifold}:{component}:{signal}"]
+                    values += (response[1] + 1j * response[2]) * mean_coordinates[:, column]
+                physical_manifolds[manifold][component][signal] = {
+                    "amplitude": np.abs(values), "in_phase": values.real,
+                    "quadrature": values.imag,
+                    "info": {**base["info"], "physical_pump": pump_name,
+                             "shared_manifold_feedback": True},
+                }
         feedback_diagnostics[component] = {
             "spectral_radius": spectral_radius,
             "max_spectral_radius": float(np.max(spectral_radius)),
         }
 
     result["probe_response"] = physical_response
+    result["probe_manifold_response"] = physical_manifolds
     result["probe_info"] = {
         **result["probe_info"],
         "mode": "uniform-state physical pump",

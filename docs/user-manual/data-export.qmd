@@ -4,6 +4,13 @@
 
 Response panels provide CSV downloads containing the RF frequency axis and the calculated Amplitude, In phase, and Quadrature values. Optical exports also identify the signal and readout mode.
 
+Atomic RF exports contain rows for both Fa and Fb, with $F$, the observable,
+signed $g_F/g_a$ drive ratio, selected-for-plot flag, raw/plotted values, and
+common normalization. Quadrupoles use $\hbar^2$ units; spin moments use $\hbar$.
+Optical exports contain total, rank, and Fa/Fb contributions per nT, plus the
+currently selected plotted curve and its phase factors. All response exports
+include the physics-model identifier and the common RF normalization.
+
 Downloads contain the numerical values before any visual interpolation. Units and applied display factors are recorded in the export where supported.
 
 ## Reproducible records {#reproducible-records}
@@ -20,4 +27,4 @@ The condition file stores intensity in µW/cm², not optical power and beam diam
 
 ## Plot sign controls {#export-and-sign-controls}
 
-The **Add (pi)** display controls change the plotted sign of In phase or Quadrature. When comparing CSV data with a plotted curve, consult the export columns that distinguish raw and plotted values.
+The **Add ($\pi$)** display controls change the plotted sign of In phase or Quadrature. When comparing CSV data with a plotted curve, consult the export columns that distinguish raw and plotted values.

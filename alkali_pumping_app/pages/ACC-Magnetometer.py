@@ -13,7 +13,7 @@ from alkali_pumping_app.ui.downloads import save_button_with_immediate_download
 from alkali_pumping_app.ui.exports import (
     dataframe_to_csv_bytes,
     weak_probe_export_dataframe,
-    weak_rf_export_dataframe,
+    manifold_rf_export_dataframe,
 )
 from alkali_pumping_app.ui.plot_data import aligned_population_bar_data
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings
@@ -35,6 +35,7 @@ from alkali_pumping_app.ui.text import (
     line_center_detuning_caption,
 )
 from alkali_pumping_app.ui.uploads import open_file_button
+from alkali_pumping_app.version import PHYSICS_MODEL_VERSION
 
 
 register_persistent_page_settings(
@@ -542,12 +543,13 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
         source = st.selectbox(
             "Probe source",
             _probe_source_options(label),
+            format_func=lambda value: "Custom Weak" if value == "Custom" else value,
             key=_prime_probe_widget(source_key),
             on_change=_store_probe_source,
             args=(label,),
             disabled=disabled,
             help=(
-                "Custom enables an independent weak probe. A 'weak' pump source "
+                "Custom Weak enables an independent weak probe. A 'weak' pump source "
                 "copies that pump's optical settings but ignores intensity. A "
                 "plain pump source detects with the physical pump using one "
                 "cell-wide density matrix driven by the path-averaged Stokes "
@@ -824,7 +826,7 @@ with st.sidebar:
             open_file_button(
                 type=["json"],
                 key="condition_file_uploader",
-                help="Load a v6.9 condition or migrate a v6.8/v6.7/v6.6/v6.5/v6.4/v6.3/v6.2/v6.1/v6.0/v5.0 condition.",
+                help="Load a v6.10 condition or migrate v6.9 settings. All calculations use the two-manifold model.",
                 on_change=load_condition_callback,
             )
         with save_col:
@@ -888,15 +890,20 @@ def _physical_beam_config(beam):
 
 @st.cache_data(max_entries=24, show_spinner=False)
 def _compute_alkali_equilibrium_cached(
-    species_A_config, species_B_config, physical_beams, common
+    species_A_config, species_B_config, physical_beams, common,
+    physics_model_version=PHYSICS_MODEL_VERSION,
 ):
+    # Include the scientific model in the cache key across application upgrades.
     return compute_alkali_system(
         species_A_config, species_B_config, physical_beams, common
     )
 
 
 @st.cache_data(max_entries=48, show_spinner=False)
-def _compute_alkali_responses_cached(equilibrium, response_A, response_B, common):
+def _compute_alkali_responses_cached(
+    equilibrium, response_A, response_B, common,
+    physics_model_version=PHYSICS_MODEL_VERSION,
+):
     return compute_alkali_responses(equilibrium, response_A, response_B, common)
 
 response_A = {
@@ -922,7 +929,7 @@ species_A_config = {
     "n2_coeffs": n2_coeffs_A,
     "q_axis": q_axis_A,
     # The equilibrium does not depend on RF scan settings or probe readout.
-    # Keep one inexpensive placeholder response so the legacy solver can
+    # Keep one placeholder response so the equilibrium builder can
     # finalize its static diagnostics; actual responses are attached below.
     "rf_axis": "x",
     "rf_observable": "Fx",
@@ -955,10 +962,12 @@ physical_beams = [
     if float(beam["intensity"]) > 0.0
 ]
 equilibrium = _compute_alkali_equilibrium_cached(
-    species_A_config, species_B_config, physical_beams, common
+    species_A_config, species_B_config, physical_beams, common,
+    physics_model_version=PHYSICS_MODEL_VERSION,
 )
 system = _compute_alkali_responses_cached(
-    equilibrium, response_A, response_B, common
+    equilibrium, response_A, response_B, common,
+    physics_model_version=PHYSICS_MODEL_VERSION,
 )
 
 
@@ -1165,11 +1174,9 @@ def _rf_resonances_in_sweep(result, label):
     lower = float(st.session_state[f"rf_frequency_lower_hz_{label}"])
     upper = float(st.session_state[f"rf_frequency_upper_hz_{label}"])
     frame = result["df_pop"]
-    mask = (
-        np.isclose(frame["F"].to_numpy(dtype=float), result["rf_upper_F"])
-        & np.isfinite(frame["nu_m"].to_numpy(dtype=float))
-    )
+    mask = np.isfinite(frame["nu_m"].to_numpy(dtype=float))
     selected = frame.loc[mask, ["F", "m", "nu_m", "population_difference", "Gamma_total"]].copy()
+    selected["manifold"] = np.where(np.isclose(selected["F"], result["rf_upper_F"]), "Fa", "Fb")
     selected["resonance_Hz"] = np.abs(selected["nu_m"].to_numpy(dtype=float))
     selected = selected.loc[
         (selected["resonance_Hz"] >= lower) & (selected["resonance_Hz"] <= upper)
@@ -1177,7 +1184,7 @@ def _rf_resonances_in_sweep(result, label):
     if selected.empty:
         return selected
     selected["Transition"] = selected.apply(
-        lambda row: f"F={row['F']:g}: m={row['m']:g}→{row['m'] - 1:g}", axis=1
+        lambda row: f"{row['manifold']} (F={row['F']:g}): m={row['m']:g}→{row['m'] - 1:g}", axis=1
     )
     selected["linewidth_Hz"] = selected["Gamma_total"] / (2.0 * np.pi)
     return selected
@@ -1185,11 +1192,13 @@ def _rf_resonances_in_sweep(result, label):
 
 def _add_rf_resonance_markers(axis, result, label):
     resonances = _rf_resonances_in_sweep(result, label)
-    for frequency in resonances.get("resonance_Hz", []):
-        axis.axvline(float(frequency), color="0.45", linewidth=0.8, alpha=0.28)
+    for _, resonance in resonances.iterrows():
+        axis.axvline(float(resonance["resonance_Hz"]),
+                     color={"Fa": "C0", "Fb": "C1"}[resonance["manifold"]],
+                     linewidth=0.8, alpha=0.28)
 
 
-def _render_shared_rf_controls(_result, label):
+def _render_shared_rf_controls(result, label):
     _compact_title(f"Alkali {label} field response")
     axis_col, lower_col, upper_col = st.columns(3, gap="xsmall")
     with axis_col:
@@ -1217,60 +1226,52 @@ def _render_shared_rf_controls(_result, label):
             f"These RF-{label} settings are shared by the atomic-moment and Probe-{label} plots."
         )
     )
+    with st.expander("Zeeman transitions in RF sweep", expanded=False):
+        resonances = _rf_resonances_in_sweep(result, label)
+        if resonances.empty:
+            st.caption("No finite adjacent-transition frequencies lie inside this sweep.")
+        else:
+            st.dataframe(
+                resonances[["manifold", "Transition", "nu_m", "resonance_Hz",
+                            "population_difference", "linewidth_Hz"]].rename(columns={
+                    "manifold": "Manifold", "nu_m": "Signed νm (Hz)",
+                    "resonance_Hz": "|νm| (Hz)", "population_difference": "D_m",
+                    "linewidth_Hz": "Local Γ/(2π) (Hz)",
+                }), hide_index=True, width="stretch",
+            )
+            st.caption("Fa markers are blue; Fb markers are orange. Coupled resonance peaks can shift from these bare transition frequencies.")
 
 
 def _render_rf(result, label):
-    rf_axis = st.session_state[f"rf_axis_{label}"]
-    rf_observable = st.session_state[f"rf_observable_{label}"]
-    observable_symbol = rf_observable_display_label(rf_observable, rf_axis)
-    if rf_observable == "Q_ij":
-        observable_indices = observable_symbol.removeprefix("Q_")
-        observable_title = f"<i>Q</i><sub>{observable_indices}</sub>"
-        observable_math = rf"Q_{{{observable_indices}}}"
-    else:
-        observable_title = observable_symbol
-        observable_math = observable_symbol
-    rf_show_amplitude = bool(st.session_state[f"rf_show_amplitude_{label}"])
-    rf_show_in_phase = bool(st.session_state[f"rf_show_in_phase_{label}"])
-    rf_add_pi_in_phase = bool(st.session_state[f"rf_add_pi_in_phase_{label}"])
-    rf_show_quadrature = bool(st.session_state[f"rf_show_quadrature_{label}"])
-    rf_add_pi_quadrature = bool(
-        st.session_state[f"rf_add_pi_quadrature_{label}"]
-    )
-    rf_relaxation_normalized = bool(
-        st.session_state[f"rf_relaxation_normalized_{label}"]
-    )
-    rf_density_factor = bool(st.session_state[f"rf_density_factor_{label}"])
+    rf_axis = result["rf_axis"]
+    observable = result["rf_observable"]
+    symbol = rf_observable_display_label(observable, rf_axis)
+    observable_math = "Q_{" + symbol.removeprefix("Q_") + "}" if observable == "Q_ij" else symbol
+    choice = st.session_state[f"rf_manifold_{label}"]
+    selected_manifolds = ("Fa", "Fb") if choice == "Both" else (choice,)
+    flip_x = bool(st.session_state[f"rf_add_pi_in_phase_{label}"])
+    flip_y = bool(st.session_state[f"rf_add_pi_quadrature_{label}"])
     reference = result["rf_relaxation_reference"]
-    gamma = reference.get("Gamma_m") if rf_relaxation_normalized and reference.get("available", False) else None
-    density = result["density_cm3"] if rf_density_factor else None
-    plotted = prepare_weak_rf_plot_values(
-        result["rf_amplitude"], result["rf_in_phase"], result["rf_quadrature"],
-        flip_in_phase=rf_add_pi_in_phase,
-        flip_quadrature=rf_add_pi_quadrature,
-        relaxation_gamma_s_inv=gamma, density_cm3=density,
+    gamma = (reference.get("Gamma_m") if st.session_state[f"rf_relaxation_normalized_{label}"]
+             and reference.get("available", False) else None)
+    density = result["density_cm3"] if st.session_state[f"rf_density_factor_{label}"] else None
+    plotted = {
+        manifold: prepare_weak_rf_plot_values(
+            response["amplitude"], response["in_phase"], response["quadrature"],
+            flip_in_phase=flip_x, flip_quadrature=flip_y,
+            relaxation_gamma_s_inv=gamma, density_cm3=density,
+        ) for manifold, response in result["rf_response"].items()
+    }
+    export = manifold_rf_export_dataframe(
+        result, plotted, selected_manifolds,
+        in_phase_plot_factor=-1.0 if flip_x else 1.0,
+        quadrature_plot_factor=-1.0 if flip_y else 1.0,
+        relaxation_normalized=gamma is not None, normalization_gamma_s_inv=gamma,
+        density_factored=density is not None, density_cm3=density,
     )
-    export = weak_rf_export_dataframe(
-        frequencies_hz=result["rf_frequencies_hz"],
-        susceptibility_amplitude=result["rf_amplitude"],
-        susceptibility_in_phase=result["rf_in_phase"],
-        susceptibility_quadrature=result["rf_quadrature"],
-        plotted_amplitude=plotted[0], plotted_in_phase=plotted[1], plotted_quadrature=plotted[2],
-        in_phase_plot_factor=(-1.0 if rf_add_pi_in_phase else 1.0),
-        quadrature_plot_factor=(-1.0 if rf_add_pi_quadrature else 1.0),
-        relaxation_normalized=gamma is not None,
-        normalization_gamma_s_inv=gamma,
-        density_factored=rf_density_factor,
-        density_cm3=density,
-    )
-    title_col, download_col, help_col = st.columns(
-        [0.74, 0.18, 0.08], gap="small"
-    )
+    title_col, download_col, help_col = st.columns([0.74, 0.18, 0.08], gap="small")
     with title_col:
-        _compact_title(
-            f"Alkali {label} upper-hyperfine ⟨{observable_title}⟩ weak-RF susceptibility "
-            f"(F={result['rf_upper_F']:g})"
-        )
+        _compact_title(f"Alkali {label} ⟨{symbol}⟩ weak-RF susceptibility")
     with download_col:
         with st.container(horizontal_alignment="right"):
             st.download_button(
@@ -1280,150 +1281,103 @@ def _render_rf(result, label):
             )
     with help_col:
         with st.popover("❓"):
-            st.markdown(
-                rf"""
-The plot is the linear weak-RF susceptibility of the selected upper-hyperfine
-observable,
+            st.markdown(r"""
+The same RF magnetic field drives both ground manifolds:
+$H_{\mathrm{rf}}/\hbar=\Omega_a[F_{a,i}+(g_b/g_a)F_{b,i}]\cos\omega t$,
+where $\Omega_a=g_a\mu_B B_{\mathrm{rf}}/\hbar$.
+Fa and Fb are detected separately from the same coupled atomic response.
+Changing the displayed manifold does not change the drive or populations.
 
-$$
-\chi_{{{observable_math}}}(\omega)
-=\frac{{d\langle {observable_math}\rangle}}{{d\Omega_{{\mathrm{{rf}}}}}},
-$$
+X is in phase with the cosine drive, Y multiplies sine, and amplitude is
+$\sqrt{X^2+Y^2}$. The signed transition frequencies and both rotating terms
+are retained. Populations are normalized per total atom, not per manifold.
+Spin moments are in units of $\hbar$ and quadrupoles in $\hbar^2$.
+The quadrupole is $Q_{yz}$ for RF-x, $Q_{zx}$ for RF-y, and $Q_{xy}$ for RF-z.
 
-versus RF angular-drive frequency expressed in hertz. The RF field is applied
-along the selected RF axis, and the other alkali's RF drive is set to zero.
-
-**X (in phase)** is the response in phase with the applied RF drive.
-**Y (quadrature)** is the component shifted by $90^\circ$.
-**Amplitude** is $|\chi|=\sqrt{{X^2+Y^2}}$.
-
-For $Q_{{ij}}$, the tensor component is chosen perpendicular to the RF axis:
-$Q_{{yz}}$ for RF-$x$, $Q_{{zx}}$ for RF-$y$, and $Q_{{xy}}$ for RF-$z$.
-
-Selecting **Add $\pi$** changes the displayed sign of that component and its
-legend from $X$ or $Y$ to $-X$ or $-Y$; it does not change the underlying
-calculated susceptibility.
-
-With no optional display factors, the susceptibility is per atom and has units
-of $\hbar\,\mathrm{{s}}/\mathrm{{atom}}$. **Relaxation normalized** multiplies
-the curves by the selected adjacent-coherence decay rate $\Gamma_m$, removing
-the time factor. **Density factor** additionally multiplies by the alkali number
-density, converting the result from per atom to per volume.
-
-The CSV contains both the raw phase-convention values and the values actually
-plotted after the selected $\pi$ shifts, relaxation normalization, and density
-factor.
-"""
-            )
+Relaxation normalized multiplies both manifolds by one common $\Gamma_m$,
+chosen at the largest $|P_m-P_{m-1}|$ across both manifolds. Density factor
+multiplies by the species density. Add π changes only the displayed sign.
+The CSV includes both manifolds, their raw and plotted values, and the common
+normalization and phase factors. Vertical markers are bare adjacent-transition
+frequencies; coupling can move the response peaks away from those markers.
+""")
     control_col, plot_col = st.columns([0.23, 0.77], gap="small")
     with control_col:
-        st.caption(
-            accent_caption(f"RF-{label} applied; the other RF drive is zero.")
-        )
-        rf_observable_key = f"rf_observable_{label}"
+        st.caption(accent_caption(f"RF-{label} drives Fa and Fb; the other RF drive is zero."))
+        key = f"rf_manifold_{label}"
         st.selectbox(
-            "Observable",
-            ["Fx", "Fy", "Fz", "Q_ij"],
-            key=_prime_result_widget(rf_observable_key),
-            on_change=_store_result_widget_value,
-            args=(rf_observable_key,),
+            "Hyperfine manifold", ["Fa", "Fb", "Both"],
+            key=_prime_result_widget(key), on_change=_store_result_widget_value, args=(key,),
+            format_func=lambda value: (
+                "Fa + Fb (overlay)" if value == "Both"
+                else f"{value} (F={result['rf_manifolds'][value]:g})"
+            ),
+        )
+        key = f"rf_observable_{label}"
+        st.selectbox(
+            "Observable", ["Fx", "Fy", "Fz", "Q_ij"],
+            key=_prime_result_widget(key), on_change=_store_result_widget_value, args=(key,),
             format_func=lambda value: rf_observable_display_label(value, rf_axis),
         )
-        amplitude_key = f"rf_show_amplitude_{label}"
-        st.checkbox(
-            "Amplitude",
-            key=_prime_result_widget(amplitude_key),
-            on_change=_store_result_widget_value,
-            args=(amplitude_key,),
-        )
-        for curve_label, show_field, add_pi_field in (
+        key = f"rf_show_amplitude_{label}"
+        st.checkbox("Amplitude", key=_prime_result_widget(key),
+                    on_change=_store_result_widget_value, args=(key,))
+        for caption, show_field, pi_field in (
             ("In phase", "show_in_phase", "add_pi_in_phase"),
             ("Quadrature", "show_quadrature", "add_pi_quadrature"),
         ):
-            curve_column, phase_column = st.columns([0.62, 0.38], gap="xxsmall")
-            show_key = f"rf_{show_field}_{label}"
-            add_pi_key = f"rf_{add_pi_field}_{label}"
-            with curve_column:
-                st.checkbox(
-                    curve_label,
-                    key=_prime_result_widget(show_key),
-                    on_change=_store_result_widget_value,
-                    args=(show_key,),
-                )
-            with phase_column:
-                st.checkbox(
-                    "Add π",
-                    key=_prime_result_widget(add_pi_key),
-                    on_change=_store_result_widget_value,
-                    args=(add_pi_key,),
-                )
-        for checkbox_label, state_key in (
-            ("Relaxation normalized", f"rf_relaxation_normalized_{label}"),
-            ("Density factor", f"rf_density_factor_{label}"),
-        ):
-            st.checkbox(
-                checkbox_label,
-                key=_prime_result_widget(state_key),
-                on_change=_store_result_widget_value,
-                args=(state_key,),
-            )
-
+            curve_col, phase_col = st.columns([0.62, 0.38], gap="xxsmall")
+            key = f"rf_{show_field}_{label}"
+            pi_key = f"rf_{pi_field}_{label}"
+            with curve_col:
+                st.checkbox(caption, key=_prime_result_widget(key),
+                            on_change=_store_result_widget_value, args=(key,))
+            with phase_col:
+                st.checkbox("Add π", key=_prime_result_widget(pi_key),
+                            on_change=_store_result_widget_value, args=(pi_key,))
+        for caption, field in (("Relaxation normalized", "relaxation_normalized"),
+                               ("Density factor", "density_factor")):
+            key = f"rf_{field}_{label}"
+            st.checkbox(caption, key=_prime_result_widget(key),
+                        on_change=_store_result_widget_value, args=(key,))
+        if gamma is not None:
+            st.caption(f"Common Γ = {gamma:.4g} s⁻¹, F={reference['F']:g}, m={reference['m']:g}.")
     with plot_col:
         if not result["static_field_aligned"] and abs(static_field_nT) > 0.0:
-            st.warning(
-                "The static field is transverse to this quantization axis. "
-                "The current population model includes only the field component "
-                "parallel to the quantization axis, so transverse static-field "
-                "mixing is omitted."
-            )
-        elif not result["light_shift_available"]:
-            st.warning(
-                "RF response is unavailable because an active optical field has "
-                "a non-diagonal light shift."
-            )
-        elif result["rf_info"].get("used_transitions", 0) == 0:
-            st.info("No driven adjacent Zeeman transitions are available for this RF geometry.")
+            st.warning("The static field is transverse to the quantization axis; this secular response is unavailable.")
+        elif not result["rf_available"]:
+            st.warning("RF response is unavailable because an active species has a non-diagonal light shift or unsupported static-field direction.")
         else:
-            selected_curves = []
-            if rf_show_amplitude:
-                selected_curves.append((plotted[0], "Amplitude", "-"))
-            if rf_show_in_phase:
-                selected_curves.append(
-                    (
-                        plotted[1],
-                        rf_component_legend_label("X", rf_add_pi_in_phase),
-                        "--",
-                    )
-                )
-            if rf_show_quadrature:
-                selected_curves.append(
-                    (
-                        plotted[2],
-                        rf_component_legend_label("Y", rf_add_pi_quadrature),
-                        ":",
-                    )
-                )
-            if not selected_curves:
+            curves = []
+            if st.session_state[f"rf_show_amplitude_{label}"]:
+                curves.append((0, "Amplitude", "-"))
+            if st.session_state[f"rf_show_in_phase_{label}"]:
+                curves.append((1, rf_component_legend_label("X", flip_x), "--"))
+            if st.session_state[f"rf_show_quadrature_{label}"]:
+                curves.append((2, rf_component_legend_label("Y", flip_y), ":"))
+            if not curves:
                 st.info("Select at least one RF curve.")
-            else:
-                fig, axis = plt.subplots(figsize=(8.6, 4.2))
-                for values, curve_label, linestyle in selected_curves:
-                    axis.plot(
-                        result["rf_frequencies_hz"], values,
-                        linestyle=linestyle, label=curve_label,
-                    )
-                _add_rf_resonance_markers(axis, result, label)
-                axis.axhline(0.0, linewidth=0.8, alpha=0.45)
-                axis.set_xlabel(f"RF-{label} frequency (Hz)")
-                axis.set_ylabel(
-                    f"Alkali {label} "
-                    + rf"$d\langle {observable_math}\rangle/d\Omega_{{\mathrm{{rf}}}}$"
-                )
-                axis.grid(True, alpha=0.25)
-                axis.legend(frameon=False)
-                fig.tight_layout()
-                st.pyplot(fig, width="stretch")
-                plt.close(fig)
+                return
+            fig, axis = plt.subplots(figsize=(8.6, 4.2))
+            for manifold in selected_manifolds:
+                for index, caption, linestyle in curves:
+                    axis.plot(result["rf_frequencies_hz"], plotted[manifold][index],
+                              color={"Fa": "C0", "Fb": "C1"}[manifold], linestyle=linestyle,
+                              label=f"{manifold} (F={result['rf_manifolds'][manifold]:g}) {caption}")
+            _add_rf_resonance_markers(axis, result, label)
+            axis.axhline(0.0, linewidth=0.8, alpha=0.45)
+            axis.set_xlabel(f"RF-{label} frequency (Hz)")
+            prefactor = (r"n\," if density is not None else "")
+            prefactor += (r"\Gamma_{\mathrm{ref}}\," if gamma is not None else "")
+            axis.set_ylabel(
+                rf"${prefactor}d\langle {observable_math}\rangle/d\Omega_a$"
+                + f" ({export['plotted_units'].iloc[0]})"
+            )
+            axis.grid(True, alpha=0.25)
+            axis.legend(frameon=False)
+            fig.tight_layout()
+            st.pyplot(fig, width="stretch")
+            plt.close(fig)
 
 
 def _render_probe_response(result, label):
@@ -1440,7 +1394,10 @@ def _render_probe_response(result, label):
         result["probe_info"].get("mode") == "uniform-state physical pump"
     )
     pump_name = result["probe_info"].get("pump_name")
-    response = result["probe_response"]
+    manifold_choice = st.session_state[f"probe_manifold_{label}"]
+    response = (result["probe_response"] if manifold_choice == "Total"
+                else result["probe_manifold_response"][manifold_choice])
+    manifold_label = "Fa + Fb" if manifold_choice == "Total" else manifold_choice
     response_choice = st.session_state[f"probe_response_component_{label}"]
     response_key = {
         "Orientation induced": "orientation",
@@ -1463,9 +1420,17 @@ def _render_probe_response(result, label):
         values * rf_rabi_rad_s_per_nT for values in plotted_total
     )
     export = weak_probe_export_dataframe(
-        result["rf_frequencies_hz"], response, signal,
+        result["rf_frequencies_hz"], result["probe_response"], signal,
         rf_rabi_rad_s_per_nT=rf_rabi_rad_s_per_nT,
+        manifold_response=result["probe_manifold_response"],
+        manifold_F=result["rf_manifolds"], displayed_manifold=manifold_choice,
+        in_phase_plot_factor=-1.0 if add_pi_x else 1.0,
+        quadrature_plot_factor=-1.0 if add_pi_y else 1.0,
+        drive_info=result["rf_drive_info"],
     )
+    export["selected_component"] = response_key
+    for field, values in zip(("amplitude", "in_phase", "quadrature"), plotted_total):
+        export[f"selected_{field}_plotted_per_nT"] = values
     export["readout_mode"] = (
         "uniform-state physical pump" if physical_pump else "weak probe"
     )
@@ -1477,7 +1442,7 @@ def _render_probe_response(result, label):
             if physical_pump
             else f"Probe-{label} weak optical readout"
         )
-        _compact_title(f"{readout_title} — {signal_labels[signal]}")
+        _compact_title(f"{readout_title} — {signal_labels[signal]} ({manifold_label})")
     with download_col:
         with st.container(horizontal_alignment="right"):
             st.download_button(
@@ -1506,6 +1471,8 @@ with their own counterfactual closures. Total closes the full rank-1 plus
 rank-2 response together, so it need not equal the sum of the two separately
 closed curves. Optical rotation, ellipticity, normalized Stokes signals, and
 fractional transmission all use the same spatially uniform approximation.
+Both Fa and Fb participate in each closure. The Fa/Fb detection contributions
+are projections of that same closed response, so they add as complex signals.
 """
                 )
             else:
@@ -1522,6 +1489,11 @@ complex responses add before amplitude is calculated. The Mathur rank-2
 coefficient is converted to the raw Cartesian Qᵢⱼ convention used by the
 atomic-moment solver.
 
+The same RF field excites Fa and Fb with signed g-factor weights. Each
+manifold has its own optical coefficients at the same probe laser frequency.
+The two complex manifold responses add before their amplitude is calculated;
+their amplitudes need not add. Detected manifold changes only the readout.
+
 Optical rotation and ellipticity are derived from the normalized transmitted
 Stokes vector. X, Y, and amplitude use the same RF phase convention and the
 same RF-axis/frequency sweep as the atomic-moment plot above. Responses are
@@ -1532,6 +1504,17 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
 
     control_col, plot_col = st.columns([0.23, 0.77], gap="small")
     with control_col:
+        key = f"probe_manifold_{label}"
+        st.selectbox(
+            "Detected manifold", ["Total", "Fa", "Fb"],
+            key=_prime_result_widget(key), on_change=_store_result_widget_value, args=(key,),
+            format_func=lambda value: "Total (Fa + Fb)" if value == "Total"
+            else f"{value} (F={result['rf_manifolds'][value]:g})",
+        )
+        if manifold_choice == "Total":
+            key = f"probe_show_manifold_decomposition_{label}"
+            st.checkbox("Show manifold decomposition", key=_prime_result_widget(key),
+                        on_change=_store_result_widget_value, args=(key,))
         key = f"probe_signal_{label}"
         st.selectbox(
             "Probe signal",
@@ -1587,7 +1570,7 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
         if signal == "ellipticity" and not availability["ellipticity_available"]:
             st.info("Ellipticity is undefined at a purely circular input state.")
             return
-        if not result["light_shift_available"]:
+        if not result["rf_available"]:
             st.warning("Probe response is unavailable because the RF atomic response is unavailable.")
             return
         if physical_pump and not result["probe_info"].get(
@@ -1623,7 +1606,8 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
         for index, component_label, linestyle in selected:
             line, = axis.plot(
                 result["rf_frequencies_hz"], plotted_total[index],
-                linestyle=linestyle, label=f"{response_choice} {component_label}",
+                color="black", linestyle=linestyle,
+                label=f"{manifold_label} {response_choice} {component_label}",
             )
             legend_entries["Total"].append((line, component_label))
         if (
@@ -1648,6 +1632,22 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
                         label=f"{rank.title()} {component_label}",
                     )
                     legend_entries[rank.title()].append((line, component_label))
+        show_manifolds = (
+            manifold_choice == "Total"
+            and st.session_state[f"probe_show_manifold_decomposition_{label}"]
+        )
+        if show_manifolds:
+            for manifold in ("Fa", "Fb"):
+                values = result["probe_manifold_response"][manifold][response_key][signal]
+                projected = prepare_weak_rf_plot_values(
+                    values["amplitude"], values["in_phase"], values["quadrature"],
+                    flip_in_phase=add_pi_x, flip_quadrature=add_pi_y,
+                )
+                for index, component_label, linestyle in selected:
+                    axis.plot(result["rf_frequencies_hz"], projected[index] * rf_rabi_rad_s_per_nT,
+                              color={"Fa": "C0", "Fb": "C1"}[manifold],
+                              linestyle=linestyle, alpha=0.8,
+                              label=f"{manifold} {component_label}")
         _add_rf_resonance_markers(axis, result, label)
         axis.axhline(0.0, linewidth=0.8, alpha=0.45)
         axis.set_xlabel(f"RF-{label} frequency (Hz)")
@@ -1661,7 +1661,7 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
         }
         axis.set_ylabel(signal_axis_labels[signal])
         axis.grid(True, alpha=0.25)
-        if response_choice == "Total" and all(legend_entries.values()):
+        if response_choice == "Total" and all(legend_entries.values()) and not show_manifolds:
             add_probe_decomposition_legend(axis, legend_entries)
         else:
             axis.legend(frameon=False)

@@ -39,4 +39,4 @@ The distinction between weak and physical pump readout is explained in [Probe so
 
 ## Reading notation {#reading-notation}
 
-Angular frequencies such as Rabi frequency are written in rad/s, while displayed RF sweep frequencies and light shifts are generally in Hz or MHz. Stokes parameters (s_1,s_2,s_3) are normalized by total intensity. See the [glossary](../glossary.qmd) for symbols and abbreviations.
+Angular frequencies such as Rabi frequency are written in rad/s, while displayed RF sweep frequencies and light shifts are generally in Hz or MHz. Stokes parameters $s_1,s_2,s_3$ are normalized by total intensity. See the [glossary](../glossary.qmd) for symbols and abbreviations.

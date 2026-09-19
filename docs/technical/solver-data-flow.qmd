@@ -15,7 +15,7 @@ These structures are passed to `compute_alkali_system` and are suitable for cach
 
 For each species, `build_species_linear_model`:
 
-1. builds the (|F,m\rangle) basis;
+1. builds the $|F,m\rangle$ basis;
 2. evaluates every active beam at that species' transition frequencies;
 3. sums optical population generators;
 4. adds electron-randomization dynamics;
@@ -30,9 +30,14 @@ The one- or two-species steady-state solver then returns normalized populations 
 - light-shift and magnetic state frequencies;
 - population and coherence relaxation diagnostics;
 - the Zeeman result table;
-- atomic weak-RF susceptibilities;
-- optical readout operators;
-- the direct weak-probe response.
+- optical readout operators.
+
+`_evaluate_system_responses` then builds the shared secular RF context and
+applies the common-field source to both ground manifolds. Atomic Fa/Fb moments
+and total/rank/manifold optical readouts use the same resolvent.
+`compute_alkali_responses` follows that same path when reusing a cached
+population equilibrium. Display manifold choices do not enter the RF source
+or equilibrium configuration.
 
 ## Physical-pump readout {#physical-pump-data-flow}
 

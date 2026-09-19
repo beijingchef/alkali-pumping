@@ -2,42 +2,60 @@
 
 ## RF drive convention {#rf-drive-convention}
 
-The RF Hamiltonian is
+The RF Hamiltonian applies the same field to both ground manifolds,
+$F_a=I+1/2$ and $F_b=I-1/2$. With dimensionless angular-momentum operators,
 
 $$
 \frac{H_{\mathrm{rf}}(t)}{\hbar}
-=\Omega_{\mathrm{rf}}F_i\cos(\omega t).
+=\Omega_a V_{\mathrm{rf}}\cos(\omega t),
+\qquad V_{\mathrm{rf}}=F_{a,i}+\frac{g_b}{g_a}F_{b,i},
+\qquad \Omega_a=\frac{g_a\mu_B B_{\mathrm{rf}}}{\hbar}.
 $$
 
-The real cosine contains positive- and negative-frequency components. Both co-rotating and counter-rotating responses are retained.
+The real cosine contains positive- and negative-frequency components. Both co-rotating and counter-rotating responses are retained. The signed ratio $g_b/g_a$ is negative; static and RF couplings use the same magnetic constants, including the negative nuclear magnetic-energy contribution for a positive nuclear moment. The convention follows the weak-field hyperfine Hamiltonian in [Steck's data](https://steck.us/alkalidata/rubidium87numbers.pdf).
+
+An atomic readout $O_F=P_F O P_F$ selects Fa or Fb independently of the drive. Its expectation is per total atom, $\mathrm{Tr}(\rho O_F)$, without dividing by the manifold population.
 
 ## Adjacent-coherence response {#adjacent-coherence-response}
 
-For (|a\rangle=|F,m\rangle) and (|b\rangle=|F,m-1\rangle), the positive-frequency coefficient per unit RF Rabi frequency is
+In the limit of independent coherences, for $|a\rangle=|F,m\rangle$ and $|b\rangle=|F,m-1\rangle$, the positive-frequency coefficient per unit upper-manifold angular drive is
 
 $$
-\frac{\partial\rho_{ab,+}}{\partial\Omega_{\mathrm{rf}}}
-=\frac{i(F_i)_{ab}(p_a-p_b)/2}
+\frac{\partial\rho_{ab,+}}{\partial\Omega_a}
+=\frac{i(V_{\mathrm{rf}})_{ab}(p_a-p_b)/2}
 {\Gamma_{ab}+i(\omega_{ab}-\omega)}.
 $$
 
-The reverse ordered coherence supplies the counter-rotating denominator. An arbitrary Hermitian readout operator (O) gives
+The reverse ordered coherence supplies the counter-rotating denominator. An arbitrary Hermitian readout operator $O$ gives
 
 $$
 \chi_+(\omega)=\sum_{a,b}O_{ba}
-\frac{\partial\rho_{ab,+}}{\partial\Omega_{\mathrm{rf}}}.
+\frac{\partial\rho_{ab,+}}{\partial\Omega_a}.
 $$
 
 ## Full resolvent {#rf-resolvent}
 
-When coherence transfer must be retained, the solver uses
+The application retains coherence transfer for both single- and dual-species calculations and uses
 
 $$
 \chi_+(\omega)=
 \mathbf r^T(-i\omega I-G)^{-1}\mathbf s,
 $$
 
-where (G) is the coherence generator, (mathbf s) is the RF source, and (mathbf r) represents the selected readout.
+where $G$ is the coherence generator, $\mathbf s$ contains the within-manifold elements of $-i[V_{\mathrm{rf}},\rho_0]/2$, and $\mathbf r$ represents the selected readout. Both ordered coherences are retained. Electron randomization and spin exchange can transfer response between Fa and Fb, but coherences spanning the ground hyperfine splitting are secularly eliminated. The independent-linewidth formula above is a validation limit, not a separate application mode.
+
+For two species, RF-A and RF-B are separate calculations, each with the other source zero. All readouts and physical-pump sources reuse the same coupled generator. A detection projection does not restrict which manifold can be excited.
+
+## Optical manifold sum {#rf-optical-manifold-sum}
+
+The probe operator already contains the manifold-dependent optical coefficients. Its complex susceptibility is
+
+$$
+\chi_{\mathrm{probe},+}=\mathrm{Tr}(O_a\delta\rho_+)
++\mathrm{Tr}(O_b\delta\rho_+).
+$$
+
+The two contributions are summed before taking an amplitude. Their signs and phases can produce enhancement or cancellation. For physical-pump readout, the same rule applies to projections of the shared closed response; see [uniform feedback](uniform-density-matrix-feedback.qmd#feedback-manifold-projections).
 
 ## Phase components {#rf-phase-components}
 
@@ -51,6 +69,6 @@ Y=2\operatorname{Im}\chi_+,
 A=\sqrt{X^2+Y^2}.
 $$
 
-The factor of two reconstructs the real cosine response from its (e^{-i\omega t}) Fourier coefficient.
+The factor of two reconstructs the real cosine response from its $e^{-i\omega t}$ Fourier coefficient.
 
 For a longer derivation, see the [weak-RF solver PDF](../rf_susceptibility_solver.pdf), its [LaTeX source](../rf_susceptibility_solver.tex), and the [frequency-convention note](../positive_negative_frequency_convention_v1.0.tex).

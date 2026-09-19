@@ -1,5 +1,48 @@
 # Changelog
 
+## 6.10.0 - 2026-09-19
+
+### Changed
+
+- Renamed the probe-source option `Custom` to `Custom Weak` for both species,
+  preserving its saved value and weak-probe behavior.
+- ACC Magnetometer now applies one RF magnetic field to both ground manifolds,
+  with signed couplings 1 and g_b/g_a relative to the upper-manifold angular
+  frequency. Fa and Fb atomic moments can be displayed separately or together.
+- Single- and dual-species RF, optical, and physical-pump source responses use
+  a shared secular coherence model. It retains ER/SE transfer between the two
+  manifolds while removing coherences across the ground hyperfine splitting.
+  The single-species RF response therefore includes coherence transfer instead
+  of the former independent-linewidth approximation. Dual-species pump feedback
+  now reuses the coupled population and coherence dynamics.
+- Probe signals include both manifold responses with their own optical
+  coefficients. Fa/Fb complex contributions add before amplitude is evaluated.
+  Physical-pump manifold contributions are projections of the same feedback
+  closure; existing separately closed rank counterfactuals are retained.
+- Added manifold selectors, probe manifold decomposition, colored transition
+  markers for both manifolds, and manifold-resolved CSVs with model, phase,
+  magnetic-coupling, and normalization metadata. Relaxation normalization uses
+  one reference transition selected across both manifolds.
+- Corrected the nuclear contribution to the hyperfine Landé factors: positive
+  nuclear magnetic moments contribute negative magnetic energy in the selected
+  Hamiltonian convention. Static and RF magnetic couplings share this correction.
+- Corrected quadrupole CSV units to hbar² rather than hbar.
+- Condition schema 6.10 adds persistent manifold display settings. Complete
+  v6.9 files migrate without changing stored inputs, retain the Fa atomic view,
+  and are recalculated with the new model. New sessions show both atomic
+  manifolds. There is no legacy physics/comparison mode.
+- Archived the complete pre-upgrade working version, including local
+  documentation edits, in `../archive/alkali_pumping_v6.9.9/`, with a SHA-256
+  manifest. Repository metadata and Python caches are omitted from the snapshot.
+
+### Verification
+
+- Full unittest suite: 165 tests run, 11 pre-existing skips, no failures.
+- Added analytic-response, signed-g, coherence-transfer, direct-resolvent,
+  zero-cross-exchange, shared physical-feedback, migration, and export checks.
+- Exercised real Streamlit manifold controls, both species tabs, and navigation
+  persistence through AppTest. Cached calculations include the physics version.
+
 ## 6.9.9 - 2026-09-06
 
 ### Changed

@@ -4,7 +4,9 @@
 
 Saved condition files are versioned public interfaces. A file contains application identification, a format name, a schema version, a timestamp, and a `conditions` object containing every persistent user setting for that page.
 
-The ACC Magnetometer currently writes schema **6.9**. Light shift and Atomic polarizability use their own independently versioned formats.
+The ACC Magnetometer currently writes schema **6.10**, including the active
+physics-model identifier. Light shift and Atomic polarizability use their own
+independently versioned formats.
 
 ## Loading {#condition-loading}
 
@@ -20,6 +22,15 @@ The loader validates application and format identifiers before applying values. 
 
 ## Probe-source migration {#probe-source-migration}
 
-Schema 6.9 distinguishes explicit weak sources (`PumpN weak`) from physical pump sources (`PumpN`). Older plain pump links that historically meant a weak detector are migrated to the weak form.
+Schema 6.9 distinguishes explicit weak sources (`PumpN weak`) from physical
+pump sources (`PumpN`). Migration from 6.9 preserves those selections and all
+other saved inputs, adding `rf_manifold_A/B=Fa`, `probe_manifold_A/B=Total`,
+and `probe_show_manifold_decomposition_A/B=false`. New sessions instead use
+`rf_manifold_A/B=Both`. Current files require all six new fields; invalid
+manifold selections and incomplete older files are rejected before state is
+changed. Versions older than 6.9 remain unsupported.
+
+This is a settings migration, not a legacy solver selection. The two-manifold
+physics is always active and previous predictions may change.
 
 User workflow is described in [Condition files](../user-manual/condition-files.qmd).

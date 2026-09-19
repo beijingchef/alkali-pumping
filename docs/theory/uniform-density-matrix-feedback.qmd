@@ -26,18 +26,18 @@ P=
 \end{pmatrix}.
 $$
 
-It has no atomic-physics meaning beyond selecting (delta T,\delta s_1,\delta s_2,\delta s_3).
+It has no atomic-physics meaning beyond selecting $\delta T,\delta s_1,\delta s_2,\delta s_3$.
 
 ## Direct response and feedback matrix {#direct-response-and-feedback-matrix}
 
-Let (mathbf b(\omega)) be the direct weak-RF optical response. For each selected Stokes coordinate (q), the solver constructs a density-matrix source
+Let $\mathbf b(\omega)$ be the direct weak-RF optical response. For each selected Stokes coordinate $q$, the solver constructs a density-matrix source
 
 $$
 S_q=-i[\partial_q(H_{\mathrm{LS}}/\hbar),\rho_0]
 +\partial_q\mathcal D_{\mathrm{OP}}(\rho_0).
 $$
 
-The first term is dispersive light-shift feedback; the second is dissipative optical-pumping feedback. Evolving these sources and applying the optical readout operators produces a (6\times4) complex response matrix (K(\omega)).
+The first term is dispersive light-shift feedback; the second is dissipative optical-pumping feedback. Evolving these sources and applying the optical readout operators produces a $6\times4$ complex response matrix $K(\omega)$.
 
 ## Feedback closure {#feedback-closure}
 
@@ -53,7 +53,7 @@ $$
 \mathbf y_{\mathrm{out}}=\mathbf b+K\bar{\mathbf u}.
 $$
 
-Combining them gives the implemented (4\times4) solve:
+Combining them gives the implemented $4\times4$ solve:
 
 $$
 \left(I-\frac12PK\right)\bar{\mathbf u}
@@ -68,9 +68,31 @@ $$
 
 No longitudinal slice cascade is performed, and no beam-area filling factor is applied to the configured pump intensity.
 
+## Manifold projections {#feedback-manifold-projections}
+
+Both Fa and Fb participate in the direct RF drive and the feedback response.
+The direct optical response and feedback matrix split into detection contributions,
+$\mathbf b=\mathbf b_a+\mathbf b_b$ and $K=K_a+K_b$.
+After solving once for the shared $\bar{\mathbf u}$, the manifold signals are
+
+$$
+\mathbf y_a=\mathbf b_a+K_a\bar{\mathbf u},\qquad
+\mathbf y_b=\mathbf b_b+K_b\bar{\mathbf u}.
+$$
+
+Thus $\mathbf y_{\mathrm{out}}=\mathbf y_a+\mathbf y_b$ as complex signals.
+Solving two independent manifold feedback closures would describe different
+physical experiments and would not provide this decomposition. The existing
+Orientation and Alignment curves remain separately closed rank counterfactuals;
+each of those curves also admits its own additive Fa/Fb projection.
+
+In dual-species calculations the RF and Stokes sources use the same coupled
+population/coherence resolvents, including the undriven species' collision
+response. The selected physical pump closes its own optical feedback channel.
+
 ## Repeated-feedback interpretation {#repeated-feedback-interpretation}
 
-Define (G=PK/2). When every eigenvalue of (G) has magnitude below one,
+Define $G=PK/2$. When every eigenvalue of $G$ has magnitude below one,
 
 $$
 (I-G)^{-1}=I+G+G^2+\cdots.

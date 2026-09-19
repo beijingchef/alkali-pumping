@@ -2,7 +2,7 @@
 
 ## Electron randomization {#electron-randomization}
 
-Electron-randomization collisions relax electronic polarization while preserving the nuclear reduced state according to the implemented collision map. The user enters the effective rate (R_{\mathrm{ER}}). In a coated cell this rate can represent residual wall relaxation and other electron-randomizing processes not modeled microscopically.
+Electron-randomization collisions relax electronic polarization while preserving the nuclear reduced state according to the implemented collision map. The user enters the effective rate $R_{\mathrm{ER}}$. In a coated cell this rate can represent residual wall relaxation and other electron-randomizing processes not modeled microscopically.
 
 ## Self spin exchange {#self-spin-exchange}
 

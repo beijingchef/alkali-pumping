@@ -1,6 +1,6 @@
 # Documentation home {.unnumbered #documentation-home}
 
-This is the documentation for **Alkali Pumping v6.9.9**, a Streamlit application for modeling optical pumping and weak-RF magnetometry in alkali-vapor cells. The principal analysis is the **ACC Magnetometer**, where ACC means *antirelaxation coated cell*.
+This is the documentation for **Alkali Pumping v6.10.0**, a Streamlit application for modeling optical pumping and weak-RF magnetometry in alkali-vapor cells. The principal analysis is the **ACC Magnetometer**, where ACC means *antirelaxation coated cell*.
 
 The documentation is organized by audience. It deliberately uses descriptive internal links rather than numbered chapters and equations.
 

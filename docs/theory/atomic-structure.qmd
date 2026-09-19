@@ -9,7 +9,7 @@ $$
 \qquad F=I\pm\frac12,
 $$
 
-for alkali atoms with electronic ground angular momentum (J=1/2). The selected quantization axis defines (m) and the matrix representation of laboratory spin operators.
+for alkali atoms with electronic ground angular momentum $J=1/2$. The selected quantization axis defines $m$ and the matrix representation of laboratory spin operators.
 
 The steady population model retains the diagonal entries
 

@@ -48,6 +48,23 @@ class QuartoDocumentationTests(unittest.TestCase):
         self.assertTrue(cited_keys)
         self.assertEqual(cited_keys - known_keys, set())
 
+    def test_latex_symbols_use_math_delimiters_and_are_not_corrupted(self):
+        pseudo_latex = re.compile(
+            r"\((?:Omega|omega|Delta|delta|alpha|Gamma|gamma|rho|phi|chi|psi|pi|mathbf)\b"
+        )
+        for source in DOCS.rglob("*.qmd"):
+            raw = source.read_bytes()
+            text = raw.decode("utf-8")
+            with self.subTest(source=source.relative_to(DOCS)):
+                self.assertIsNone(
+                    re.search(rb"\r(?!\n)", raw),
+                    "A stray carriage return can corrupt a LaTeX command such as \\rho.",
+                )
+                self.assertIsNone(
+                    pseudo_latex.search(text),
+                    "Use $...$ rather than ordinary parentheses for inline LaTeX.",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

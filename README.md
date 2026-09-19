@@ -1,4 +1,4 @@
-# Alkali Pumping v6.9.9
+# Alkali Pumping v6.10.0
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -75,8 +75,16 @@ streamlit run alkali_pumping.py
   applied and the atomic observable and Probe-A readout belong to A; the B tab
   is defined conversely. New sessions default both RF upper sweep bounds to
   100 Hz.
+- Within the driven species, the same RF field excites both ground manifolds
+  Fa=I+1/2 and Fb=I−1/2 with their signed hyperfine g factors. Atomic plots offer
+  Fa, Fb, or both overlaid. All moments use populations per total atom and the
+  common upper-manifold angular-drive normalization Ωa=g_a μB B_rf/ℏ.
+- Both single- and dual-species responses retain ER/SE coherence transfer
+  between the two manifolds. Coherences spanning the ground hyperfine splitting
+  are secularly removed. Static and RF couplings use the same signed magnetic
+  constants, including the corrected negative nuclear magnetic-energy term.
 - Probe-A and Probe-B have independent line, hyperfine-transition detuning,
-  propagation direction, input ellipse, and path length. A Custom probe is a
+  propagation direction, input ellipse, and path length. A Custom Weak probe is a
   weak detector only and does not pump, shift, or broaden the atoms.
 - Each probe source lists both `PumpN weak` and `PumpN`. The weak item inherits
   that pump's spectrum, direction, and polarization while ignoring its
@@ -104,23 +112,33 @@ streamlit run alkali_pumping.py
   Alignment columns with Amplitude, In phase, and Quadrature rows. The
   Mathur rank-2 polarizability is converted to the raw Cartesian Q_ij
   convention used by the atomic-moment plots.
+- Each optical signal includes the coherent sum of Fa and Fb. Detected manifold
+  selects Total, Fa, or Fb without changing the drive; Show manifold decomposition
+  overlays the two contributions. Complex signals add before amplitude is taken.
+  For physical-pump readout the manifold contributions share the same closure,
+  while the Orientation/Alignment displays retain their counterfactual meaning.
 - The Zeeman table is upstream of both field-response plots. A compact table
-  lists upper-manifold transitions inside the shared RF sweep, and the same
-  resonance markers appear on both plots.
+  lists transitions from both manifolds inside the shared RF sweep, and matching
+  Fa/Fb-colored markers appear on both plots. These mark bare transition
+  frequencies; coupled response peaks need not lie exactly on the markers.
+- Atomic CSVs include both manifolds and their raw/plotted values. Probe CSVs
+  include total, rank, and manifold contributions per nT. Exports identify the
+  model and common drive normalization. Optional atomic linewidth normalization
+  applies one shared reference rate, selected at the largest population
+  difference across both manifolds.
 - The ground-state Zeeman properties/populations, atomic response, and optical
   response are three independently collapsible, default-open result sections.
   The shared RF settings remain visible above the atomic-response section.
 - The dual-alkali RF solver retains coherence feedback through self and cross
   spin exchange even though the other RF drive is zero.
 
-The condition-file schema is version 6.9. Complete v6.9 files are required;
-v6.8, v6.7, v6.6, v6.5, v6.4, v6.3, v6.2, v6.1, v6.0, and v5.0 files are migrated automatically. Existing
-v6.8 `PumpN` probe links migrate to `PumpN weak`, preserving their original
-non-perturbing meaning. A relative-
-concentration value loaded from an older file is retained numerically and is
-interpreted as the liquid mole ratio `B/A` by the v6.4 Raoult-law model. Legacy Pump1–Pump3
-become PumpA1–PumpA3. A legacy A Larmor frequency is converted to the
-corresponding static field in nT.
+The condition-file schema is version 6.10. Complete v6.9 files migrate with
+their stored inputs intact and the previous Fa atomic display selected. The
+new two-manifold physics is always used; migration does not reproduce the old
+solver. New sessions show both atomic manifolds. Versions older than 6.9 are
+not supported by the current loader. The complete pre-upgrade v6.9.9 working
+version is backed up in `../archive/alkali_pumping_v6.9.9/` with a SHA-256
+manifest for reproducing previous calculations.
 
 The population model is diagonal in each selected quantization basis. When a
 nonzero static-field direction is transverse to a tab's quantization axis, the

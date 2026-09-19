@@ -2,46 +2,46 @@
 
 ## Symbols {#glossary-symbols}
 
-(A)
-: Nonnegative RF response amplitude, (A=\sqrt{X^2+Y^2}).
+$A$
+: Nonnegative RF response amplitude, $A=\sqrt{X^2+Y^2}$.
 
-(mathbf b)
+$\mathbf b$
 : Direct full-cell weak-RF optical response before physical-pump Stokes feedback.
 
-(G)
-: Context dependent. In the RF chapter it denotes a coherence generator. In the feedback chapter (G=PK/2) denotes the optical loop matrix. The surrounding link should make the meaning explicit.
+$G$
+: Context dependent. In the RF chapter it denotes a coherence generator. In the feedback chapter $G=PK/2$ denotes the optical loop matrix. The surrounding link should make the meaning explicit.
 
-(K)
-: Complex (6\times4) matrix mapping path-averaged fractional-intensity and normalized-Stokes perturbations to detected optical signals.
+$K$
+: Complex $6\times4$ matrix mapping path-averaged fractional-intensity and normalized-Stokes perturbations to detected optical signals.
 
-(P)
-: (4\times6) selection matrix that extracts (delta T,\delta s_1,\delta s_2,\delta s_3) from the six optical outputs.
+$P$
+: $4\times6$ selection matrix that extracts $\delta T,\delta s_1,\delta s_2,\delta s_3$ from the six optical outputs.
 
-(S_0,S_1,S_2,S_3)
-: Unnormalized Stokes parameters. (S_0) is total intensity.
+$S_0,S_1,S_2,S_3$
+: Unnormalized Stokes parameters. $S_0$ is total intensity.
 
-(s_1,s_2,s_3)
-: Normalized Stokes parameters (s_i=S_i/S_0).
+$s_1,s_2,s_3$
+: Normalized Stokes parameters, $s_i=S_i/S_0$.
 
-(T)
-: In optical plots, fractional transmitted-intensity change, (delta T=\delta S_0/S_0). It is not absolute transmission.
+$T$
+: In optical plots, fractional transmitted-intensity change, $\delta T=\delta S_0/S_0$. It is not absolute transmission.
 
-(X,Y)
+$X,Y$
 : In-phase and quadrature components relative to an RF cosine reference.
 
-(chi)
+$\chi$
 : Polarization ellipticity angle.
 
-(phi) or (psi)
-: Polarization ellipse azimuth; its small change is optical rotation. The app commonly displays (psi), while the theory pages use (phi) where convenient.
+$\phi$ or $\psi$
+: Polarization ellipse azimuth; its small change is optical rotation. The app commonly displays $\psi$, while the theory pages use $\phi$ where convenient.
 
-(ho_0)
+$\rho_0$
 : Zero-RF steady ground-state density matrix.
 
-(ho(G))
-: Spectral radius, the largest magnitude of the eigenvalues of matrix (G).
+$\rho(G)$
+: Spectral radius, the largest magnitude of the eigenvalues of matrix $G$.
 
-(Omega_{\mathrm{rf}})
+$\Omega_{\mathrm{rf}}$
 : RF angular Rabi frequency in rad/s.
 
 ## Terms {#glossary-terms}

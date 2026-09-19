@@ -92,7 +92,10 @@ def ground_hyperfine_lande_g(atom_name, atom, F):
     ) / denominator
 
     mu_I_mu_N = NUCLEAR_MAGNETIC_MOMENT_MU_N.get(atom_name, 0.0)
-    g_I_bohr = (mu_I_mu_N / I) * MU_N_OVER_MU_B if I > 0.0 else 0.0
+    # H_B = +mu_B (g_J J + g_I I).B, whereas the nuclear magnetic
+    # energy is -mu_I.B. Positive tabulated nuclear moments therefore give
+    # negative g_I in Bohr-magneton units (Steck, Eq. 20/23).
+    g_I_bohr = -(mu_I_mu_N / I) * MU_N_OVER_MU_B if I > 0.0 else 0.0
     return float(
         GROUND_STATE_GJ * electronic_projection
         + g_I_bohr * nuclear_projection

@@ -24,7 +24,16 @@ Every active optical frequency is evaluated against every active alkali species.
 
 RF-A drives and reads Alkali A; RF-B is defined conversely. The two species retain self- and cross-spin-exchange coupling even though only one RF source is applied for each displayed response.
 
-Choose the RF axis, sweep bounds, and either a spin observable (F_i) or the cyclic off-diagonal alignment observable (Q_{ij}). The plotted curves are derivatives with respect to RF Rabi frequency or, for optical signals, may be converted to response per nT.
+Choose the RF axis, sweep bounds, and either a spin observable $F_i$ or the cyclic off-diagonal alignment observable $Q_{ij}$. The plotted curves are derivatives with respect to RF Rabi frequency or, for optical signals, may be converted to response per nT.
+
+The same RF field drives both ground manifolds with their signed magnetic
+couplings. **Hyperfine manifold** selects Fa ($F=I+1/2$), Fb ($F=I-1/2$), or
+both overlaid; this changes only detection. New sessions show both. Atomic
+responses are normalized to the common upper-manifold angular drive
+$\Omega_a=g_a\mu_B B_{\mathrm{rf}}/\hbar$, using populations per total atom.
+Optional relaxation normalization applies one common rate chosen at the largest
+population difference across both manifolds. The transition table and colored
+markers include both manifolds.
 
 ## Probe source modes {#probe-source-modes}
 
@@ -32,7 +41,7 @@ Every pump appears twice in the probe-source selector:
 
 - `PumpN weak` copies the pump spectrum, direction, and polarization but ignores its intensity. It is a non-perturbing detector.
 - `PumpN` selects the actual pump as the detected beam. Its configured intensity participates in the spatially uniform [physical-pump feedback model](../theory/uniform-density-matrix-feedback.qmd).
-- `Custom` defines an independent weak detector.
+- `Custom Weak` defines an independent weak detector.
 
 The physical-pump solver does **not** scale the configured intensity by the ratio of beam area to cell area.
 
@@ -45,5 +54,15 @@ The results are divided into three sections:
 3. Optical response of the selected probe source.
 
 The optical panel can display fractional transmission, normalized Stokes parameters, rotation, or ellipticity. It can also display Total, Orientation induced, or Alignment induced responses. For physical-pump readout, the last two are separately closed counterfactual calculations and generally do not add to Total.
+
+**Detected manifold** selects the optical contribution from Fa, Fb, or their
+coherent Total. **Show manifold decomposition** overlays Fa and Fb. These
+contributions add as complex signals, including for physical-pump readout,
+where both are extracted from the same feedback closure. Their amplitudes do
+not generally add. Rank decomposition remains an independent display choice.
+
+Condition files now use schema 6.10. Complete 6.9 files retain all stored inputs
+and the Fa atomic display when loaded, but run the new two-manifold physics.
+There is no legacy calculation mode; the pre-upgrade application is archived.
 
 See [Interpreting results](interpreting-results.qmd) for the phase convention and line-shape guidance.

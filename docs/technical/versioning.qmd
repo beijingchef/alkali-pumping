@@ -4,8 +4,8 @@
 
 The application distinguishes:
 
-- **Application version:** user-visible release, currently 6.9.9.
-- **Condition schema:** saved ACC settings format, currently 6.9.
+- **Application version:** user-visible release, currently 6.10.0.
+- **Condition schema:** saved ACC settings format, currently 6.10.
 - **Physics-model identifier:** a descriptive string naming the active scientific model.
 
 They change for different reasons. A navigation rename changes the application version but not the condition schema or physical equations.

@@ -2,7 +2,7 @@
 
 ## Population generator {#optical-population-generator}
 
-For every active beam, the solver calculates absorption from each ground state (g) to each excited state (e), followed by spontaneous repopulation of the ground manifold. In population form this produces a rate generator (L_{\mathrm{OP}}):
+For every active beam, the solver calculates absorption from each ground state $g$ to each excited state $e$, followed by spontaneous repopulation of the ground manifold. In population form this produces a rate generator $L_{\mathrm{OP}}$:
 
 $$
 \dot{\mathbf p}=L_{\mathrm{OP}}\mathbf p.
@@ -25,11 +25,11 @@ Spin exchange is population dependent, so its steady state is found by a fixed-p
 
 ## Polarization dependence {#pumping-polarization-dependence}
 
-The beam polarization is decomposed into spherical components relative to the quantization axis. Their weights determine which (Delta m) transitions absorb. Preset linear and circular polarizations and arbitrary polarization ellipses are converted to the same underlying representation.
+The beam polarization is decomposed into spherical components relative to the quantization axis. Their weights determine which $\Delta m$ transitions absorb. Preset linear and circular polarizations and arbitrary polarization ellipses are converted to the same underlying representation.
 
 ## Dissipative density-matrix source {#dissipative-stokes-source}
 
-For physical-pump feedback, the population generator is lifted to a trace-preserving ground-state dissipator. For excited state (e), the implemented structure is
+For physical-pump feedback, the population generator is lifted to a trace-preserving ground-state dissipator. For excited state $e$, the implemented structure is
 
 $$
 \mathcal D_e(\rho)
@@ -37,4 +37,4 @@ $$
 -\frac12\{A_e,\rho\},
 $$
 
-where (A_e) is the polarization-dependent absorption operator and (b_{ge}) is the spontaneous branching fraction. Derivatives with respect to fractional intensity and (s_1,s_2,s_3) supply the dissipative part of the [uniform feedback](uniform-density-matrix-feedback.qmd).
+where $A_e$ is the polarization-dependent absorption operator and $b_{ge}$ is the spontaneous branching fraction. Derivatives with respect to fractional intensity and $s_1,s_2,s_3$ supply the dissipative part of the [uniform feedback](uniform-density-matrix-feedback.qmd).

@@ -1,4 +1,4 @@
-"""Weak-RF adjacent-coherence response calculations."""
+"""Two-manifold secular RF response and independent-transition validation tools."""
 
 from math import sqrt
 
@@ -564,8 +564,10 @@ def _coherence_exchange_derivatives(target, partner):
     _nuclear_partner, electron_partner = _density_reductions(
         amplitudes_partner, rho_partner
     )
-    target_pairs = _ordered_coherences(len(target["ground_states"]))
-    partner_pairs = _ordered_coherences(len(partner["ground_states"]))
+    # Retain transfer between the two F blocks, but secularly eliminate
+    # coherences across the ground hyperfine splitting (GHz, not Zeeman Hz).
+    target_pairs = _secular_ordered_coherences(target["ground_states"])
+    partner_pairs = _secular_ordered_coherences(partner["ground_states"])
     target_index = {pair: index for index, pair in enumerate(target_pairs)}
 
     er = np.zeros((len(target_pairs), len(target_pairs)), dtype=complex)
@@ -702,11 +704,60 @@ def _single_species_coherence_generator(result):
     )
 
 
+def hyperfine_manifolds(result):
+    """Stable manifold names, distinct from the Alkali A/B species labels."""
+    values = sorted({float(state["F"]) for state in result["ground_states"]})
+    return {"Fa": values[-1], "Fb": values[0]}
+
+
+def magnetic_rf_operator(result):
+    """Coefficient of Omega_a cos(omega t) in H_rf/hbar for one real field.
+
+    Omega_a = g_a mu_B B_rf / hbar.  The lower manifold is driven with
+    its signed g_b/g_a ratio, using the same magnetic constants as H_static.
+    Spin operators are dimensionless and populations are per total atom.
+    """
+    from .constants import ATOMS, ground_hyperfine_lande_g
+
+    atom = result["atom"]
+    atom_name = result.get("atom_name")
+    if atom_name is None:
+        atom_name = next(name for name, candidate in ATOMS.items() if candidate == atom)
+    manifolds = hyperfine_manifolds(result)
+    g_factors = {
+        name: ground_hyperfine_lande_g(atom_name, atom, F)
+        for name, F in manifolds.items()
+    }
+    ratios = {name: g / g_factors["Fa"] for name, g in g_factors.items()}
+    size = len(result["ground_states"])
+    drive = sum((
+        ratios[name] * _spin_operator(
+            result["ground_states"], result["q_axis"], result["rf_axis"], F
+        )
+        for name, F in manifolds.items()
+    ), np.zeros((size, size), dtype=complex))
+    return drive, {
+        "manifolds": manifolds,
+        "g_factors": g_factors,
+        "drive_ratios": ratios,
+        "normalization": "Omega_a = g_a mu_B B_rf / hbar",
+    }
+
+
+def atomic_rf_readout_operators(result):
+    """Return Fa and Fb projections of the same selected atomic moment."""
+    return {
+        name: _rf_observable_operator(
+            result["ground_states"], result["q_axis"], result["rf_axis"],
+            result["rf_observable"], F,
+        )[0]
+        for name, F in hyperfine_manifolds(result).items()
+    }
+
+
 def _drive_and_observable_vectors(result, pairs, total_size, offset):
     target_F = result["rf_upper_F"]
-    drive = _spin_operator(
-        result["ground_states"], result["q_axis"], result["rf_axis"], target_F
-    )
+    drive, _ = magnetic_rf_operator(result)
     observable, _observable_info = _rf_observable_operator(
         result["ground_states"],
         result["q_axis"],
@@ -726,10 +777,7 @@ def _drive_and_observable_vectors(result, pairs, total_size, offset):
 
 def _drive_vector(result, pairs, total_size, offset):
     """Return the cosine-RF source vector for one species block."""
-    drive = _spin_operator(
-        result["ground_states"], result["q_axis"], result["rf_axis"],
-        result["rf_upper_F"],
-    )
+    drive, _ = magnetic_rf_operator(result)
     population = np.asarray(result["population"], dtype=float)
     source = np.zeros(total_size, dtype=complex)
     for local_index, (a, b) in enumerate(pairs):
@@ -798,13 +846,75 @@ def _resolvent_susceptibility(generator, source, readout, frequencies_hz):
 
 def build_single_species_liouvillian_response_context(result):
     """Cache population and secular-coherence modes for local optical drives."""
-    population_generator = np.asarray(result["J_population"], dtype=complex)
     pairs, coherence_generator = _single_species_coherence_generator(result)
     return {
-        "population_modes": _resolvent_modes(population_generator),
+        "population_modes": (
+            _resolvent_modes(np.asarray(result["J_population"], dtype=complex))
+            if "J_population" in result else None
+        ),
         "coherence_pairs": pairs,
         "coherence_modes": _resolvent_modes(coherence_generator),
+        "coherence_offset": 0,
+        "population_offset": 0,
+        "coupled": False,
     }
+
+
+def build_rf_response_contexts(result_A, result_B=None, population_generator=None):
+    """Share one secular resolvent across RF, optical, and feedback readouts.
+
+    Each species context embeds its source/readout in the same A/B generator.
+    RF-A and RF-B remain separate experiments, each with the other drive zero.
+    """
+    if result_B is None:
+        return {"A": build_single_species_liouvillian_response_context(result_A)}
+    pairs_A, er_A, self_A, cross_A, cross_AB = _coherence_exchange_derivatives(result_A, result_B)
+    pairs_B, er_B, self_B, cross_B, cross_BA = _coherence_exchange_derivatives(result_B, result_A)
+    generator = np.block([
+        [_local_coherence_generator(result_A, pairs_A, er_A, self_A, cross_A),
+         float(result_A["R_SE_cross"]) * cross_AB],
+        [float(result_B["R_SE_cross"]) * cross_BA,
+         _local_coherence_generator(result_B, pairs_B, er_B, self_B, cross_B)],
+    ])
+    modes = _resolvent_modes(generator)
+    population_modes = (
+        _resolvent_modes(np.asarray(population_generator, dtype=complex))
+        if population_generator is not None else None
+    )
+    return {
+        label: {
+            "coherence_pairs": pairs, "coherence_modes": modes,
+            "coherence_offset": offset, "population_offset": population_offset,
+            "population_modes": population_modes, "coupled": True,
+        }
+        for label, pairs, offset, population_offset in (
+            ("A", pairs_A, 0, 0),
+            ("B", pairs_B, len(pairs_A), len(result_A["ground_states"])),
+        )
+    }
+
+
+def weak_rf_matrix_readouts(result, readout_operators, *, context=None):
+    """Two-manifold magnetic response with one shared density perturbation."""
+    if context is None:
+        context = build_single_species_liouvillian_response_context(result)
+    modes = context["coherence_modes"]
+    pairs = context["coherence_pairs"]
+    offset = context.get("coherence_offset", 0)
+    size = len(modes[0])
+    source, used = _drive_vector(result, pairs, size, offset)
+    _, drive_info = magnetic_rf_operator(result)
+    responses = {}
+    for name, operator in readout_operators.items():
+        readout = _matrix_readout_vector(operator, pairs, size, offset)
+        response = _resolvent_susceptibility_from_modes(
+            modes, source, readout, result["rf_frequencies_hz"]
+        )
+        responses[name] = (*response, {
+            "used_transitions": used, "coupled": context.get("coupled", False),
+            "secular_two_manifold": True, **drive_info,
+        })
+    return responses
 
 
 def weak_liouvillian_source_matrix_readouts(
@@ -843,17 +953,26 @@ def weak_liouvillian_source_matrix_readouts(
 
     # A real cosine perturbation has half its amplitude in the exp(-i omega t)
     # Fourier component used by the resolvent convention.
-    population_source = 0.5 * np.diag(source).astype(complex, copy=True)
-    population_source -= np.sum(population_source) / max(1, state_count)
+    local_population_source = 0.5 * np.diag(source).astype(complex, copy=True)
+    local_population_source -= np.sum(local_population_source) / max(1, state_count)
+    population_offset = context.get("population_offset", 0)
+    population_slice = slice(population_offset, population_offset + state_count)
+    population_source = np.zeros(len(context["population_modes"][0]), dtype=complex)
+    population_source[population_slice] = local_population_source
     pairs = context["coherence_pairs"]
-    coherence_source = 0.5 * np.asarray(
+    coherence_offset = context.get("coherence_offset", 0)
+    coherence_slice = slice(coherence_offset, coherence_offset + len(pairs))
+    coherence_source = np.zeros(len(context["coherence_modes"][0]), dtype=complex)
+    coherence_source[coherence_slice] = 0.5 * np.asarray(
         [source[a, b] for a, b in pairs], dtype=complex
     )
 
     responses = {}
     for name, readout in readouts.items():
-        population_readout = np.diag(readout)
-        coherence_readout = np.asarray(
+        population_readout = np.zeros_like(population_source)
+        population_readout[population_slice] = np.diag(readout)
+        coherence_readout = np.zeros_like(coherence_source)
+        coherence_readout[coherence_slice] = np.asarray(
             [readout[b, a] for a, b in pairs], dtype=complex
         )
         population_phasor = _resolvent_phasor_from_modes(
@@ -983,12 +1102,14 @@ def coupled_weak_rf_matrix_readouts(
 
 
 def largest_abs_Dm_relaxation_reference(df_pop, target_F=None):
-    """Return the relaxation rate at the largest |D_m| in one F manifold.
+    """Return the relaxation rate at the largest |D_m| in the chosen manifolds.
 
     By default, the upper ground hyperfine manifold (largest F in ``df_pop``)
     is used. Here D_m = P_m - P_(m-1), as displayed in the Zeeman table, and
     the reference transition is selected by the largest absolute magnitude
     |D_m| within that same manifold.
+    ``target_F="all"`` selects across both manifolds so the plotted responses
+    share one reference scale regardless of the display selection.
     Rows without an adjacent lower-m partner are excluded. The total local
     relaxation rate is
 
@@ -1014,16 +1135,19 @@ def largest_abs_Dm_relaxation_reference(df_pop, target_F=None):
                 "reason": "no finite hyperfine manifold was found",
             }
         target_F = float(np.max(finite_F_values))
-    target_F = float(target_F)
+    all_manifolds = target_F == "all"
+    if not all_manifolds:
+        target_F = float(target_F)
 
     candidate = df_pop.loc[:, list(required)].copy()
-    candidate = candidate.loc[np.isclose(candidate["F"].to_numpy(dtype=float), target_F)]
+    if not all_manifolds:
+        candidate = candidate.loc[np.isclose(candidate["F"].to_numpy(dtype=float), target_F)]
     finite_D = np.isfinite(candidate["population_difference"].to_numpy(dtype=float))
     candidate = candidate.loc[finite_D]
     if candidate.empty:
         return {
             "available": False,
-            "reason": f"no adjacent transition in F={target_F:g} has a finite D_m",
+            "reason": f"no adjacent transition in {target_F} has a finite D_m",
         }
 
     # Select the adjacent transition with the largest population-difference magnitude.

@@ -14,7 +14,7 @@ $$
 +c_{\mathrm{tensor}}\left[3m^2-F(F+1)\right].
 $$
 
-The scalar contribution shifts the manifold without distinguishing (m). The vector contribution acts like a fictitious magnetic field. The tensor contribution produces an (m^2)-dependent splitting.
+The scalar contribution shifts the manifold without distinguishing $m$. The vector contribution acts like a fictitious magnetic field. The tensor contribution produces an $m^2$-dependent splitting.
 
 ## Use in the RF solver {#light-shifts-in-rf-response}
 

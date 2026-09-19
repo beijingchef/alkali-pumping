@@ -2,19 +2,19 @@
 
 ## In phase, quadrature, and amplitude {#rf-components}
 
-The RF reference is (cos(omega t)). A real response is written
+The RF reference is $\cos(\omega t)$. A real response is written
 
 $$
-R(t)=X(omega)cos(omega t)+Y(omega)sin(omega t).
+R(t)=X(\omega)\cos(\omega t)+Y(\omega)\sin(\omega t).
 $$
 
-Here (X) is In phase, (Y) is Quadrature, and
+Here $X$ is In phase, $Y$ is Quadrature, and
 
 $$
-A(omega)=\sqrt{X(\omega)^2+Y(\omega)^2}
+A(\omega)=\sqrt{X(\omega)^2+Y(\omega)^2}
 $$
 
-is the nonnegative Amplitude. The optional **Add (pi)** controls reverse a displayed signed component; they do not change the calculated amplitude or underlying susceptibility.
+is the nonnegative Amplitude. The optional **Add ($\pi$)** controls reverse a displayed signed component; they do not change the calculated amplitude or underlying susceptibility.
 
 ## Resonance locations and widths {#resonance-locations-and-widths}
 
@@ -22,10 +22,10 @@ Resonance positions include the selected static field and diagonal pump light sh
 
 ## Optical signals {#interpreting-optical-signals}
 
-- Fractional transmission is (delta T=delta S_0/S_0).
-- (s_i=S_i/S_0) are normalized Stokes parameters.
-- Rotation (phi) is the change of the polarization ellipse azimuth.
-- Ellipticity (chi) measures the change toward circular polarization.
+- Fractional transmission is $\delta T=\delta S_0/S_0$.
+- $s_i=S_i/S_0$ are normalized Stokes parameters.
+- Rotation $\phi$ is the change of the polarization ellipse azimuth.
+- Ellipticity $\chi$ measures the change toward circular polarization.
 
 For a noncircular input beam,
 
@@ -36,7 +36,7 @@ $$
 {s_1^2+s_2^2}.
 $$
 
-Both the [CBOR and LDOR channels](../theory/cbor-and-ldor.qmd) can contribute to (delta s_1) and (delta s_2).
+Both the [CBOR and LDOR channels](../theory/cbor-and-ldor.qmd) can contribute to $\delta s_1$ and $\delta s_2$.
 
 ## Comparing weak and physical-pump curves {#weak-versus-physical-curves}
 

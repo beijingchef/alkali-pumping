@@ -5,12 +5,13 @@ from datetime import datetime
 
 import streamlit as st
 
-from ..version import CONDITION_SCHEMA_VERSION
+from ..version import CONDITION_SCHEMA_VERSION, PHYSICS_MODEL_VERSION
 
 
 RF_FIELDS = (
     "axis",
     "observable",
+    "manifold",
     "frequency_lower_hz",
     "frequency_upper_hz",
     "show_amplitude",
@@ -41,6 +42,8 @@ PROBE_FIELDS = (
     "signal",
     "response_component",
     "show_decomposition",
+    "manifold",
+    "show_manifold_decomposition",
     "show_amplitude",
     "show_in_phase",
     "add_pi_in_phase",
@@ -164,6 +167,7 @@ DEFAULT_STARTUP_CONDITION = {
     "pol_B3": "linear z",
     "rf_axis_A": "x",
     "rf_observable_A": "Fx",
+    "rf_manifold_A": "Both",
     "rf_frequency_lower_hz_A": 0.0,
     "rf_frequency_upper_hz_A": 100.0,
     "rf_show_amplitude_A": True,
@@ -175,6 +179,7 @@ DEFAULT_STARTUP_CONDITION = {
     "rf_density_factor_A": False,
     "rf_axis_B": "x",
     "rf_observable_B": "Fx",
+    "rf_manifold_B": "Both",
     "rf_frequency_lower_hz_B": 0.0,
     "rf_frequency_upper_hz_B": 100.0,
     "rf_show_amplitude_B": True,
@@ -195,6 +200,8 @@ DEFAULT_STARTUP_CONDITION = {
     "probe_signal_A": "rotation",
     "probe_response_component_A": "Total",
     "probe_show_decomposition_A": False,
+    "probe_manifold_A": "Total",
+    "probe_show_manifold_decomposition_A": False,
     "probe_show_amplitude_A": True,
     "probe_show_in_phase_A": False,
     "probe_add_pi_in_phase_A": False,
@@ -211,6 +218,8 @@ DEFAULT_STARTUP_CONDITION = {
     "probe_signal_B": "rotation",
     "probe_response_component_B": "Total",
     "probe_show_decomposition_B": False,
+    "probe_manifold_B": "Total",
+    "probe_show_manifold_decomposition_B": False,
     "probe_show_amplitude_B": True,
     "probe_show_in_phase_B": False,
     "probe_add_pi_in_phase_B": False,
@@ -242,6 +251,7 @@ def build_condition_payload(values):
         "app": "alkali_pumping",
         "format": "alkali_pumping_conditions",
         "version": CONDITION_SCHEMA_VERSION,
+        "physics_model": PHYSICS_MODEL_VERSION,
         "saved_at": datetime.now().isoformat(timespec="seconds"),
         "conditions": conditions,
     }
@@ -280,14 +290,27 @@ def apply_loaded_condition_dict(payload):
         raise ValueError("The JSON file does not contain a conditions object.")
 
     version = payload.get("version")
-    if version != CONDITION_SCHEMA_VERSION:
+    if version not in ("6.9", CONDITION_SCHEMA_VERSION):
         raise ValueError(
             f"Unsupported condition-file version; expected {CONDITION_SCHEMA_VERSION}."
         )
     loaded_conditions = dict(conditions)
+    if version == "6.9":
+        # Preserve the previous visible Fa selection and every stored input.
+        # Old conditions are recalculated with the new physics; there is no
+        # legacy solver. The complete v6.9.9 application is archived instead.
+        for label in ("A", "B"):
+            loaded_conditions.setdefault(f"rf_manifold_{label}", "Fa")
+            loaded_conditions.setdefault(f"probe_manifold_{label}", "Total")
+            loaded_conditions.setdefault(f"probe_show_manifold_decomposition_{label}", False)
     missing = [key for key in CONDITION_KEYS if key not in loaded_conditions]
     if missing:
         raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
+    for label in ("A", "B"):
+        if loaded_conditions[f"rf_manifold_{label}"] not in ("Fa", "Fb", "Both"):
+            raise ValueError(f"Invalid RF manifold for Alkali {label}.")
+        if loaded_conditions[f"probe_manifold_{label}"] not in ("Total", "Fa", "Fb"):
+            raise ValueError(f"Invalid probe manifold for Alkali {label}.")
 
     loaded_name = clean_condition_name(loaded_conditions["condition_name"])
     for key in CONDITION_KEYS:
@@ -311,7 +334,9 @@ def load_condition_callback():
     try:
         payload = json.loads(uploaded.getvalue().decode("utf-8"))
         loaded_name = apply_loaded_condition_dict(payload)
-        st.session_state["_condition_load_message"] = f"Loaded condition: {loaded_name}"
+        st.session_state["_condition_load_message"] = (
+            f"Loaded condition: {loaded_name}. Calculated with the two-manifold model."
+        )
         st.session_state.pop("_condition_load_error", None)
     except Exception as exc:
         st.session_state["_condition_load_error"] = str(exc)

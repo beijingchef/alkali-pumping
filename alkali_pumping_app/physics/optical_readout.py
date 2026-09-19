@@ -51,6 +51,26 @@ def _electronic_spin_projection_factor(atom, target_F):
     ) / denominator
 
 
+def manifold_probe_readout_operators(ground_states, operators):
+    """Project each rank/signal onto Fa and Fb without renormalizing atoms.
+
+    The existing optical coefficients already include both hyperfine blocks.
+    This partitions their detection contributions, never their RF excitation.
+    """
+    manifolds = sorted({float(state["F"]) for state in ground_states})
+    return {
+        name: {
+            rank: {
+                signal: projector @ operator @ projector
+                for signal, operator in signals.items()
+            }
+            for rank, signals in operators.items()
+        }
+        for name, F in (("Fa", manifolds[-1]), ("Fb", manifolds[0]))
+        for projector in (_manifold_projector(ground_states, F),)
+    }
+
+
 def _ij_eigenvalue(atom, target_F):
     I = float(atom["I"])
     J = float(atom["ground"]["J"])
