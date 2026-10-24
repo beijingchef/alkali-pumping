@@ -38,3 +38,37 @@ The population approximation is most consistent when the static magnetic field i
 ## Multipole interpretation {#atomic-multipoles}
 
 Atomic orientation is the rank-1, vector part of the density matrix and is detected through vector optical polarizability. Atomic alignment is the rank-2, quadrupolar part and is detected through tensor optical polarizability. These connections are developed in [CBOR and LDOR](cbor-and-ldor.qmd).
+
+## Atomic properties collision reference {#atomic-properties-collision-reference}
+
+The Atomic properties page has its own isotope and temperature settings in the
+sidebar. It reports the per-atom self-collision rates
+$R_{\mathrm{SE}}=n_{\mathrm{sat}}\sigma_{\mathrm{SE}}\bar v_{\mathrm{rel}}$ and
+$R_{\mathrm{ER,self}}=n_{\mathrm{sat}}\sigma_{\mathrm{SD}}\bar v_{\mathrm{rel}}$,
+where $\bar v_{\mathrm{rel}}=\sqrt{16k_BT/(\pi m)}$. Rates are in inverse seconds,
+densities in inverse cubic centimetres, cross sections in square centimetres,
+and velocities in centimetres per second. No pair-counting factor of one half
+or nuclear slowing-down factor is applied to these per-atom collision rates.
+The self electron-randomization estimate includes binary spin destruction only.
+
+The editable self cross-section defaults are element based: K uses
+$10^{-18}$, Rb uses $1.6\times10^{-17}$, and Cs uses $2\times10^{-16}$ square
+centimetres, from [Liu et al., Table 1](https://doi.org/10.1038/s41598-017-06434-2).
+Isotopes share the element value. Na has no verified built-in self cross section
+in this reference set; the rate remains unavailable until the user supplies one.
+
+Buffer-gas pressures are fill pressures $P_f$ at $T_f=298.15$ K (25 °C). For a
+sealed cell of fixed volume, $P(T)=P_fT/T_f$ and $n_g=P_f/(k_BT_f)$, with the
+appropriate pressure and volume conversions. Thus
+$R_{\mathrm{ER},g}=n_g\sigma_g\sqrt{8k_BT/(\pi\mu)}$, where $\mu$ is the
+alkali-buffer reduced mass. With a fixed cross section the rate grows as
+$\sqrt{T}$, since heating does not change the number density in this cell.
+
+The optical estimates use $\Delta\nu_{\mathrm{FWHM}}=\beta P(T)$ and
+$\delta\nu=sP(T)$. This is a constant-coefficient approximation using the
+existing MHz/Torr data. Neither an additional temperature law for optical
+coefficients nor one for the editable collision cross sections is assumed.
+The broadening column is the buffer-gas Lorentzian FWHM contribution, excluding
+natural and Doppler broadening. Blank entries denote unavailable coefficients
+or cross sections. These reference calculations do not change the independent
+electron-randomization inputs on the ACC Magnetometer page.

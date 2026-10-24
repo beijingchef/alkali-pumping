@@ -1,7 +1,7 @@
 """Reference atomic properties and collision helpers for the settings dialog."""
 
 from fractions import Fraction
-from math import pi, sqrt
+from math import isfinite, pi, sqrt
 
 from sympy import Rational
 from sympy.physics.wigner import wigner_3j, wigner_6j
@@ -10,6 +10,7 @@ from sympy.physics.wigner import wigner_3j, wigner_6j
 K_B = 1.380649e-23
 AMU_KG = 1.66053906660e-27
 TORR_PA = 133.32236842105263
+BUFFER_GAS_FILL_TEMPERATURE_C = 25.0
 
 
 ATOMIC_PROPERTY_DATA = {
@@ -107,6 +108,19 @@ ELECTRON_RANDOMIZATION_CROSS_SECTION_CM2 = {
 }
 
 
+# Binary self spin-destruction cross sections, treated as electron-randomization
+# cross sections for R = n*sigma*v_rel (without nuclear slowing down).
+# Liu et al., Sci. Rep. 7, 6776 (2017), Table 1:
+# https://doi.org/10.1038/s41598-017-06434-2
+# Element values are shared between isotopes; Na has no verified built-in value.
+SELF_ELECTRON_RANDOMIZATION_CROSS_SECTION_CM2 = {
+    "Na": None,
+    "K": 1.0e-18,
+    "Rb": 1.6e-17,
+    "Cs": 2.0e-16,
+}
+
+
 # Optical Lorentzian FWHM broadening and line-shift coefficients in MHz/Torr.
 # Entries are element based because isotope shifts are not resolved here.
 PRESSURE_COEFFICIENTS_MHZ_TORR = {
@@ -143,11 +157,11 @@ def atomic_property_record(isotope):
     return ATOMIC_PROPERTY_DATA[isotope]
 
 
-def alkali_thermal_properties(isotope, temperature_C):
+def alkali_thermal_properties(isotope, temperature_C, self_er_cross_section_cm2=None):
     """Return saturated-vapor and thermal quantities for one isotope."""
     atom = atomic_property_record(isotope)
     temperature_K = float(temperature_C) + 273.15
-    if temperature_K <= 0.0:
+    if not isfinite(temperature_K) or temperature_K <= 0.0:
         raise ValueError("Temperature must be above absolute zero.")
 
     phase = "solid" if temperature_K < atom["melting_K"] else "liquid"
@@ -163,6 +177,18 @@ def alkali_thermal_properties(isotope, temperature_C):
     spin_exchange_rate_s = (
         density_cm3 * sigma_cm2 * mean_relative_velocity_m_s * 100.0
     )
+    if self_er_cross_section_cm2 is None:
+        self_er_cross_section_cm2 = SELF_ELECTRON_RANDOMIZATION_CROSS_SECTION_CM2[
+            atom["element"]
+        ]
+    self_er_rate_s = None
+    if self_er_cross_section_cm2 is not None:
+        self_er_cross_section_cm2 = float(self_er_cross_section_cm2)
+        if not isfinite(self_er_cross_section_cm2) or self_er_cross_section_cm2 < 0.0:
+            raise ValueError("Self electron-randomization cross section must be nonnegative and finite.")
+        self_er_rate_s = (
+            density_cm3 * self_er_cross_section_cm2 * mean_relative_velocity_m_s * 100.0
+        )
     return {
         "temperature_K": temperature_K,
         "phase": phase,
@@ -171,6 +197,8 @@ def alkali_thermal_properties(isotope, temperature_C):
         "rms_velocity_m_s": rms_velocity_m_s,
         "mean_relative_velocity_m_s": mean_relative_velocity_m_s,
         "spin_exchange_rate_s": spin_exchange_rate_s,
+        "self_er_cross_section_cm2": self_er_cross_section_cm2,
+        "self_er_rate_s": self_er_rate_s,
     }
 
 
@@ -193,6 +221,41 @@ def buffer_gas_collision_rate_s(
     )
     density_cm3 = float(pressure_torr) * TORR_PA / (K_B * temperature_K) / 1e6
     return density_cm3 * float(cross_section_cm2) * mean_relative_velocity_cm_s
+
+
+def buffer_gas_properties(isotope, gas_name, line, temperature_C, fill_pressure_torr,
+                          cross_section_cm2):
+    """Return sealed-cell results for a fill pressure at 25 °C.
+
+    Fixed volume and ideal gas: P(T) = P_fill*T/T_fill, so gas density is
+    conserved. Optical coefficients and the supplied cross section are held
+    constant; no unverified temperature law is applied to either coefficient.
+    The optical result is a constant-MHz/Torr approximation at operating P(T).
+    """
+    temperature_K = float(temperature_C) + 273.15
+    fill_pressure_torr = float(fill_pressure_torr)
+    cross_section_cm2 = float(cross_section_cm2)
+    if not isfinite(temperature_K) or temperature_K <= 0.0:
+        raise ValueError("Temperature must be above absolute zero.")
+    if not isfinite(fill_pressure_torr) or fill_pressure_torr < 0.0:
+        raise ValueError("Fill pressure must be nonnegative and finite.")
+    if not isfinite(cross_section_cm2) or cross_section_cm2 < 0.0:
+        raise ValueError("Cross section must be nonnegative and finite.")
+    fill_temperature_K = BUFFER_GAS_FILL_TEMPERATURE_C + 273.15
+    operating_pressure_torr = fill_pressure_torr * temperature_K / fill_temperature_K
+    element = atomic_property_record(isotope)["element"]
+    coefficient = PRESSURE_COEFFICIENTS_MHZ_TORR.get(element, {}).get(line, {}).get(gas_name)
+    return {
+        "operating_pressure_torr": operating_pressure_torr,
+        "density_cm3": fill_pressure_torr * TORR_PA / (K_B * fill_temperature_K) / 1e6,
+        "fwhm_coefficient_MHz_torr": coefficient[0] if coefficient else None,
+        "shift_coefficient_MHz_torr": coefficient[1] if coefficient else None,
+        "broadening_MHz": coefficient[0] * operating_pressure_torr if coefficient else None,
+        "shift_MHz": coefficient[1] * operating_pressure_torr if coefficient else None,
+        "electron_randomization_rate_s": buffer_gas_collision_rate_s(
+            isotope, gas_name, temperature_C, operating_pressure_torr, cross_section_cm2
+        ),
+    }
 
 
 def allowed_hyperfine_F(I, J):

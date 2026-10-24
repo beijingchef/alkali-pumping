@@ -1,4 +1,4 @@
-# Alkali Pumping v6.10.0
+# Alkali Pumping v6.10.1
 
 This Streamlit application models optical pumping, electron randomization,
 self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
@@ -23,7 +23,19 @@ four workflows:
   describe attenuation; diagonal vector and tensor responses are
   shown for each ground hyperfine manifold.
 - **Reference → Atomic properties** presents the former Settings dialog as a
-  full page with thermal, buffer-gas, and transition-strength tabs.
+  full page with alkali isotope and temperature settings in the sidebar and thermal,
+  buffer-gas, and transition-strength tabs in the main panel.
+
+Atomic properties calculates self spin-exchange and self electron-randomization
+rates at the sidebar temperature. The self electron-randomization cross section
+is editable; missing reference values require a measured input. Buffer-gas
+pressures are **fill pressures at 25 °C** in a sealed cell. Edit fill pressure
+and electron-randomization cross section directly in the buffer-gas table;
+calculated columns are read-only. Changing pressure,
+temperature, or an electron-randomization cross section immediately recalculates
+the table, including operating pressure, optical broadening, shift, and collision
+rate. Optical coefficients in MHz/Torr and entered cross sections are held
+constant; additional temperature dependence of those coefficients is not modeled.
 
 Light-shift settings persist while navigating between pages and can be saved
 or loaded with their own JSON format. Custom polarization is specified by the

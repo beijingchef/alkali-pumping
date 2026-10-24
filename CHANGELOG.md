@@ -1,5 +1,32 @@
 # Changelog
 
+## 6.10.1 - 2026-10-24
+
+### Changed
+
+- Added an Atomic properties sidebar and moved the alkali isotope selector
+  into it, preserving its default and persistent selection across pages.
+- Arranged the Transition strengths polarization checkboxes (σ−, π, σ+)
+  in one horizontal row.
+- Removed the description caption below the Atomic properties page title.
+- Swapped the Transition strengths hyperfine selectors so Excited F′ appears
+  above Ground F.
+- Moved temperature to the Atomic properties sidebar and shared it between
+  thermal and buffer-gas calculations. Added self electron-randomization rates
+  from editable binary spin-destruction cross sections.
+- Buffer-gas inputs now represent fill pressures at 25 °C in a sealed cell.
+  Pressure, temperature, and cross-section edits immediately recalculate
+  operating pressure, broadening, shift, and electron-randomization rates.
+  Optical coefficients and entered cross sections are held constant; unknown
+  cross sections are displayed as unavailable until a value is supplied.
+- Combined buffer-gas inputs and results into one table: fill pressure and
+  electron-randomization cross section are editable cells; gas names and
+  calculated results remain read-only. Removed the separate input boxes.
+- Shortened the buffer-gas cross-section and rate column headings to σ_ER
+  and Γ_ER, retaining their units.
+- Shortened the pressure headings to P_fill at 25 ℃ and P_T (Torr), and placed σ_ER
+  immediately before Γ_ER.
+
 ## 6.10.0 - 2026-09-19
 
 ### Changed
