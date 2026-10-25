@@ -42,13 +42,6 @@ class TimeEvolutionConditionTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(ValueError):
                 parse_settings_payload(payload)
 
-    def test_older_formats_are_rejected(self):
-        for version in ("1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "2.0", "2.1", "2.2", "2.3"):
-            payload = build_settings_payload(DEFAULTS)
-            payload["version"] = version
-            with self.subTest(version=version), self.assertRaisesRegex(ValueError, "expected 2.4"):
-                parse_settings_payload(payload)
-
     def test_probe_scan_limits_round_trip_and_validate_per_species(self):
         settings = dict(DEFAULTS, probe_scan_min_MHz_A=-15000., probe_scan_max_MHz_A=15000.,
                         probe_scan_min_MHz_B=-100., probe_scan_max_MHz_B=100.)

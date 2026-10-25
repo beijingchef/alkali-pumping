@@ -1,4 +1,4 @@
-# Alkali Pumping v6.20.6
+# Alkali Pumping v6.20.7
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -71,6 +71,9 @@ five workflows:
   ellipticity. Total time defaults to 4 s and turn-off to 1 s.
   **Probe signal scanning**, when opened, independently converges the pump-on steady state
   and scans all allowed hyperfine transitions of the probe's selected D line.
+  If numerical error stalls stationary convergence, the solver tightens its
+  integration accuracy with bounded retries rather than extending settled
+  trajectories indefinitely. Normally converging cases retain their tolerances.
   Rotation, ellipticity and absorption have one plot per row. A two-handle
   detuning range slider at the top left defaults to ±7000 MHz relative to the
   zero-pressure D-line center, adjustable within ±15000 MHz. The slider is half

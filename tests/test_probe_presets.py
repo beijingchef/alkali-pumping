@@ -9,7 +9,7 @@ from alkali_pumping_app.physics.spectroscopy import transition_choice_labels
 from alkali_pumping_app.ui import conditions
 from alkali_pumping_app.ui.probe_presets import PROBE_PRESET_SOURCES, probe_preset_settings
 from alkali_pumping_app.ui.time_evolution_conditions import (
-    DEFAULTS, build_settings_payload, parse_settings_payload,
+    DEFAULTS, SCHEMA_VERSION, build_settings_payload, parse_settings_payload,
 )
 
 
@@ -49,7 +49,7 @@ class ProbePresetTests(unittest.TestCase):
                 values.update(probe_det_rel_A=-1234., probe_path_length_cm_B=2.5,
                               probe_azimuth_deg_A=20., probe_ellipticity_deg_B=-10.)
                 payload = build_settings_payload(values)
-                self.assertEqual(payload["version"], "2.0")
+                self.assertEqual(payload["version"], SCHEMA_VERSION)
                 self.assertEqual(parse_settings_payload(payload), values)
 
     def test_current_formats_preserve_custom_optics_and_uniform_rates(self):

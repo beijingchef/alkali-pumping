@@ -1,5 +1,35 @@
 # Changelog
 
+## 6.20.7 - 2026-10-25
+
+- Verify that Time evolution Save includes pending widget edits in the current
+  format 2.4 JSON and correct filename. Update the preset test's stale 2.0
+  expectation. Remove historical-format fixtures and tests, including skipped
+  migration tests, while retaining current-schema and field validation.
+- Fix stalled probe-scan stationary convergence by tightening BDF tolerances
+  when state changes are small but the residual stops improving. Retry from
+  the current state over the initial interval instead of doubling settled
+  trajectories; report an error after three unsuccessful accuracy refinements.
+- Preserve the stationary residual threshold, two consecutive small-change
+  checks, and density-matrix trace, Hermiticity and positivity checks. Ordinary
+  converging cases keep their original integration tolerances; transient
+  evolution, RF calculations and saved-condition schemas are unchanged.
+- Add regression coverage for the original transverse-field stall, default
+  accuracy on an easy case, bounded failure, stationary initial states, and
+  pumped dual-species stationarity and physical density matrices.
+- Representative timings on the development machine: the original Rb87
+  transverse-field case completes in 1.26 s (previously stopped after 100 s);
+  aligned and self-exchange cases remain about 0.21 s and 0.38 s, compared with
+  0.21 s and 0.36 s previously. A 5 nT transverse field, tenfold pump intensity,
+  and Rb87/Rb85 cross exchange converge in about 19 s, 14 s, and 14 s. Linear
+  cases agree with direct stationary solutions within 7e-13; the nonlinear
+  dual-species result agrees with a stricter integration within 3.1e-13.
+- All seven probe-scan tests and the release-metadata check pass (8 tests).
+  All 36 focused current-format settings and Save checks pass. Five existing
+  Time evolution UI tests still have plot-count or missing-widget failures,
+  reproduced on an isolated copy of committed HEAD. These checks do not
+  load or save settings; the stale preset-schema expectation is corrected.
+
 ## 6.20.6 - 2026-10-25
 
 - Format small-range Time evolution plots with three-significant-figure

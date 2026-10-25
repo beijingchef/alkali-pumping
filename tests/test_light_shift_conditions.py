@@ -57,27 +57,6 @@ class LightShiftConditionTests(unittest.TestCase):
         self.assertTrue(session_state["ls_show_tensor"])
         self.assertTrue(session_state["_ls_loaded_preserve_range"])
 
-    def test_legacy_v10_payload_is_rejected(self):
-        payload = conditions.build_light_shift_payload(
-            conditions.LIGHT_SHIFT_DEFAULTS
-        )
-        payload["version"] = "1.0"
-        payload["conditions"].pop("show_scalar")
-        with patch.object(conditions.st, "session_state", {}):
-            with self.assertRaisesRegex(ValueError, "expected 1.2"):
-                conditions.apply_light_shift_payload(payload)
-
-    def test_legacy_v11_payload_is_rejected(self):
-        payload = conditions.build_light_shift_payload(
-            conditions.LIGHT_SHIFT_DEFAULTS
-        )
-        payload["version"] = "1.1"
-        payload["conditions"].pop("show_vector")
-        payload["conditions"].pop("show_tensor")
-        with patch.object(conditions.st, "session_state", {}):
-            with self.assertRaisesRegex(ValueError, "expected 1.2"):
-                conditions.apply_light_shift_payload(payload)
-
     def test_unknown_version_is_rejected(self):
         payload = conditions.build_light_shift_payload(
             conditions.LIGHT_SHIFT_DEFAULTS

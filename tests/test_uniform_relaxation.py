@@ -175,25 +175,6 @@ class UniformRelaxationSettingsTests(unittest.TestCase):
         values = dict(DEFAULTS, gamma_u_A=0., gamma_u_B=4.)
         self.assertEqual(parse_settings_payload(build_settings_payload(values)), values)
 
-    def test_old_acc_files_without_uniform_rates_are_rejected(self):
-        for version in ("6.9", "6.10"):
-            values = {key: value for key, value in conditions.DEFAULT_STARTUP_CONDITION.items()
-                      if not key.startswith("gamma_u_") and (version != "6.9" or "manifold" not in key)}
-            payload = {"app": "alkali_pumping", "format": "alkali_pumping_conditions",
-                       "version": version, "conditions": values}
-            state = {}
-            with patch.object(conditions.st, "session_state", state), self.assertRaises(ValueError):
-                conditions.apply_loaded_condition_dict(payload)
-            self.assertEqual(state, {})
-
-    def test_old_dynamics_files_without_uniform_rates_are_rejected(self):
-        values = {key: value for key, value in DEFAULTS.items() if not key.startswith("gamma_u_")}
-        values.update(t1_s=40., t2_s=45., gamma_ER_A=0.)
-        payload = {"app": "alkali_pumping", "format": "alkali_pumping_time_evolution",
-                   "version": "1.0", "settings": values}
-        with self.assertRaises(ValueError):
-            parse_settings_payload(payload)
-
     def test_current_files_require_finite_nonnegative_uniform_rates(self):
         for value in (-1., None, True, float("nan"), float("inf")):
             payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)

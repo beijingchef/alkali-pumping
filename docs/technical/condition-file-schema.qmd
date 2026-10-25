@@ -18,6 +18,11 @@ schema 2.4 and the v3 coherent-model identifier. Older and future versions are r
 the user's explicit compatibility choice for this release. Required fields
 are validated before their settings enter session state.
 
+Verification covers saving the current widget values, current-format round
+trips, and validation of the current schema and fields. Historical-format
+fixtures, migration tests, and per-release rejection tests are no longer
+maintained. The current-version check remains in every loader.
+
 Time evolution requires exactly the current setting names. Missing fields
 are rejected instead of being filled from defaults, and unknown fields are
 rejected instead of being ignored. Total time must be in [0.001, 30] seconds

@@ -1,7 +1,9 @@
 """Exercise the real dynamics page, slider bounds, and page-state isolation."""
 
+import base64
 import json
 from pathlib import Path
+import re
 import unittest
 from unittest.mock import patch
 
@@ -115,6 +117,47 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertFalse(app.exception)
         self.assertEqual(app.slider(key="_scan_widget_te_probe_scan_range_MHz_A").value,
                          (-5000., 7000.))
+
+    def test_save_includes_current_edits_and_current_format(self):
+        from alkali_pumping_app.ui import downloads
+        from alkali_pumping_app.ui.time_evolution_conditions import (
+            DEFAULTS, SCHEMA_VERSION, parse_settings_payload,
+        )
+
+        app = self.app(open_moments=False)
+        app.selectbox(key="te_atom_B_name").select("Rb85").run()
+        self.assertFalse(app.exception)
+        edits = {
+            "condition_name": "current-settings-save-check",
+            "intensity_A1": 35., "gamma_u_B": 7.5,
+            "probe_det_rel_A": -1234., "probe_path_length_cm_B": 2.5,
+            "t1_s": .6, "t2_s": 3.5,
+        }
+        # Submit pending edits and Save together, as the actual button does.
+        app.text_input(key="te_condition_name").set_value(edits["condition_name"])
+        for name in ("intensity_A1", "gamma_u_B", "probe_det_rel_A", "probe_path_length_cm_B"):
+            app.number_input(key="te_" + name).set_value(edits[name])
+        for name in ("t1_s", "t2_s"):
+            app.slider(key="_time_widget_te_" + name).set_value(edits[name])
+        with patch.object(downloads.st, "html", wraps=downloads.st.html) as render_html:
+            app.button(key="te_save").click().run()
+        self.assertFalse(app.exception)
+        self.assertFalse(app.error)
+        scripts = [call.args[0] for call in render_html.call_args_list
+                   if call.args and "const encoded =" in str(call.args[0])]
+        self.assertEqual(len(scripts), 1)
+        script = scripts[0]
+        encoded = re.search(r'const encoded = ("[^"]+");', script)
+        self.assertIsNotNone(encoded)
+        payload = json.loads(base64.b64decode(json.loads(encoded.group(1))))
+        self.assertEqual(payload["version"], SCHEMA_VERSION)
+        self.assertIn('link.download = "current-settings-save-check.json";', script)
+        self.assertIn('type: "application/json"', script)
+        saved = parse_settings_payload(payload)
+        self.assertEqual(saved, {name: app.session_state["te_" + name] for name in DEFAULTS})
+        for name, value in edits.items():
+            self.assertEqual(saved[name], value)
+        self.assertEqual(saved["atom_B_name"], "Rb85")
 
     def test_sliders_clamp_switch_and_support_zero_and_end_time(self):
         app = self.app()

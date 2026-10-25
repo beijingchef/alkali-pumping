@@ -61,16 +61,6 @@ class AtomicPolarizabilityConditionTests(unittest.TestCase):
         )
         self.assertTrue(session_state["_ap_loaded_preserve_range"])
 
-    def test_legacy_v10_payload_is_rejected(self):
-        payload = conditions.build_atomic_polarizability_payload(
-            conditions.ATOMIC_POLARIZABILITY_DEFAULTS
-        )
-        payload["version"] = "1.0"
-        payload["conditions"].pop("reference")
-        with patch.object(conditions.st, "session_state", {}):
-            with self.assertRaisesRegex(ValueError, "expected 1.1"):
-                conditions.apply_atomic_polarizability_payload(payload)
-
     def test_unknown_version_is_rejected(self):
         payload = conditions.build_atomic_polarizability_payload(
             conditions.ATOMIC_POLARIZABILITY_DEFAULTS

@@ -14,6 +14,8 @@ def pump_on_steady_state(species_A, species_B, beams, common):
     of conserved quantities even when a stationary state is not unique. Use
     exponentially longer autonomous BDF intervals, independently of t1/t2.
     Accept only a stationary residual AND two consecutive small state changes.
+    Refine integration accuracy when a nearly unchanged state has a stalled
+    residual; longer intervals cannot remove integration error at that floor.
     A persistent oscillation or integration failure is reported, not plotted
     as a stationary spectrum.
     """
@@ -43,15 +45,19 @@ def pump_on_steady_state(species_A, species_B, beams, common):
         return np.array([np.max(np.abs(derivative[a:b])) for a, b in zip(boundaries[:-1], boundaries[1:])])
 
     elapsed, stable = 0., 0
-    duration = 1 / min(slow_rates)
+    rtol, atol = 2e-10, 1e-12
+    refinements = 0
+    initial_duration = 1 / min(slow_rates)
+    duration = initial_duration
+    previous_residual = residual(state)
     # An exactly stationary unpolarized state needs no integration.
-    converged = bool(np.all(residual(state) <= np.array(slow_rates) * 1e-14 + initial_roundoff))
+    converged = bool(np.all(previous_residual <= np.array(slow_rates) * 1e-14 + initial_roundoff))
     for _ in range(30):
         if converged:
             break
         solution = solve_ivp(
             lambda time, values: density_derivative(values, models, True),
-            (0., duration), state, method="BDF", t_eval=[duration], rtol=2e-10, atol=1e-12,
+            (0., duration), state, method="BDF", t_eval=[duration], rtol=rtol, atol=atol,
         )
         if not solution.success:
             raise RuntimeError("Pump-on steady state failed: " + solution.message)
@@ -59,10 +65,31 @@ def pump_on_steady_state(species_A, species_B, beams, common):
         change = float(np.max(np.abs(candidate - state)))
         state = candidate
         elapsed += duration
-        stationary = np.all(residual(state) <= tolerance)
+        current_residual = residual(state)
+        stationary = np.all(current_residual <= tolerance)
         stable = stable + 1 if stationary and change <= 1e-9 else 0
         converged = stable >= 2
-        duration *= 2
+        # The residual has units s^-1, whereas BDF controls state error.
+        # Small numerical coherences can therefore pass BDF's error test but
+        # fail stationarity, especially in the presence of rapid precession.
+        stalled = change <= 1e-9 and np.any(
+            (current_residual > tolerance) & (current_residual >= .5 * previous_residual)
+        )
+        previous_residual = current_residual
+        if stalled:
+            if refinements >= 3:
+                raise RuntimeError(
+                    "Pump-on steady-state residual stalled after three accuracy refinements; "
+                    "no steady-state scan is shown."
+                )
+            refinements += 1
+            atol *= .01
+            rtol = max(rtol * .01, 2.5e-14)
+            # The state has already settled: refine over one initial interval
+            # instead of repeating an exponentially enlarged interval.
+            duration = initial_duration
+        elif change > 1e-9:
+            duration *= 2
     if not converged:
         raise RuntimeError("The pump-on state did not converge to a stationary state; no steady-state scan is shown.")
     result = {"A": None, "B": None, "convergence_time_s": elapsed,
