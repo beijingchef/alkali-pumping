@@ -1,0 +1,250 @@
+# Time evolution {.unnumbered #time-evolution}
+
+Open **Analysis → Time evolution** to simulate pump buildup followed by dark
+relaxation. Its atom/cell, pump, probe, and quantization-axis settings are
+independent of ACC Magnetometer and persist across navigation.
+
+## Sequence and controls {#time-evolution-sequence}
+
+Each species starts with equal probability in every ground Zeeman state,
+$p_{F,m}(0)=1/N_g$. Fa and Fb therefore start with populations proportional to
+their degeneracies, not one half each. Configured pumps are on for
+$0\le t<t_1$, and all pump intensities are zero for $t\ge t_1$. The weak probe
+remains on and does not enter the density-matrix equations. RF is absent.
+
+Independent $R_{u,A}$ and $R_{u,B}$ inputs appear below $R_{\mathrm{ER}}$ in
+the sidebar. Each defaults to $1\,\mathrm{s}^{-1}$ for new settings and
+relaxes the entire ground-state density matrix toward $I/N_g$. Uniform
+relaxation remains active during both pumping and the dark interval.
+
+- Both sliders share one row under **Event Sequence** in the sidebar below the probe configuration.
+- **Total time (s):** sets t₂, the endpoint of every plot, from 0.001 to 30 seconds.
+- **Pump turn-off time (s):** sets t₁, the common pump switch, between zero and t₂.
+- Reducing t₂ below t₁ moves t₁ to the new endpoint.
+- t₁ = 0 leaves initially unpolarized atoms in the dark throughout; t₁ = t₂
+  displays pumping buildup without a finite dark interval.
+
+The maximum total time is always 30 seconds. Saved durations above that
+limit are rejected rather than extending the slider range.
+
+The dashed line marks turn-off. Populations are continuous at that time,
+although their time derivatives change. Every curve includes the initial
+state, switch, and final time.
+
+## Startup optical configuration {#time-evolution-startup}
+
+New sessions start with $t_2=4\,\mathrm{s}$ and $t_1=1\,\mathrm{s}$.
+Both species use these independent D1 pump defaults, expressed relative to
+their nuclear spin $I$:
+
+| Field | Pump1 | Pump2 |
+|---|---|---|
+| Reference transition | $I-1/2\rightarrow I+1/2$ | $I+1/2\rightarrow I+1/2$ |
+| Intensity | 10 µW/cm² | 0 µW/cm² |
+| Relative detuning | 0 MHz | 0 MHz |
+| Polarization | sigma+ | sigma+ |
+| Beam direction | z | z |
+
+Pump3 retains its previous zero-intensity settings. Probe-A and Probe-B start
+as Custom Weak probes along z, with path length 1 cm, D1 upper-to-lower
+hyperfine reference (2→1 for the default Rb87), relative detuning −2000 MHz,
+azimuth 45°, and input ellipticity zero. Isotope changes preserve the relative
+hyperfine branches. These startup controls do not replace values from saved
+settings or change the unpolarized atomic initial state.
+
+## Result plots {#time-evolution-plots}
+
+Each time-domain plot section has two plot columns and a narrow third column
+with a question-mark help popup above its download icon. Its CSV combines all displayed
+curves, and its help popup contains the explanations for all of its plots.
+Individual graphs retain their bordered panels and titles. Mathematical panel
+headings, y-axis labels and help equations render as LaTeX, with proper
+subscripts and superscripts. Mathematical axis titles are rotated beside the
+interactive charts; CSV names use plain text. Plot regions are 260 pixels tall
+with compact bottom margins (5-pixel chart bottom padding and 0.25rem panel bottom
+padding), and with
+curve legends inside the upper-right corner. The single-curve probe,
+hyperfine-polarization and electron-polarization plots omit legends.
+For graphs whose entire vertical data extent is within −0.01 to +0.01,
+y-axis ticks and hover values use scientific notation with three significant
+figures, such as `1.23e-5`; a zero tick is shown as `0`. Other graphs retain
+their usual formatting. Calculations and CSVs retain full precision.
+Page-level model and sequence
+descriptions are in the question-mark popup at the right of the page title.
+The four collapsible result sections use native outlines, header dividers,
+and expand/collapse controls. **Atomic moments** and **Probe signal scanning**
+start collapsed. Their plots, widgets and downloads are created only while
+open; the scan's steady-state calculation is deferred until opening. Native
+Streamlit state tracking reruns the script when these two sections are toggled,
+reusing cached calculations. Moment selections, axes and scan bounds survive
+closing and reopening. The other sections retain client-side toggling.
+Individual graph borders remain.
+
+- **Zeeman populations:** one plot per manifold containing only individual
+  $m$-state populations.
+- **Atomic moments:** native checkbox labels render mathematical expressions
+  as LaTeX, without a group caption. Choose hyperfine polarization
+  $\langle\mathbf S\cdot\mathbf I\rangle/\hbar^2$, electron polarization
+  $2\langle S_q\rangle/\hbar$,
+  $\langle F_x\rangle$, $\langle F_y\rangle$, $\langle F_z\rangle$,
+  $\langle Q_{qq}\rangle$, $\langle Q_{uv}\rangle$ or
+  $\langle Q_{uu}-Q_{vv}\rangle$. Orientation uses laboratory axes;
+  alignment uses the right-handed frame $(u,v,q)$: $(y,z,x)$ for $q=x$,
+  $(z,x,y)$ for $q=y$, and $(x,y,z)$ for $q=z$.
+  Checkbox labels, graph headings, y-axis labels, help and section CSV headers
+  use the resolved Cartesian names: $Q_{zz},Q_{xy},Q_{xx}-Q_{yy}$ for $q=z$;
+  $Q_{xx},Q_{yz},Q_{yy}-Q_{zz}$ for $q=x$; and
+  $Q_{yy},Q_{zx},Q_{zz}-Q_{xx}$ for $q=y$.
+  $Q_{qq}=F_q^2-F(F+1)\hbar^2/3$,
+  $Q_{uv}=(F_uF_v+F_vF_u)/2$, and $Q_{uu}-Q_{vv}=F_u^2-F_v^2$.
+  Orientation and alignment are divided by $\hbar$ and $\hbar^2$, respectively,
+  and are per total atom without manifold renormalization. Both manifolds are
+  always included. Selected graphs use two columns; the shared selection
+  applies to both species tabs. Defaults show hyperfine/electron polarization,
+  $\langle F_z\rangle$ and $\langle Q_{qq}\rangle$; an empty list hides all
+  atomic-moment graphs. The electron y-axis is $2\langle S_q\rangle/\hbar$.
+  The scalar hyperfine correlation is
+  $[\langle F^2\rangle/\hbar^2-I(I+1)-3/4]/2$
+  $=(I/2)P(F_a)-[(I+1)/2]P(F_b)$, with no manifold normalization. It is zero
+  initially and is independent of quantization axis.
+- **Probe signal:** Optical rotation and Ellipticity occupy the first row;
+  Absorption sits below Optical rotation. Rotation is relative to the input azimuth, and ellipticity is the
+  transmitted ellipse angle, both plotted in mrad. Absorption is the
+  dimensionless lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$,
+  including scalar absorption. It ranges from zero for no loss to one for
+  complete attenuation; it is not optical depth or logarithmic absorbance.
+- **Probe signal scanning:** independently converge the atoms to the steady
+  state with all configured pumps continuously on. Scan optical rotation,
+  output ellipticity and absorption, with one plot per row. The detuning range
+  slider at the **top left** is half its former width, with its label on the
+  left. Its two handles set the minimum and maximum, defaulting to
+  −7000 and +7000 MHz, adjustable within ±15000 MHz in 10 MHz steps.
+  The limits are independent for each species and remain at least 10 MHz apart.
+  Frequency is relative to the **zero-pressure fine-structure center** of the
+  D1/D2 reference line selected in the probe sidebar. All allowed hyperfine
+  transitions contribute, including Doppler and pressure broadening and
+  pressure shifts. Light dashed lines show allowed transition centers; hover
+  to read their F→F′ labels. The probe direction, input polarization and path
+  length come from the sidebar. Its fixed detuning and F→F′ reference do not
+  constrain the scan. The section's help control sits immediately left of the
+  CSV download at the top right, on the same row as the range slider.
+  This scan uses 2001 frequency points and is independent of the time sliders
+  and display axes. A nonconvergent stationary calculation reports an error.
+
+The Time evolution sidebar starts at 420 pixels using native Streamlit sizing.
+
+Four weak-probe presets are available independently for A and B, only on
+Time evolution:
+
+| Probe source | Reference line | F→F′ | Relative detuning (MHz) |
+|---|---|---|---:|
+| Preset D1a | D1 | $I+1/2\rightarrow I-1/2$ | −2000 |
+| Preset D1b | D1 | $I-1/2\rightarrow I+1/2$ | +2000 |
+| Preset D2a | D2 | $I+1/2\rightarrow I-1/2$ | −2000 |
+| Preset D2b | D2 | $I-1/2\rightarrow I+1/2$ | +2000 |
+
+Selecting a preset fills direction z, path length 1 cm, azimuth 0°, and
+ellipticity angle 0°, with the transition calculated for the selected isotope.
+Detuning is measured from the selected pressure-shifted transition. All probe
+fields remain editable while the preset is selected. Edits persist across
+reruns, navigation, and save/load; choosing a different preset fills its values
+again. Pump-linked weak sources retain their existing linked-field behavior.
+
+The weak probe can copy the optical settings of a pump while remaining an
+independent detector after that pump is off. Only weak source modes are
+available. Circular input polarization has no defined azimuth, so rotation
+is unavailable. At effectively extinguished output, polarization angles are
+undefined. A geometry with no sensitivity to the generated atomic moment can
+produce a flat optical trace. The default circular pump and collinear linear
+probe read longitudinal orientation. For an alignment-sensitive configuration,
+use linearly polarized pumps and a Custom Weak probe along x at azimuth 45°.
+
+## Density-matrix equation and numerical method {#time-evolution-equation}
+
+For species $a$ and collision partner $b$,
+
+$$
+\dot\rho_a=-i[H_{B,a}/\hbar+H_{LS,a}(t)/\hbar,\rho_a]
++\mathcal L_{\mathrm{OP},a}(t)\rho_a
++\mathcal L_{\mathrm{ER},a}\rho_a+\mathcal L_{u,a}\rho_a
++R_{\mathrm{SE},a}(T_a[\rho_a]-\rho_a)
++R_{a\leftarrow b}(T_{ab}[\rho_a,\rho_b]-\rho_a).
+$$
+
+$T_a$ and $T_{ab}$ recombine full nuclear and electron reduced density matrices
+of the same or other species in a common laboratory frame. The collision rates
+are fixed by density and temperature, while the maps follow the evolving state.
+Both Zeeman coherences and populations evolve within each hyperfine level.
+The field drives signed-g-factor Larmor precession throughout; pumping includes
+coherent optical repopulation and AC-Stark evolution until turn-off.
+See the [master equation and conventions](../technical/time-evolution.qmd).
+
+The solver uses adaptive BDF integration separately on the two sides of t₁,
+carrying the full state continuously into the dark interval. It checks trace,
+Hermiticity and positivity before removing numerical roundoff. Display sampling
+increases with Larmor frequency, up to 20,001 samples; a warning identifies
+possible undersampling at the cap. Shorten the total time or reduce the field
+to resolve faster oscillations. Internal integration uses adaptive steps.
+
+Probe readout evaluates the existing scalar/vector/tensor Mathur polarizability
+on the full $\rho(t)$, including off-diagonal Zeeman coherences. For a state uniform along the path,
+
+$$
+E_{\mathrm{out}}(t)=\exp\!\left[i\frac{4\pi^2nL}{\lambda}
+\langle\alpha_\perp\rangle_t\right]E_{\mathrm{in}}.
+$$
+
+The transmitted Stokes vector supplies the angles and transmission, from
+which fractional absorption is calculated as $1-I_{\mathrm{out}}/I_{\mathrm{in}}$. The
+optical propagation time is neglected relative to population evolution. This
+path does not calculate or normalize by an RF susceptibility.
+
+## Settings, export, and limits {#time-evolution-files-and-limits}
+
+Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
+version **2.4**, with the coherent model identifier. Only this version is supported; older files are rejected
+without migration. Every current field is required, and unknown fields are
+rejected. No omitted settings are filled from defaults. Times must satisfy
+$0\le t_1\le t_2\le30$ s with $t_2\ge0.001$ s. Invalid values and ACC condition files are rejected
+before state changes. The ACC condition schema is **6.14**.
+
+Pump and probe F→F′ menus always show only allowed hyperfine transitions.
+The former checkbox and saved `show_allowed_only` field are removed. Selecting
+a reference sets the detuning origin; all relevant allowed optical channels,
+including off-resonant channels, remain in the calculations.
+
+Each time-domain section's CSV exports all of its displayed curves, one column per curve
+and one row per time sample, in the plotted units. Column labels include the
+plot title, curve name and units. Shared metadata includes time in seconds,
+pump turn-off and total time, pump state, species, quantization axis, local
+alignment axes and section name. Moment selection affects the Atomic moments
+download; rotation and ellipticity use mrad. With no moments selected, that
+section's download is disabled. Undefined optical-angle samples remain empty
+in the section CSV, and their explanations remain in its help popup.
+
+The scan CSV contains detuning in MHz, rotation/ellipticity in mrad, absorption,
+the frequency reference, cell/probe/pump configuration and stationary convergence
+information. It has frequency rows rather than event times. Undefined optical
+angles remain empty. CSV downloads are provided by the four result sections. The complete CSV
+button formerly below the plots is removed.
+
+Each species has two independent quantization-axis selectors, replacing the
+former sidebar axis. The compact **Zeeman populations** selector is labeled
+**Axis** and sits in the third column below help/download, with its caption
+centered above it. Both Axis selectors match the download buttons' 56-pixel
+width. In **Atomic moments**,
+the **Axis** label is to the left of a compact selector; both are before the
+checkboxes, separated from them by a gap.
+Both offer x, y and z and default to z. The Zeeman choice defines the population
+basis. The moment choice defines $S_q$ and the local
+alignment frame; $F_x,F_y,F_z$ remain laboratory components. Hyperfine scalar
+polarization and probe signals are invariant. The selectors only re-express
+the cached state and do not repeat the physical integration. CSV metadata
+records both axes, with populations in the Zeeman basis and moments
+in the moment frame.
+
+The weak-excitation and ground-hyperfine secular approximations remain:
+inter-F coherences, excited-hyperfine interference, explicit excited-state
+dynamics, optical saturation, and finite-beam transport are omitted. Magnetic
+and pump light shifts are not included in optical pumping or probe detunings.
+Magnetic dynamics uses the linear Zeeman Hamiltonian rather than Breit–Rabi mixing.

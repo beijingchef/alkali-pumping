@@ -8,6 +8,7 @@ The current ACC Magnetometer model includes:
 - optical pumping with spontaneous repopulation;
 - diagonal light shifts from the complex Voigt response;
 - electron randomization;
+- uniform ground-state relaxation;
 - self and unlike-alkali spin exchange;
 - weak-RF excitation of both ground manifolds and complex phase response;
 - scalar, vector, and tensor optical readout;
@@ -27,7 +28,7 @@ The path-average factor $1/2$ assumes that the small optical perturbation is gen
 
 ## Dynamical approximation {#dynamical-approximation}
 
-The RF response is first order in $\Omega_{\mathrm{rf}}$. RF saturation, finite-drive power broadening, harmonics, and time-dependent buildup from arbitrary initial conditions are not calculated.
+The ACC Magnetometer RF response is first order in $\Omega_{\mathrm{rf}}$. RF saturation, finite-drive power broadening, and harmonics are not calculated. The separate [Time evolution](../user-manual/time-evolution.qmd) page integrates nonlinear density-matrix buildup and relaxation from an unpolarized initial state, with RF absent. It retains all within-F Zeeman coherences, magnetic precession and pump AC-Stark dynamics, with independent quantization axes. Its initial state is fixed to unpolarized. See the [coherent master equation](../technical/time-evolution.qmd).
 
 The optical-pumping dissipator is a weak-excitation ground-state model. Explicit excited-state dynamics and strong optical saturation are omitted. Ground-hyperfine optical coherences are removed under a secular approximation.
 
@@ -41,6 +42,13 @@ outside this model.
 ## Optical-readout approximation {#optical-readout-approximation}
 
 The transmitted Stokes response is linearized in the vapor polarizability and RF-induced density-matrix perturbation. Physical-pump feedback closes these linear blocks algebraically, but it does not replace them with an exact nonlinear propagation calculation.
+
+Time evolution instead reads the instantaneous, spatially uniform density matrices
+with a non-perturbing weak probe. It exponentiates the transverse Jones
+generator to retain accumulated phase and attenuation. This is still a uniform
+atomic-state model, with no longitudinal pump depletion, probe backaction, or
+resolved excited-state dynamics. The probe uses the existing zero-light-shift
+optical line profiles rather than tracking pump-shifted optical resonances.
 
 ## Strong-feedback warning {#strong-feedback-warning}
 

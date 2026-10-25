@@ -21,6 +21,12 @@ navigation = st.navigation(
                 url_path="acc-magnetometer",
                 default=True,
             ),
+            st.Page(
+                "alkali_pumping_app/pages/time_evolution.py",
+                title="Time evolution",
+                icon=":material/timeline:",
+                url_path="time-evolution",
+            ),
         ],
         "Reference": [
             st.Page(

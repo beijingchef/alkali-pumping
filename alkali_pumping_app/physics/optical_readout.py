@@ -336,3 +336,143 @@ def weak_probe_readout_operators(
         "signal_availability": component_info["orientation"],
         "model": "first-order weak-probe Mathur polarizability readout",
     }
+
+
+def density_probe_signals(*, atom, ground_states, density_matrix, q_axis, line,
+                             detuning_MHz, k_axis, azimuth_deg, ellipticity_deg,
+                             path_length_cm, density_cm3, n2_pressure_torr,
+                             temperature_C, n2_width_MHz_per_torr,
+                             n2_shift_MHz_per_torr):
+    """Read full density matrices with a non-perturbing weak probe.
+
+    At each time the atomic state is uniform along the optical path. The
+    transmitted Jones vector is exp(i C <alpha_perp>) E_in, with the same
+    Mathur tensor, sign conventions and C=4*pi^2*n*L/lambda as the RF readout.
+    Matrix exponentiation retains accumulated attenuation and phase instead
+    of approximating transmission as 1 - optical depth. Optical propagation
+    is instantaneous on the population timescale; the probe never enters dp/dt.
+    Rotation is relative to the input azimuth; ellipticity is the output angle.
+    Absorption is the lost intensity fraction 1 - I_out/I_in, not optical depth.
+    """
+    rho = np.asarray(density_matrix, dtype=complex)
+    if rho.ndim != 3 or rho.shape[1:] != (len(ground_states), len(ground_states)) or len(rho) == 0:
+        raise ValueError("Probe density matrices must have shape (time, ground state, ground state).")
+    if (not np.isfinite(rho).all() or not np.allclose(rho, rho.conj().transpose(0, 2, 1), atol=1e-8)
+            or not np.allclose(np.trace(rho, axis1=1, axis2=2), 1, atol=1e-7)
+            or np.min(np.linalg.eigvalsh(rho)) < -1e-8):
+        raise ValueError("Probe density matrices must be normalized, Hermitian and positive.")
+    if not np.isfinite([path_length_cm, density_cm3]).all() or min(path_length_cm, density_cm3) < 0:
+        raise ValueError("Probe density and path length must be finite and nonnegative.")
+    response = _single_detuning_polarizability(
+        atom, line, detuning_MHz, n2_pressure_torr, temperature_C,
+        n2_width_MHz_per_torr, n2_shift_MHz_per_torr,
+    )
+    parts = polarizability_tensor_operators(atom, ground_states, q_axis, response)
+    transverse = _transverse_tensor(sum(parts.values()), k_axis)
+    susceptibility = np.einsum("tij,abji->tab", rho, transverse)
+    return _propagate_probe_tensor(atom, line, susceptibility, k_axis, azimuth_deg,
+                                   ellipticity_deg, path_length_cm, density_cm3)
+
+
+def _propagate_probe_tensor(atom, line, susceptibility, k_axis, azimuth_deg,
+                            ellipticity_deg, path_length_cm, density_cm3):
+    """Common Jones propagation for time trajectories and frequency spectra."""
+    from scipy.linalg import expm
+
+    first, second = transverse_basis_for_k(k_axis)
+    input_lab = polarization_ellipse_vector(k_axis, azimuth_deg, ellipticity_deg)
+    input_jones = np.array([np.vdot(first, input_lab), np.vdot(second, input_lab)])
+    coupling = 4 * pi**2 * density_cm3 * path_length_cm / (atom[f"lambda_{line}_nm"] * 1e-7)
+    output = np.array([expm(1j * coupling * matrix) @ input_jones for matrix in susceptibility])
+    stokes_matrices = _stokes_matrices()
+    stokes = np.array([
+        np.einsum("ta,ab,tb->t", output.conj(), matrix, output).real
+        for matrix in stokes_matrices.values()
+    ]).T
+    transmission = stokes[:, 0]
+    normalized = np.divide(stokes[:, 1:], transmission[:, None],
+                           out=np.full_like(stokes[:, 1:], np.nan),
+                           where=transmission[:, None] > 1e-14)
+    input_stokes = np.array([np.vdot(input_jones, matrix @ input_jones).real
+                             for matrix in stokes_matrices.values()])
+    relative_linear = (normalized[:, 0] + 1j * normalized[:, 1]) * np.exp(
+        -1j * np.arctan2(input_stokes[2], input_stokes[1])
+    )
+    rotation = np.full(len(susceptibility), np.nan)
+    available = (np.abs(relative_linear) > 1e-7) & np.isfinite(relative_linear)
+    if input_stokes[1]**2 + input_stokes[2]**2 > 1e-14:
+        # Unwrap each contiguous observable interval independently; undefined
+        # azimuth at circular polarization/extinction must not poison later data.
+        intervals = np.split(np.flatnonzero(available),
+                             np.flatnonzero(np.diff(np.flatnonzero(available)) > 1) + 1)
+        for indices in intervals:
+            rotation[indices] = 0.5 * np.unwrap(np.angle(relative_linear[indices]))
+    return {
+        "rotation_rad": rotation,
+        "ellipticity_rad": 0.5 * np.arcsin(np.clip(normalized[:, 2], -1, 1)),
+        "transmission": transmission,
+        "absorption": 1.0 - transmission,
+        "s1": normalized[:, 0], "s2": normalized[:, 1], "s3": normalized[:, 2],
+        "model": "non-perturbing probe; uniform-state Jones propagation",
+    }
+
+
+def density_probe_spectrum(*, atom, ground_states, density_matrix, q_axis, line,
+                           detunings_MHz, k_axis, azimuth_deg, ellipticity_deg,
+                           path_length_cm, density_cm3, n2_pressure_torr,
+                           temperature_C, n2_width_MHz_per_torr, n2_shift_MHz_per_torr):
+    """All allowed F->F' channels at one fixed state, relative to bare D center.
+
+    The polarizability is linear in the scalar/vector/tensor coefficients.
+    Contract their unit-coefficient operators with rho once, then combine
+    the frequency-dependent coefficients before exact Jones propagation.
+    """
+    rho = np.asarray(density_matrix, dtype=complex)
+    if rho.shape != (len(ground_states), len(ground_states)):
+        raise ValueError("A probe spectrum requires one ground-state density matrix.")
+    if (not np.isfinite(rho).all() or not np.allclose(rho, rho.conj().T, atol=1e-8)
+            or not np.isclose(np.trace(rho), 1, atol=1e-7)
+            or np.min(np.linalg.eigvalsh(rho)) < -1e-8):
+        raise ValueError("Probe scan density matrix must be normalized, Hermitian and positive.")
+    detunings = np.asarray(detunings_MHz, dtype=float)
+    if (detunings.ndim != 1 or len(detunings) < 2 or not np.isfinite(detunings).all()
+            or np.any(np.diff(detunings) <= 0)):
+        raise ValueError("Scan detunings must be a finite increasing frequency grid.")
+    if not np.isfinite([path_length_cm, density_cm3]).all() or min(path_length_cm, density_cm3) < 0:
+        raise ValueError("Probe density and path length must be finite and nonnegative.")
+    response = calculate_atomic_polarizability_sweep(
+        atom, line, detunings, n2_pressure_torr, temperature_C,
+        n2_width_MHz_per_torr, n2_shift_MHz_per_torr,
+    )
+    manifolds = sorted({float(state["F"]) for state in ground_states})
+    susceptibility = np.zeros((len(detunings), 2, 2), complex)
+    components = [("alpha_eq", None), ("alpha_hfs", None)]
+    components += [(rank, F) for rank in ("alpha_gt", "alpha_br") for F in manifolds]
+    for rank, F in components:
+        unit = {"alpha_eq": 0j, "alpha_hfs": 0j,
+                "alpha_gt": {value: 0j for value in manifolds},
+                "alpha_br": {value: 0j for value in manifolds}}
+        if F is None:
+            unit[rank] = 1.
+            coefficient = response[rank]
+        else:
+            unit[rank][F] = 1.
+            coefficient = response[rank][F]
+        parts = polarizability_tensor_operators(atom, ground_states, q_axis, unit)
+        transverse = _transverse_tensor(sum(parts.values()), k_axis)
+        expectation = np.einsum("ij,abji->ab", rho, transverse)
+        susceptibility += coefficient[:, None, None] * expectation
+    signals = _propagate_probe_tensor(atom, line, susceptibility, k_axis, azimuth_deg,
+                                      ellipticity_deg, path_length_cm, density_cm3)
+    return dict(signals, detuning_MHz=detunings,
+                transition_centers_MHz=response["transition_centers_MHz"],
+                pressure_shift_MHz=response["pressure_shift_MHz"])
+
+
+def population_probe_signals(*, population, ground_states, **kwargs):
+    """Diagonal-state convenience wrapper for population-only callers."""
+    population = np.asarray(population, dtype=float)
+    if population.ndim != 2 or population.shape[1] != len(ground_states):
+        raise ValueError("Probe populations must have shape (time, ground state).")
+    density = population[:, :, None] * np.eye(len(ground_states))[None, :, :]
+    return density_probe_signals(density_matrix=density, ground_states=ground_states, **kwargs)

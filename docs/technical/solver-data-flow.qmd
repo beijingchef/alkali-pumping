@@ -18,7 +18,7 @@ For each species, `build_species_linear_model`:
 1. builds the $|F,m\rangle$ basis;
 2. evaluates every active beam at that species' transition frequencies;
 3. sums optical population generators;
-4. adds electron-randomization dynamics;
+4. adds electron-randomization and uniform ground-state relaxation dynamics;
 5. calculates density-dependent self-exchange information.
 
 The one- or two-species steady-state solver then returns normalized populations and population Jacobians.
@@ -46,3 +46,16 @@ If the selected probe mode is physical, `apply_physical_pump_readout` stores the
 ## Presentation and export {#presentation-and-export}
 
 The page converts raw susceptibility units into the selected display units, applies optional sign flips only to displayed phase components, draws plots, and constructs CSV tables. Scientific transformations used by both plots and exports belong in reusable UI helpers so they can be regression tested.
+
+## Time evolution request
+
+The independent page calls `compute_density_evolution`, which reuses physical
+beam, cell and collision-rate construction without invoking ACC finalization
+or its RF solver. `coherent_evolution` builds collective optical Lindblad
+jumps, the static and pump light-shift Hamiltonians, and full nuclear/electron
+reduction maps. All integration uses a common lab basis; independently selected
+quantization axes rotate only the reported density matrices. The pump-on and
+dark integrations share their endpoint state. The page plots populations and
+longitudinal moments, while `density_probe_signals` contracts the complete state
+with the optical tensor. Complete CSVs include independent coherences.
+See [equations, approximations and sampling](time-evolution.qmd).

@@ -97,7 +97,7 @@ def _translate_transitions_for_alkali_change(label):
             new_atom,
             st.session_state.get(f"line_{prefix}", "D1"),
             st.session_state.get(transition_key),
-            allowed_only=bool(st.session_state.get("show_allowed_only", True)),
+            allowed_only=True,
         )
     probe_transition_key = f"probe_transition_{label}"
     st.session_state[probe_transition_key] = relative_hyperfine_transition_label(
@@ -105,7 +105,7 @@ def _translate_transitions_for_alkali_change(label):
         new_atom,
         st.session_state.get(f"probe_line_{label}", "D1"),
         st.session_state.get(probe_transition_key),
-        allowed_only=bool(st.session_state.get("show_allowed_only", True)),
+        allowed_only=True,
     )
 for _key in ("q_axis_A", "q_axis_B", *RF_CONDITION_KEYS):
     # These condition keys were widget-bound before v6.1.6. Reassigning them
@@ -163,7 +163,7 @@ def _prepare_beam_state(prefix, atom_name, n2_coeffs, default_Fg, q_axis_value):
         st.session_state[pol_key] = pol_options[0]
 
     transition_options = transition_choice_labels(
-        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=show_allowed_only
+        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=True
     )
     transition_key = f"transition_{prefix}"
     if st.session_state.get(transition_key) not in transition_options:
@@ -174,7 +174,7 @@ def _prepare_beam_state(prefix, atom_name, n2_coeffs, default_Fg, q_axis_value):
             n2_coeffs,
             default_Fg,
             default_Fg,
-            allowed_only=show_allowed_only,
+            allowed_only=True,
         )
     # These keys were widget-bound before v6.1.2. Reassigning them detaches
     # existing sessions from Streamlit's stale-widget cleanup during upgrade.
@@ -197,7 +197,7 @@ def _beam_from_state(
         relative_detuning_MHz=det_rel,
         n2_pressure_torr=n2_pressure_torr,
         n2_coeffs=n2_coeffs,
-        allowed_only=show_allowed_only,
+        allowed_only=True,
     )
     return {
         "name": f"Pump{prefix}",
@@ -267,10 +267,10 @@ def _beam_config_ui(
     )
     transition_options = transition_choice_labels(
         ATOMS[atom_name], line, n2_pressure_torr, n2_coeffs,
-        allowed_only=show_allowed_only,
+        allowed_only=True,
     )
     transition = st.selectbox(
-        "Hyperfine transition",
+        "F→F′",
         transition_options,
         key=_prime_pump_widget(prefix, "transition"),
         on_change=_store_pump_widget_value,
@@ -293,12 +293,12 @@ def _beam_config_ui(
             relative_detuning_MHz=relative_detuning_MHz,
             n2_pressure_torr=n2_pressure_torr,
             n2_coeffs=n2_coeffs,
-            allowed_only=show_allowed_only,
+            allowed_only=True,
         )
     )
     st.caption(line_center_detuning_caption(line, line_center_detuning_MHz))
     st.number_input(
-        "Intensity (µW/cm²)",
+        "I (µW/cm²)",
         min_value=0.0,
         step=1.0,
         format="%.1f",
@@ -473,7 +473,7 @@ def _prepare_probe_state(label, atom_name, n2_coeffs):
         st.session_state[line_key] = "D1"
     line = st.session_state[line_key]
     transition_options = transition_choice_labels(
-        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=show_allowed_only
+        atom, line, n2_pressure_torr, n2_coeffs, allowed_only=True
     )
     transition_key = f"probe_transition_{label}"
     if st.session_state.get(transition_key) not in transition_options:
@@ -485,7 +485,7 @@ def _prepare_probe_state(label, atom_name, n2_coeffs):
             n2_coeffs,
             upper_F,
             upper_F,
-            allowed_only=show_allowed_only,
+            allowed_only=True,
         )
     if st.session_state.get(f"probe_k_{label}") not in ("z", "x", "y"):
         st.session_state[f"probe_k_{label}"] = "x"
@@ -502,7 +502,7 @@ def _probe_from_state(label, atom_name, n2_coeffs):
         relative_detuning_MHz=det_rel,
         n2_pressure_torr=n2_pressure_torr,
         n2_coeffs=n2_coeffs,
-        allowed_only=show_allowed_only,
+        allowed_only=True,
     )
     source = st.session_state[f"probe_source_{label}"]
     source_spec = _probe_source_spec(label, source)
@@ -587,12 +587,12 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
         )
     transition_options = transition_choice_labels(
         ATOMS[atom_name], line, n2_pressure_torr, n2_coeffs,
-        allowed_only=show_allowed_only,
+        allowed_only=True,
     )
     with transition_col:
         transition_key = f"probe_transition_{label}"
         transition = st.selectbox(
-            "Hyperfine transition",
+            "F→F′",
             transition_options,
             key=_prime_probe_widget(transition_key),
             on_change=_store_probe_widget_value,
@@ -621,7 +621,7 @@ def _render_probe_config(label, atom_name, n2_coeffs, disabled=False):
         relative_detuning_MHz=det_rel,
         n2_pressure_torr=n2_pressure_torr,
         n2_coeffs=n2_coeffs,
-        allowed_only=show_allowed_only,
+        allowed_only=True,
     )
     with center_caption_col:
         st.caption(line_center_detuning_caption(line, detuning))
@@ -784,6 +784,17 @@ with st.sidebar:
         R_ER_B = st.number_input(
             r"$R_{\mathrm{ER},B}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_ER_B"
         )
+    uniform_col_A, uniform_col_B = st.columns(2, gap="xsmall")
+    with uniform_col_A:
+        R_u_A = st.number_input(
+            r"$R_{u,A}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_u_A",
+            help="Relaxes all ground-state populations toward equal probabilities and damps every coherence at this rate.",
+        )
+    with uniform_col_B:
+        R_u_B = st.number_input(
+            r"$R_{u,B}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_u_B",
+            help="Uniform ground-state relaxation for Alkali B, including nuclear polarization.",
+        )
     field_col_1, field_col_2 = st.columns(2, gap="xsmall")
     with field_col_1:
         static_field_axis = st.selectbox(
@@ -801,7 +812,6 @@ with st.sidebar:
     q_axis_A = st.session_state["q_axis_A"]
     q_axis_B = st.session_state["q_axis_B"]
 
-    show_allowed_only = bool(st.session_state["show_allowed_only"])
     beam_A1, beam_A2, beam_A3, beam_B1, beam_B2, beam_B3 = _pump_configuration_ui(
         atom_A_name,
         atom_B_name,
@@ -817,7 +827,6 @@ with st.sidebar:
     )
 
     st.header("Display")
-    show_allowed_only = st.checkbox("Only show allowed hyperfine transitions", key="show_allowed_only")
     show_rate_matrices = st.checkbox("Show rate matrices", key="show_rate_matrices")
 
     with condition_controls_placeholder.container():
@@ -826,7 +835,7 @@ with st.sidebar:
             open_file_button(
                 type=["json"],
                 key="condition_file_uploader",
-                help="Load a v6.10 condition or migrate v6.9 settings. All calculations use the two-manifold model.",
+                help="Load ACC condition files in the current v6.14 format. Older formats are unsupported.",
                 on_change=load_condition_callback,
             )
         with save_col:
@@ -926,6 +935,7 @@ species_A_config = {
     "atom_name": atom_A_name,
     "density_cm3": density_A,
     "R_ER": R_ER_A,
+    "R_u": R_u_A,
     "n2_coeffs": n2_coeffs_A,
     "q_axis": q_axis_A,
     # The equilibrium does not depend on RF scan settings or probe readout.
@@ -943,6 +953,7 @@ if active_B:
         "atom_name": atom_B_name,
         "density_cm3": density_B,
         "R_ER": R_ER_B,
+        "R_u": R_u_B,
         "n2_coeffs": n2_coeffs_B,
         "q_axis": q_axis_B,
         "rf_axis": "x",
@@ -1013,6 +1024,8 @@ def _zeeman_display_dataframe(result):
         "Gamma_OP": "Γ^{OP} (s^-1)",
         "G_ER": "G^{ER} (s^-1)",
         "Gamma_ER": "Γ^{ER} (s^-1)",
+        "G_u": "G^{u} (s^-1)",
+        "Gamma_u": "Γ^{u} (s^-1)",
         "G_SE_self": "G^{SE,self} (s^-1)",
         "Gamma_SE_self": "Γ^{SE,self} (s^-1)",
         "G_SE_cross": "G^{SE,cross} (s^-1)",
@@ -1028,6 +1041,7 @@ def _zeeman_display_dataframe(result):
         "ν^{LS} (Hz)", "ν^{B} (Hz)", "ν_m (Hz)", "Λ (s⁻¹)",
         "G^{OP} (s^-1)", "Γ^{OP} (s^-1)",
         "G^{ER} (s^-1)", "Γ^{ER} (s^-1)",
+        "G^{u} (s^-1)", "Γ^{u} (s^-1)",
         "G^{SE,self} (s^-1)", "Γ^{SE,self} (s^-1)",
         "G^{SE,cross} (s^-1)", "Γ^{SE,cross} (s^-1)",
         "G^{SE} (s^-1)", "Γ^{SE} (s^-1)", "G (s^-1)",
@@ -1133,6 +1147,8 @@ def _render_population_and_rate_summary(result):
         f"{density_A_label}, {density_B_label}, "
         rf"$R_{{\mathrm{{ER}},A}}={formatted_R_ER_A}\ \mathrm{{s^{{-1}}}}$, "
         rf"$R_{{\mathrm{{ER}},B}}={formatted_R_ER_B}\ \mathrm{{s^{{-1}}}}$, "
+        rf"$R_{{u,A}}={R_u_A:g}\ \mathrm{{s^{{-1}}}}$, "
+        rf"$R_{{u,B}}={R_u_B:g}\ \mathrm{{s^{{-1}}}}$, "
         rf"$R_{{\mathrm{{SE}},A}}={formatted_R_SE_A}\ \mathrm{{s^{{-1}}}}$, "
         rf"$R_{{\mathrm{{SE}},B}}={formatted_R_SE_B}\ \mathrm{{s^{{-1}}}}$, "
         rf"$R_{{A\leftarrow B}}={formatted_R_A_from_B}\ \mathrm{{s^{{-1}}}}$, "
@@ -1427,6 +1443,7 @@ def _render_probe_response(result, label):
         in_phase_plot_factor=-1.0 if add_pi_x else 1.0,
         quadrature_plot_factor=-1.0 if add_pi_y else 1.0,
         drive_info=result["rf_drive_info"],
+        uniform_relaxation_rate_s=result["R_u"],
     )
     export["selected_component"] = response_key
     for field, values in zip(("amplitude", "in_phase", "quadrature"), plotted_total):
@@ -1760,6 +1777,12 @@ $G_m^{\mathrm{OP}}$, $G_m^{\mathrm{ER}}$, and $G_m^{\mathrm{SE}}$ are signed fra
 $\Gamma_m^{\mathrm{OP}}$, $\Gamma_m^{\mathrm{ER}}$, and $\Gamma_m^{\mathrm{SE}}$ are the corresponding self-decay rates of the adjacent coherence $\rho_{m,m-1}$. In particular,
 $\Gamma_m^{\mathrm{OP}}=(G_m^{\mathrm{OP}}+G_{m-1}^{\mathrm{OP}})/2$.
 
+Uniform relaxation acts as $\dot\rho=R_u[\mathrm{Tr}(\rho)I/N-\rho]$.
+Its signed fractional population rate is $G_m^u=R_u[1-1/(N p_m)]$ for
+normalized populations, and its adjacent-coherence decay rate is
+$\Gamma_m^u=R_u$. It relaxes both hyperfine manifolds toward their
+degeneracy-weighted unpolarized populations and is included in the totals.
+
 $G_m$ and $\Gamma_m$ are the sums of all displayed population-loss and adjacent-coherence relaxation mechanisms. $\Gamma_m/(2\pi)$ expresses the total angular decay rate as an ordinary linewidth in hertz.
 """
                     )
@@ -1778,7 +1801,7 @@ $G_m$ and $\Gamma_m$ are the sums of all displayed population-loss and adjacent-
     with st.expander("Optical transition frequencies"):
         transition_df = hyperfine_transition_table(
             atom=result["atom"], n2_pressure_torr=n2_pressure_torr,
-            n2_coeffs=result["n2_coeffs"], allowed_only=show_allowed_only,
+            n2_coeffs=result["n2_coeffs"], allowed_only=True,
             pump_beams=[
                 beam for beam in all_beams if beam["target_label"] == label
             ],
@@ -1791,6 +1814,8 @@ $G_m$ and $\Gamma_m$ are the sums of all displayed population-loss and adjacent-
             st.dataframe(_matrix_dataframe(result["L_optical"], result), width="stretch")
             st.markdown("**Electron-randomization map**")
             st.dataframe(_matrix_dataframe(result["M_ER"], result), width="stretch")
+            st.markdown("**Uniform-relaxation population generator (s⁻¹)**")
+            st.dataframe(_matrix_dataframe(result["L_uniform"], result), width="stretch")
             st.markdown("**Self spin-exchange map**")
             st.dataframe(_matrix_dataframe(result["self_map"], result), width="stretch")
             st.markdown("**Cross spin-exchange map**")

@@ -47,6 +47,7 @@ class NavigationTests(unittest.TestCase):
 
         for page_title in (
             "ACC Magnetometer",
+            "Time evolution",
             "Light shift",
             "Atomic polarizability",
             "Atomic properties",
@@ -88,7 +89,7 @@ class NavigationTests(unittest.TestCase):
         )
         self.assertEqual(
             [page.title for page in fake_streamlit.navigation_groups["Analysis"]],
-            ["ACC Magnetometer"],
+            ["ACC Magnetometer", "Time evolution"],
         )
         self.assertEqual(
             [page.title for page in fake_streamlit.navigation_groups["Reference"]],

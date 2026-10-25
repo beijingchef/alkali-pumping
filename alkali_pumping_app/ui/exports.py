@@ -119,6 +119,7 @@ def weak_probe_export_dataframe(
     manifold_response=None, manifold_F=None, displayed_manifold="Total",
     in_phase_plot_factor=1.0, quadrature_plot_factor=1.0,
     drive_info=None,
+    uniform_relaxation_rate_s=0.0,
 ):
     """Return total and rank-resolved weak-probe readouts per RF field."""
     data = {"frequency_Hz": np.asarray(frequencies_hz, dtype=float)}
@@ -148,6 +149,7 @@ def weak_probe_export_dataframe(
     frame["quadrature_plot_factor"] = float(quadrature_plot_factor)
     frame["rf_normalization"] = "Omega_a = g_a mu_B B_rf / hbar"
     frame["physics_model"] = PHYSICS_MODEL_VERSION
+    frame["R_u_s-1"] = float(uniform_relaxation_rate_s)
     for manifold, ratio in (drive_info or {}).get("drive_ratios", {}).items():
         frame[f"{manifold}_rf_drive_ratio_gF_over_ga"] = ratio
         frame[f"{manifold}_g_F"] = drive_info["g_factors"][manifold]
@@ -171,6 +173,7 @@ def manifold_rf_export_dataframe(result, plotted, selected_manifolds, **display_
         frame["rf_drive_ratio_gF_over_ga"] = result["rf_drive_info"]["drive_ratios"][manifold]
         frame["rf_normalization"] = result["rf_drive_info"]["normalization"]
         frame["physics_model"] = PHYSICS_MODEL_VERSION
+        frame["R_u_s-1"] = float(result.get("R_u", 0.0))
         reference = result["rf_relaxation_reference"]
         frame["normalization_reference_F"] = reference.get("F", np.nan)
         frame["normalization_reference_m"] = reference.get("m", np.nan)

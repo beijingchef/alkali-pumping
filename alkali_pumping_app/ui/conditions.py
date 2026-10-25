@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from math import isfinite
 
 import streamlit as st
 
@@ -86,6 +87,8 @@ CONDITION_KEYS = (
     "density_ratio_B_to_A",
     "gamma_ER_A",
     "gamma_ER_B",
+    "gamma_u_A",
+    "gamma_u_B",
     "static_field_axis",
     "static_field_nT",
     "q_axis_A",
@@ -103,7 +106,6 @@ CONDITION_KEYS = (
     *PUMP_CONDITION_KEYS,
     *RF_CONDITION_KEYS,
     *PROBE_CONDITION_KEYS,
-    "show_allowed_only",
     "show_rate_matrices",
 )
 
@@ -115,6 +117,8 @@ DEFAULT_STARTUP_CONDITION = {
     "density_ratio_B_to_A": 1.0,
     "gamma_ER_A": 10.0,
     "gamma_ER_B": 10.0,
+    "gamma_u_A": 1.0,
+    "gamma_u_B": 1.0,
     "static_field_axis": "z",
     "static_field_nT": 0.0,
     "q_axis_A": "z",
@@ -225,7 +229,6 @@ DEFAULT_STARTUP_CONDITION = {
     "probe_add_pi_in_phase_B": False,
     "probe_show_quadrature_B": False,
     "probe_add_pi_quadrature_B": False,
-    "show_allowed_only": True,
     "show_rate_matrices": False,
 }
 
@@ -290,23 +293,19 @@ def apply_loaded_condition_dict(payload):
         raise ValueError("The JSON file does not contain a conditions object.")
 
     version = payload.get("version")
-    if version not in ("6.9", CONDITION_SCHEMA_VERSION):
+    if version != CONDITION_SCHEMA_VERSION:
         raise ValueError(
             f"Unsupported condition-file version; expected {CONDITION_SCHEMA_VERSION}."
         )
     loaded_conditions = dict(conditions)
-    if version == "6.9":
-        # Preserve the previous visible Fa selection and every stored input.
-        # Old conditions are recalculated with the new physics; there is no
-        # legacy solver. The complete v6.9.9 application is archived instead.
-        for label in ("A", "B"):
-            loaded_conditions.setdefault(f"rf_manifold_{label}", "Fa")
-            loaded_conditions.setdefault(f"probe_manifold_{label}", "Total")
-            loaded_conditions.setdefault(f"probe_show_manifold_decomposition_{label}", False)
     missing = [key for key in CONDITION_KEYS if key not in loaded_conditions]
     if missing:
         raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
     for label in ("A", "B"):
+        uniform = loaded_conditions[f"gamma_u_{label}"]
+        if (isinstance(uniform, bool) or not isinstance(uniform, (int, float))
+                or not isfinite(uniform) or uniform < 0):
+            raise ValueError(f"Invalid uniform relaxation rate for Alkali {label}.")
         if loaded_conditions[f"rf_manifold_{label}"] not in ("Fa", "Fb", "Both"):
             raise ValueError(f"Invalid RF manifold for Alkali {label}.")
         if loaded_conditions[f"probe_manifold_{label}"] not in ("Total", "Fa", "Fb"):

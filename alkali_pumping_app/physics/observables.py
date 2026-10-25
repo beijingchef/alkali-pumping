@@ -196,7 +196,7 @@ def add_adjacent_optical_relaxation_columns(df_pop):
 def add_total_relaxation_columns(df_pop):
     """Add total population and adjacent-coherence relaxation rates.
 
-    ``G_total`` is the row-wise sum of the displayed OP, ER, and SE
+    ``G_total`` is the row-wise sum of the displayed OP, ER, uniform, and SE
     population rates. ``Gamma_total`` is the matching sum of the adjacent
     coherence relaxation rates, and ``Gamma_total_over_2pi`` expresses that
     total in Hz. A total remains blank whenever any component is unavailable.
@@ -204,6 +204,10 @@ def add_total_relaxation_columns(df_pop):
     df = df_pop.copy()
     population_columns = ["G_OP", "G_ER", "G_SE"]
     coherence_columns = ["Gamma_OP", "Gamma_ER", "Gamma_SE"]
+    if "G_u" in df:
+        population_columns.append("G_u")
+    if "Gamma_u" in df:
+        coherence_columns.append("Gamma_u")
 
     df["G_total"] = df[population_columns].sum(
         axis=1,

@@ -91,22 +91,15 @@ class ConditionFileTests(unittest.TestCase):
         for key in conditions.CONDITION_KEYS:
             self.assertEqual(restored[key], values[key])
 
-    def test_v69_migration_preserves_inputs_and_uses_new_model(self):
-        old = {key: value for key, value in conditions.DEFAULT_STARTUP_CONDITION.items()
-               if "manifold" not in key}
-        old.update(static_field_nT=27.0, rf_observable_A="Q_ij", probe_source_A="PumpA1")
-        payload = {"app": "alkali_pumping", "format": "alkali_pumping_conditions",
-                   "version": "6.9", "conditions": old}
-        restored = {}
-        with patch.object(conditions.st, "session_state", restored):
-            conditions.apply_loaded_condition_dict(payload)
-        for key, value in old.items():
-            self.assertEqual(restored[key], value)
-        for label in ("A", "B"):
-            self.assertEqual(restored[f"rf_manifold_{label}"], "Fa")
-            self.assertEqual(restored[f"probe_manifold_{label}"], "Total")
-            self.assertFalse(restored[f"probe_show_manifold_decomposition_{label}"])
-        self.assertFalse(any("legacy" in key for key in restored))
+    def test_older_versions_are_rejected_without_partial_load(self):
+        for version in ("6.9", "6.10", "6.12", "6.13"):
+            payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
+            payload["version"] = version
+            restored = {"condition_name": "unchanged"}
+            with self.subTest(version=version), patch.object(conditions.st, "session_state", restored):
+                with self.assertRaisesRegex(ValueError, "expected 6.14"):
+                    conditions.apply_loaded_condition_dict(payload)
+            self.assertEqual(restored, {"condition_name": "unchanged"})
 
     def test_missing_new_field_and_invalid_manifold_are_rejected_without_partial_load(self):
         for field, value in (("rf_manifold_A", "invalid"), ("probe_manifold_B", "Both"),
@@ -122,25 +115,25 @@ class ConditionFileTests(unittest.TestCase):
                     conditions.apply_loaded_condition_dict(payload)
             self.assertEqual(restored, {"condition_name": "unchanged"})
 
-    def test_incomplete_v69_file_is_not_filled_with_new_session_defaults(self):
+    def test_incomplete_current_file_is_not_filled_with_new_session_defaults(self):
         payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
-        payload["version"] = "6.9"
         payload["conditions"].pop("static_field_nT")
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(ValueError, "static_field_nT"):
                 conditions.apply_loaded_condition_dict(payload)
 
-    def test_condition_schema_is_v610(self):
-        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.10")
-        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.10")
+    def test_condition_schema_is_v614(self):
+        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.14")
+        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.14")
 
     def test_payload_has_current_shape(self):
         payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
         self.assertEqual(payload["app"], "alkali_pumping")
         self.assertEqual(payload["format"], "alkali_pumping_conditions")
-        self.assertEqual(payload["version"], "6.10")
+        self.assertEqual(payload["version"], "6.14")
         self.assertEqual(set(payload["conditions"]), set(conditions.CONDITION_KEYS))
         self.assertNotIn("include_spin_exchange", payload["conditions"])
+        self.assertNotIn("show_allowed_only", payload["conditions"])
 
     def test_default_atoms_and_pump_intensities(self):
         defaults = conditions.DEFAULT_STARTUP_CONDITION
@@ -148,6 +141,8 @@ class ConditionFileTests(unittest.TestCase):
         self.assertEqual(defaults["atom_B_name"], "None")
         self.assertEqual(defaults["gamma_ER_A"], 10.0)
         self.assertEqual(defaults["gamma_ER_B"], 10.0)
+        self.assertEqual(defaults["gamma_u_A"], 1.0)
+        self.assertEqual(defaults["gamma_u_B"], 1.0)
         self.assertEqual(defaults["temperature_C_for_table"], 23.0)
         intensities = [
             defaults[f"intensity_{prefix}"]
@@ -181,7 +176,7 @@ class ConditionFileTests(unittest.TestCase):
         }
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(
-                ValueError, "expected 6.10"
+                ValueError, "expected 6.14"
             ):
                 conditions.apply_loaded_condition_dict(payload)
 
@@ -191,7 +186,7 @@ class ConditionFileTests(unittest.TestCase):
         payload = {
             "app": "alkali_pumping",
             "format": "alkali_pumping_conditions",
-            "version": "6.10",
+            "version": CONDITION_SCHEMA_VERSION,
             "conditions": values,
         }
         with patch.object(conditions.st, "session_state", {}):

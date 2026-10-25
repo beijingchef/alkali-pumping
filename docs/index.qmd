@@ -1,19 +1,20 @@
 # Documentation home {.unnumbered #documentation-home}
 
-This is the documentation for **Alkali Pumping v6.10.0**, a Streamlit application for modeling optical pumping and weak-RF magnetometry in alkali-vapor cells. The principal analysis is the **ACC Magnetometer**, where ACC means *antirelaxation coated cell*.
+This is the documentation for **Alkali Pumping v6.20.6**, a Streamlit application for modeling optical pumping, coherent transients, stationary probe spectra, and weak-RF magnetometry in alkali-vapor cells. The **ACC Magnetometer** models weak-RF response, while **Time evolution** models pumping buildup, precession, dark relaxation and pump-on probe scans. ACC means *antirelaxation coated cell*.
 
 The documentation is organized by audience. It deliberately uses descriptive internal links rather than numbered chapters and equations.
 
 ## Choose a starting point {#choose-a-starting-point}
 
 - **Operating the application:** start with [Getting started](user-manual/getting-started.qmd) and the [ACC Magnetometer workflow](user-manual/acc-magnetometer.qmd).
+- **Pumping buildup and dark relaxation:** see [Time evolution](user-manual/time-evolution.qmd).
 - **Understanding the model:** start with the [physical model overview](theory/model-overview.qmd), then follow links to optical pumping, RF response, and optical rotation.
 - **Maintaining the code:** start with [software architecture](technical/software-architecture.qmd) and [solver data flow](technical/solver-data-flow.qmd).
 - **Looking up a term or symbol:** use the [glossary](glossary.qmd).
 
 ## Current physical model {#current-physical-model}
 
-The ACC Magnetometer first calculates a steady atomic state from optical pumping, electron randomization, and spin exchange. It then calculates a weak-RF density-matrix response and converts that response into atomic observables and transmitted-light Stokes signals.
+The ACC Magnetometer first calculates a steady atomic state from optical pumping, electron randomization, uniform ground-state relaxation, and spin exchange. It then calculates a weak-RF density-matrix response and converts that response into atomic observables and transmitted-light Stokes signals.
 
 When a physical pump is selected as its own probe, the configured pump intensity is used unchanged. The RF perturbation uses one [spatially uniform atomic density matrix](theory/uniform-density-matrix-feedback.qmd) driven by the path-averaged Stokes perturbation. The current solver does not create a different atomic state in every longitudinal slice.
 

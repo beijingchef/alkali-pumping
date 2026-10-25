@@ -71,6 +71,7 @@ def weak_rf_observable_susceptibility(
     rf_axis,
     observable,
     target_F=None,
+    gamma_u=0.0,
 ):
     """Return the zero-drive RF susceptibility of one hyperfine manifold.
 
@@ -116,7 +117,7 @@ def weak_rf_observable_susceptibility(
 
     Every adjacent coherence is treated independently with its local rate
 
-        Gamma_m = Gamma_OP,m + Gamma_ER,m + Gamma_SE,m.
+        Gamma_m = Gamma_OP,m + Gamma_ER,m + Gamma_SE,m + Gamma_u,m.
 
     Both Fourier components of the real cosine field are retained. This is
     important when a negative signed transition frequency contributes to a
@@ -128,6 +129,7 @@ def weak_rf_observable_susceptibility(
     gamma_op = np.asarray(gamma_op, dtype=float)
     gamma_er = np.asarray(gamma_er, dtype=float)
     gamma_se = np.asarray(gamma_se, dtype=float)
+    gamma_u = np.broadcast_to(np.asarray(gamma_u, dtype=float), gamma_op.shape)
 
     susceptibility_amplitude = np.zeros_like(frequencies_hz, dtype=float)
     susceptibility_in_phase = np.zeros_like(frequencies_hz, dtype=float)
@@ -192,7 +194,7 @@ def weak_rf_observable_susceptibility(
         if abs(drive_ab) == 0.0 or (abs(obs_ab) == 0.0 and abs(obs_ba) == 0.0):
             continue
 
-        gamma = gamma_op[a_idx] + gamma_er[a_idx] + gamma_se[a_idx]
+        gamma = gamma_op[a_idx] + gamma_er[a_idx] + gamma_se[a_idx] + gamma_u[a_idx]
         if not np.isfinite(gamma):
             continue
         if gamma <= 0.0:
@@ -258,6 +260,7 @@ def weak_rf_matrix_susceptibility(
     rf_axis,
     readout_operator,
     target_F=None,
+    gamma_u=0.0,
 ):
     """Return weak-RF susceptibility for an arbitrary Hermitian readout.
 
@@ -273,6 +276,7 @@ def weak_rf_matrix_susceptibility(
     gamma_er = np.asarray(gamma_er, dtype=float)
     gamma_se = np.asarray(gamma_se, dtype=float)
     readout = np.asarray(readout_operator, dtype=complex)
+    gamma_u = np.broadcast_to(np.asarray(gamma_u, dtype=float), gamma_op.shape)
     state_count = len(ground_states)
     if readout.shape != (state_count, state_count):
         raise ValueError("readout_operator must match the ground-state basis size.")
@@ -308,7 +312,7 @@ def weak_rf_matrix_susceptibility(
             abs(readout_ab) == 0.0 and abs(readout_ba) == 0.0
         ):
             continue
-        gamma = gamma_op[a] + gamma_er[a] + gamma_se[a]
+        gamma = gamma_op[a] + gamma_er[a] + gamma_se[a] + gamma_u[a]
         if not np.isfinite(gamma):
             continue
         if gamma <= 0.0:
@@ -352,6 +356,7 @@ def weak_drive_matrix_readouts(
     drive_operator,
     readout_operators,
     target_F=None,
+    gamma_u=0.0,
 ):
     """Return weak responses to an arbitrary Hermitian angular-frequency drive.
 
@@ -373,6 +378,7 @@ def weak_drive_matrix_readouts(
     gamma_er = np.asarray(gamma_er, dtype=float)
     gamma_se = np.asarray(gamma_se, dtype=float)
     drive = np.asarray(drive_operator, dtype=complex)
+    gamma_u = np.broadcast_to(np.asarray(gamma_u, dtype=float), gamma_op.shape)
     state_count = len(ground_states)
     if drive.shape != (state_count, state_count):
         raise ValueError("drive_operator must match the ground-state basis size.")
@@ -407,7 +413,7 @@ def weak_drive_matrix_readouts(
         drive_ba = drive[b, a]
         if abs(drive_ab) == 0.0 and abs(drive_ba) == 0.0:
             continue
-        gamma = gamma_op[a] + gamma_er[a] + gamma_se[a]
+        gamma = gamma_op[a] + gamma_er[a] + gamma_se[a] + gamma_u[a]
         if not np.isfinite(gamma):
             continue
         if gamma <= 0.0:
@@ -633,7 +639,7 @@ def _local_coherence_generator(result, pairs, er, self_exchange, cross_target):
     for index, (a, b) in enumerate(pairs):
         angular_frequency = 2.0 * np.pi * (state_frequency[a] - state_frequency[b])
         optical_decay = 0.5 * (g_op[a] + g_op[b])
-        diagonal[index] = -optical_decay - 1j * angular_frequency
+        diagonal[index] = -optical_decay - float(result.get("R_u", 0.0)) - 1j * angular_frequency
     return (
         np.diag(diagonal)
         + float(result["R_ER"]) * (er - identity)
@@ -1113,7 +1119,7 @@ def largest_abs_Dm_relaxation_reference(df_pop, target_F=None):
     Rows without an adjacent lower-m partner are excluded. The total local
     relaxation rate is
 
-        Gamma_m = Gamma_OP,m + Gamma_ER,m + Gamma_SE,m.
+        Gamma_m = Gamma_OP,m + Gamma_ER,m + Gamma_SE,m + Gamma_u,m.
     """
     required = {
         "F", "m", "population_difference",
@@ -1153,7 +1159,7 @@ def largest_abs_Dm_relaxation_reference(df_pop, target_F=None):
     # Select the adjacent transition with the largest population-difference magnitude.
     row_index = candidate["population_difference"].abs().idxmax()
     row = df_pop.loc[row_index]
-    gamma_total = float(row["Gamma_OP"] + row["Gamma_ER"] + row["Gamma_SE"])
+    gamma_total = float(row["Gamma_OP"] + row["Gamma_ER"] + row["Gamma_SE"] + row.get("Gamma_u", 0.0))
 
     if not np.isfinite(gamma_total) or gamma_total <= 0.0:
         return {
@@ -1173,5 +1179,6 @@ def largest_abs_Dm_relaxation_reference(df_pop, target_F=None):
         "Gamma_m": gamma_total,
         "Gamma_OP": float(row["Gamma_OP"]),
         "Gamma_ER": float(row["Gamma_ER"]),
+        "Gamma_u": float(row.get("Gamma_u", 0.0)),
         "Gamma_SE": float(row["Gamma_SE"]),
     }

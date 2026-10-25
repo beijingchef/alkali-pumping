@@ -6,12 +6,14 @@ Condition files preserve user inputs and display selections as JSON. ACC Magneto
 
 ## ACC Magnetometer schema {#acc-condition-schema}
 
-The current ACC Magnetometer condition schema is **6.10**. Complete 6.9 files
-are migrated with every stored input preserved. Their atomic display starts
-at Fa; the probe display starts at Total (Fa + Fb). Calculations always use
-the new two-manifold model, so numerical predictions can change. Earlier
-schemas are unsupported by this loader. Use the archived v6.9.9 application
-to reproduce its calculations.
+The current ACC Magnetometer condition schema is **6.14**. Only this version
+is supported. Older files are rejected without migration, as requested for
+this sidebar update. Time evolution accepts only its **2.4** settings format and coherent model identifier,
+requires all current fields, rejects unknown fields, and limits total time to
+30 seconds. No missing-field defaults or historical time extensions are applied.
+The removed `show_allowed_only` field is not saved; allowed
+hyperfine transitions are always used in reference menus. Other pages retain
+their own independent formats.
 
 The application version and condition-schema version are separate. A UI release can change without changing the saved condition structure.
 
@@ -21,12 +23,19 @@ The application version and condition-schema version are separate. A UI release 
 2. Save the JSON file before a parameter study.
 3. Keep the original file when testing a new app version.
 4. After loading, inspect atom choices, pump intensities, detunings, path length, and probe-source mode.
-5. Save under a new name after a migration if the original must remain usable by an older release.
+5. Use the matching older application release to open files from unsupported schemas.
 
 ## Probe-source compatibility {#probe-source-compatibility}
 
-Beginning with schema 6.9, `PumpN weak` explicitly means a non-perturbing detector
-and plain `PumpN` means the physical pump. Migration from 6.9 to 6.10 preserves
-that distinction without changing the saved source selection.
+`PumpN weak` means a nonperturbing detector and ACC's plain `PumpN` means
+the physical pump.
+
+Time evolution v2.4 includes four editable weak-probe preset source choices:
+`Preset D1a`, `Preset D1b`, `Preset D2a`, `Preset D2b`. The saved optical
+fields retain any edits made after selecting a preset. ACC does not list
+these presets.
+
+The two analysis pages do not overwrite one another's optical, timing, or
+relaxation settings.
 
 Technical details and validation rules are documented in [Condition-file schema](../technical/condition-file-schema.qmd).

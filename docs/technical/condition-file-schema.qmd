@@ -4,33 +4,70 @@
 
 Saved condition files are versioned public interfaces. A file contains application identification, a format name, a schema version, a timestamp, and a `conditions` object containing every persistent user setting for that page.
 
-The ACC Magnetometer currently writes schema **6.10**, including the active
-physics-model identifier. Light shift and Atomic polarizability use their own
-independently versioned formats.
+The ACC Magnetometer currently writes schema **6.14**, including the active
+physics-model identifier and independent `gamma_u_A/B` uniform-relaxation
+rates. Time evolution uses its own schema **2.4**, with the same physical
+fields under an independent state namespace. Light shift and Atomic
+polarizability use their own independently versioned formats.
 
 ## Loading {#condition-loading}
 
-The loader validates application and format identifiers before applying values. A complete current-schema file must contain the required fields. Supported older versions pass through explicit migration steps before their settings enter session state.
+The loader validates application, format, and version identifiers before
+applying values. ACC accepts only schema 6.14; Time evolution accepts only
+schema 2.4 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
+the user's explicit compatibility choice for this release. Required fields
+are validated before their settings enter session state.
+
+Time evolution requires exactly the current setting names. Missing fields
+are rejected instead of being filled from defaults, and unknown fields are
+rejected instead of being ignored. Total time must be in [0.001, 30] seconds
+and pump turn-off time in [0, total time]. No historical duration extension
+or per-field migration remains.
+
+The `plotted_moments` list accepts Hyperfine polarization, Electron polarization,
+F_x, F_y, F_z, Q_qq, Q_uv and Q_uu-Q_vv, without duplicates. Empty selection
+hides all moment graphs. The former `moment_types` and `moment_manifolds`
+fields are not part of this format. Both manifolds are always plotted.
+
+Per-species `zeeman_axis_A/B` and `moment_axis_A/B` independently store x, y
+or z, initially z. The former shared `q_axis_A/B` fields are not accepted.
+The display selectors do not enter the physical integration or probe settings.
+
+`probe_scan_min_MHz_A/B` and `probe_scan_max_MHz_A/B` store independent scan
+limits, default −7000 and +7000 MHz relative to the selected zero-pressure
+D-line center. Limits lie within ±15000 MHz, at least 10 MHz apart; the lower
+bound is at most 14990 MHz and the upper bound at least −14990 MHz.
 
 ## Compatibility principles {#condition-compatibility-principles}
 
-- A migrated field must preserve its former physical meaning.
+- Before future condition-sidebar changes, ask whether compatibility with older saved conditions is required.
 - New defaults must not overwrite values loaded from a file.
 - Renaming a page or navigation route does not by itself require a schema change.
-- Changing the meaning, units, or structure of a stored field does require a new schema and migration.
+- Changing the meaning, units, or structure of a stored field requires a new schema; migrations follow the user's requested compatibility policy.
 - Unknown future schema versions are rejected rather than guessed.
 
-## Probe-source migration {#probe-source-migration}
+## Probe-source settings {#probe-source-migration}
 
-Schema 6.9 distinguishes explicit weak sources (`PumpN weak`) from physical
-pump sources (`PumpN`). Migration from 6.9 preserves those selections and all
-other saved inputs, adding `rf_manifold_A/B=Fa`, `probe_manifold_A/B=Total`,
-and `probe_show_manifold_decomposition_A/B=false`. New sessions instead use
-`rf_manifold_A/B=Both`. Current files require all six new fields; invalid
-manifold selections and incomplete older files are rejected before state is
-changed. Versions older than 6.9 remain unsupported.
+Time evolution schema 2.4 includes the source values
+`Preset D1a`, `Preset D1b`, `Preset D2a`, and `Preset D2b`. These are weak,
+nonperturbing probes available only on Time evolution. Selecting one fills
+editable fields once using the current isotope: z, 1 cm, zero azimuth and ellipticity;
+the `a` branches use $I+1/2\rightarrow I-1/2$ at −2000 MHz and the `b`
+branches use $I-1/2\rightarrow I+1/2$ at +2000 MHz relative to the selected
+pressure-shifted D1/D2 transition. Later edits are authoritative and are saved
+with the selected source. Reruns and loading do not reapply preset defaults.
+Fields use the existing units and names. ACC lists only its original Custom
+Weak and weak/physical pump sources.
+`PumpN weak` remains a nonperturbing readout, while ACC's plain `PumpN`
+selects the physical pump. All reference menus always filter allowed
+hyperfine transitions. The former `show_allowed_only` field is absent from
+both current formats and does not control calculations or menus.
 
-This is a settings migration, not a legacy solver selection. The two-manifold
-physics is always active and previous predictions may change.
+## Uniform-relaxation settings {#uniform-relaxation-migration}
+
+Both current analysis formats require `gamma_u_A/B` as finite, nonnegative
+numbers. New sessions default each rate to 1 s⁻¹. Invalid or missing rates
+are rejected before settings are applied. No historical relaxation defaults
+are inferred from older files because those formats are unsupported.
 
 User workflow is described in [Condition files](../user-manual/condition-files.qmd).

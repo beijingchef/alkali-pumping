@@ -66,11 +66,14 @@
 ## Saved conditions and compatibility
 
 - Treat condition-file formats as versioned public interfaces.
+- Before future condition-sidebar changes, ask the user whether the new
+  version must remain compatible with older saved conditions. Do not assume
+  compatibility or add migrations before obtaining that preference.
 - When changing a saved field, default, or structure, update the appropriate
-  schema version and provide migration from every supported older format.
-- Existing saved conditions must retain their stored values and meaning when
-  loaded. New-session default changes must not overwrite values loaded from a
-  file.
+  schema version and follow the user's requested compatibility policy.
+- When compatibility is requested, existing saved conditions must retain
+  their stored values and meaning when loaded. New-session default changes
+  must not overwrite values loaded from a file.
 - Add round-trip, missing-field, invalid-version, and migration tests for
   condition-schema changes.
 

@@ -46,6 +46,12 @@ where $G$ is the coherence generator, $\mathbf s$ contains the within-manifold e
 
 For two species, RF-A and RF-B are separate calculations, each with the other source zero. All readouts and physical-pump sources reuse the same coupled generator. A detection projection does not restrict which manifold can be excited.
 
+Uniform relaxation adds $-R_{u,A}I$ and $-R_{u,B}I$ to the corresponding
+coherence blocks. Its population generator is also included in the equilibrium
+and population-response Jacobian. Thus atomic, weak-probe, and physical-pump
+responses share the same relaxation mechanism. Independent-coherence
+validation formulas add $R_u$ to their local linewidths.
+
 ## Optical manifold sum {#rf-optical-manifold-sum}
 
 The probe operator already contains the manifold-dependent optical coefficients. Its complex susceptibility is

@@ -17,6 +17,7 @@ For one species, the zero-RF steady state is schematically determined by
 $$
 0=\left[L_{\mathrm{OP}}
 +R_{\mathrm{ER}}(M_{\mathrm{ER}}-I)
++L_u
 +L_{\mathrm{SE}}\right]\mathbf p_0,
 \qquad \mathbf 1^T\mathbf p_0=1.
 $$

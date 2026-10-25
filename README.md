@@ -1,17 +1,83 @@
-# Alkali Pumping v6.10.1
+# Alkali Pumping v6.20.6
 
 This Streamlit application models optical pumping, electron randomization,
-self spin exchange, and unlike-alkali spin exchange in a one- or two-alkali
-vapor.
+uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
+exchange in a one- or two-alkali vapor.
 
 The app starts on **Analysis → ACC Magnetometer**, and the top navigation separates
-four workflows:
+five workflows:
 
 - **Analysis → ACC Magnetometer** models an antirelaxation coated cell
   magnetometer with dual-alkali population and Zeeman diagnostics, independent
   RF-A/RF-B drives, atomic-moment susceptibilities, and independent weak or
   physical Pump-A/Pump-B Stokes readouts. Its Zeeman tables have per-species
   column selectors while retaining complete CSV exports.
+- **Analysis → Time evolution** independently configures the same atoms, cell,
+  pumps, and weak probes. Initially unpolarized ground-state populations evolve
+  with all pumps on from zero to the turn-off slider `t₁`, then relax with the
+  pumps off through the total-time slider `t₂`. Self and cross spin exchange
+  follow the instantaneous density matrices, including all within-hyperfine
+  Zeeman coherences. Magnetic precession and pump AC-Stark evolution are included;
+  each alkali has independent Zeeman-population and atomic-moment display axes,
+  which can differ from the magnetic-field axis. The compact Zeeman **Axis**
+  selector sits in the third column with its label centered above it. Axis
+  selectors share the download buttons' width. The moment **Axis** label sits to the left
+  of its selector; both precede the checkboxes with a gap before the group.
+  Both replace the former sidebar axis. Changing either re-expresses the cached
+  density matrix without rerunning integration or changing probe signals.
+  Plots show individual Zeeman populations (one plot per manifold, without
+  totals), hyperfine polarization ⟨S·I⟩/ℏ², electron polarization,
+  selectable longitudinal orientation/alignment, and separate
+  weak-probe rotation, output ellipticity, and absorption signals. The probe
+  stays on throughout; RF and physical-pump feedback are absent. Settings and
+  CSV exports are independent of ACC Magnetometer.
+  Both timing sliders share one row under **Event Sequence** below the probe configuration, with
+  a maximum total time of 30 s and turn-off bounded by total time. Their labels
+  are Total time (s) and Pump turn-off time (s). Absorption is the fraction
+  $1-I_{\mathrm{out}}/I_{\mathrm{in}}$ and is included in CSV exports.
+  Each time-domain plot section has two plot columns and a narrow third column
+  with a question-mark help popup above its download icon. The CSV contains all displayed curves in that
+  section, with plot/curve names and units in the column labels. The four section
+  downloads are the page's CSV controls. Individual graph panels retain their
+  titles. Plot regions are 260 pixels tall
+  with compact bottom margins; the electron plot is titled Electron polarization
+  with y-axis label 2⟨S_q⟩/ℏ. Native moment checkboxes have no group caption;
+  the hyperfine/electron choices show ⟨S·I⟩/ℏ² and 2⟨S_q⟩/ℏ.
+  Mathematical checkbox labels, plot headings, y-axis labels and help equations
+  use LaTeX; CSV names remain plain text. Absorption sits below optical rotation.
+  Choose hyperfine/electron polarization, laboratory
+  ⟨F_x⟩, ⟨F_y⟩, ⟨F_z⟩, or local ⟨Q_qq⟩, ⟨Q_uv⟩, ⟨Q_uu−Q_vv⟩.
+  Alignment labels resolve to actual Cartesian components: for moment axis z,
+  they show ⟨Q_zz⟩, ⟨Q_xy⟩ and ⟨Q_xx−Q_yy⟩, including in section CSV headers.
+  Selected plots use two columns and always show both hyperfine manifolds
+  where applicable. The right-handed (u,v,q) frames are (y,z,x), (z,x,y),
+  (x,y,z) for q=x,y,z. Defaults show hyperfine/electron polarization, Fz and Qqq.
+  Collapsible result sections use their native outlines. Atomic moments and
+  Probe signal scanning start collapsed and create their plots and controls
+  only while open, using native Streamlit open-state tracking. Individual
+  graph panels retain borders.
+  Legends are inside the top right. Single-curve probe, hyperfine-polarization
+  and electron-polarization plots omit legends. Manifold legends show F values;
+  Zeeman titles show only F.
+  Graphs whose entire vertical data extent lies between -0.01 and +0.01 use
+  scientific notation with three significant figures for y-axis ticks and
+  hover values, with zero ticks shown as 0; other graphs retain their usual formatting.
+  Calculations and CSV exports retain full precision.
+  Page-level descriptions are in the question-mark popup beside the page title.
+  New sessions use sigma+ D1 pumping along z: Pump1 on the lower-to-upper
+  hyperfine branch at zero detuning, and Pump2 on the upper-to-upper branch
+  with zero intensity. The Custom Weak probe is along z with a 1 cm path,
+  the Rb87 2→1 reference transition, −2000 MHz detuning, and zero input
+  ellipticity. Total time defaults to 4 s and turn-off to 1 s.
+  **Probe signal scanning**, when opened, independently converges the pump-on steady state
+  and scans all allowed hyperfine transitions of the probe's selected D line.
+  Rotation, ellipticity and absorption have one plot per row. A two-handle
+  detuning range slider at the top left defaults to ±7000 MHz relative to the
+  zero-pressure D-line center, adjustable within ±15000 MHz. The slider is half
+  its former width, with its label on the left. Help sits immediately left of
+  the download icon on the same row at the top right. Transient timing and fixed
+  probe detuning do not set the scan.
+  The Time evolution sidebar starts at a native width of 420 pixels.
 - **Reference → Light shift** has independent sidebar controls and settings
   files for atom, cell, static field, arbitrary beam polarization, detuning,
   and plot selection. Its main panel plots scalar, vector, tensor,
@@ -62,6 +128,13 @@ streamlit run alkali_pumping.py
 
 ## Dual-alkali behavior
 
+- ACC Magnetometer and Time evolution each have independent `R_u,A` and
+  `R_u,B` controls below the electron-randomization row, defaulting to 1 s⁻¹
+  for new settings. Uniform relaxation acts as
+  `dρ/dt = R_u [Tr(ρ) I/N − ρ]`: it drives all ground Zeeman populations
+  toward equal probabilities and damps every coherence at `R_u`. It remains
+  active in the dark and enters steady states, RF/optical responses,
+  physical-pump feedback, relaxation totals, and CSV exports.
 - **Alkali A** is always active. **Alkali B** defaults to `None`.
 - Selecting the same isotope for A and B leaves B inactive and ignores its
   pump settings.
@@ -98,6 +171,14 @@ streamlit run alkali_pumping.py
 - Probe-A and Probe-B have independent line, hyperfine-transition detuning,
   propagation direction, input ellipse, and path length. A Custom Weak probe is a
   weak detector only and does not pump, shift, or broaden the atoms.
+- Time evolution alone offers `Preset D1a`, `Preset D1b`, `Preset D2a`, and
+  `Preset D2b` as weak probe sources. Each uses direction z, path length 1 cm,
+  azimuth 0°, and ellipticity angle 0°. The `a` presets use
+  $F=I+1/2\rightarrow F'=I-1/2$ at −2000 MHz; the `b` presets use
+  $F=I-1/2\rightarrow F'=I+1/2$ at +2000 MHz, relative to the selected
+  pressure-shifted transition on D1 or D2. Selecting a preset fills these
+  fields once for the chosen isotope. All fields remain editable while the
+  preset is selected, and edits persist across reruns, navigation, and save/load.
 - Each probe source lists both `PumpN weak` and `PumpN`. The weak item inherits
   that pump's spectrum, direction, and polarization while ignoring its
   intensity. The plain pump item represents the physical pump beam and uses
@@ -144,19 +225,34 @@ streamlit run alkali_pumping.py
 - The dual-alkali RF solver retains coherence feedback through self and cross
   spin exchange even though the other RF drive is zero.
 
-The condition-file schema is version 6.10. Complete v6.9 files migrate with
-their stored inputs intact and the previous Fa atomic display selected. The
-new two-manifold physics is always used; migration does not reproduce the old
-solver. New sessions show both atomic manifolds. Versions older than 6.9 are
-not supported by the current loader. The complete pre-upgrade v6.9.9 working
+Both analysis pages always list allowed hyperfine reference transitions;
+the former checkbox and saved `show_allowed_only` field have been removed.
+The selected reference defines detuning; calculations still include all
+relevant allowed transitions, including off-resonant contributions.
+ACC writes and loads condition schema **6.14**. Time evolution writes and
+loads its independent settings schema **2.4** and coherent-model identifier. Time evolution requires every
+current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
+(with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
+for previous configurations. Older analysis condition
+formats are unsupported, as requested; no migration is performed.
+New sessions show both atomic manifolds and default R_u,A/B to 1 s⁻¹.
+The complete pre-upgrade v6.9.9 working
 version is backed up in `../archive/alkali_pumping_v6.9.9/` with a SHA-256
 manifest for reproducing previous calculations.
 
-The population model is diagonal in each selected quantization basis. When a
+The ACC steady population model is diagonal in each selected quantization basis. When a
 nonzero static-field direction is transverse to a tab's quantization axis, the
 app warns that transverse static-field mixing is omitted and does not present
 that RF curve. Choose the static-field direction as the quantization axis for
 the supported secular weak-response calculation.
+
+Time evolution instead evolves complete density blocks within Fa and Fb, with
+independent display bases and coherent self/cross spin exchange in a common
+laboratory frame. Its probe includes coherences; section CSVs contain the
+displayed curves and axis metadata. Inter-F coherences and magnetic shifts in optical
+detunings remain excluded. Adaptive integration is separate from display
+sampling, which increases with the field and warns when capped at 20,001 samples.
+See [coherent model details](docs/technical/time-evolution.qmd).
 
 ## Unlike-alkali spin-exchange defaults
 
@@ -188,7 +284,7 @@ to `docs/_book/` and is intentionally excluded from Git.
 ## Layout
 
 - `alkali_pumping.py`: top-level Streamlit navigation entry point.
-- `alkali_pumping_app/pages/`: complete ACC-Magnetometer, Light shift, Atomic polarizability, and Atomic properties page implementations.
+- `alkali_pumping_app/pages/`: ACC Magnetometer, Time evolution, Light shift, Atomic polarizability, and Atomic properties pages.
 - `alkali_pumping_app/physics/`: single- and dual-species numerical models.
 - `alkali_pumping_app/ui/`: condition-file and table-rendering helpers.
 - `tests/`: regression and physical-consistency tests.

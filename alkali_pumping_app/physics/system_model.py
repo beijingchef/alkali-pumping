@@ -55,6 +55,7 @@ from .spin_exchange import (
     steady_state_with_spin_exchange,
 )
 from .spectroscopy import line_center_frequency_MHz
+from .uniform_relaxation import uniform_relaxation_diagnostics, uniform_relaxation_generator
 
 
 def _flatten_probe_operators(operators):
@@ -170,7 +171,12 @@ def build_species_linear_model(config, all_beams, common):
             light_shift_diagnostics.append((beam, info))
 
     er_map = build_ER_matrix(atom, ground_states)
-    linear = optical + float(config["R_ER"]) * (er_map - np.eye(size))
+    # Omitted rates retain the previous low-level API behavior. New-session
+    # defaults are supplied explicitly by each page's versioned settings.
+    R_u = float(config.get("R_u", 0.0))
+    uniform = uniform_relaxation_generator(size, R_u)
+    relaxation = float(config["R_ER"]) * (er_map - np.eye(size)) + uniform
+    linear = optical + relaxation
     self_rate_info = self_spin_exchange_rate_info(
         atom_name,
         common["temperature_C"],
@@ -186,6 +192,9 @@ def build_species_linear_model(config, all_beams, common):
         "light_shift_diagnostics": light_shift_diagnostics,
         "L_optical": optical,
         "M_ER": er_map,
+        "R_u": R_u,
+        "L_uniform": uniform,
+        "L_relaxation": relaxation,
         "L_linear": linear,
         "self_rate_info": self_rate_info,
         "R_SE_self": self_rate_info["rate_s"],
@@ -225,6 +234,7 @@ def _finalize_species(
     Lambda = optical_Lambda_fractional_rates(model["L_optical"], population, G_OP)
     G_ER = er_population_fractional_relaxation_rates(model["M_ER"], population, R_ER)
     Gamma_ER = er_adjacent_coherence_self_relaxation_rates(atom, states, R_ER)
+    G_u, Gamma_u = uniform_relaxation_diagnostics(states, population, model["R_u"])
     G_SE_self = spin_exchange_population_fractional_relaxation_rates(
         self_map, population, R_self
     )
@@ -259,6 +269,8 @@ def _finalize_species(
         "G_OP": G_OP,
         "G_ER": G_ER,
         "Gamma_ER": Gamma_ER,
+        "G_u": G_u,
+        "Gamma_u": Gamma_u,
         "G_SE_self": G_SE_self,
         "Gamma_SE_self": Gamma_SE_self,
         "G_SE_cross": G_SE_cross,

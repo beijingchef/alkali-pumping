@@ -1,5 +1,539 @@
 # Changelog
 
+## 6.20.6 - 2026-10-25
+
+- Format small-range Time evolution plots with three-significant-figure
+  scientific notation on y-axis ticks and hover values; show zero ticks as 0.
+  Keep the existing whole-graph threshold of absolute extent below 0.01 and
+  full-precision calculations/CSV exports.
+- Remove redundant legends from the single-curve hyperfine-polarization and
+  electron-polarization graphs. Multi-curve moment and Zeeman legends remain.
+- Update the focused UI check and documentation. Settings and physics are unchanged.
+- Validation: the single page-render UI check passed in 7.348 seconds, including
+  scientific tick/hover formatting and hidden single-curve polarization legends.
+
+## 6.20.5 - 2026-10-25
+
+- Fix the Time evolution layout exception introduced by passing `wrap=False`
+  to vertical section-control containers. Disable wrapping only for the
+  horizontal scan toolbar; preserve the requested help/download arrangement.
+- Shorten the scan slider's visible and accessible label to Detuning range (MHz).
+- Confirmed the incompatible parameter combination from the installed Streamlit
+  implementation. Tests and browser checks were not run, following the user's
+  instructions.
+
+## 6.20.4 - 2026-10-25
+
+- Halve the probe-scan range slider's width and place its label on the left.
+  Align help immediately left of download on the same header row, using native
+  Streamlit layout controls. Other section controls keep their current layout.
+- Settings and calculations are unchanged. Tests and browser checks were not
+  run, following the user's instructions.
+
+## 6.20.3 - 2026-10-25
+
+- Set the Time evolution probe detuning slider limits to ±15000 MHz, with
+  a default selection of ±7000 MHz for each species. Retain the 10 MHz step
+  and minimum span. Synchronize help and saved-setting validation.
+- Advance Time evolution settings to schema 2.4 for the changed defaults and
+  bounds; only the new format is supported under the current compatibility policy.
+  Update documentation and existing checks. Tests and browser checks were not
+  run, following the user's instructions.
+
+## 6.20.2 - 2026-10-25
+
+- Replace the two probe-scan detuning sliders with one native two-handle range
+  slider at the top left. Preserve independent per-species bounds, the ±30000 MHz
+  limits, 10 MHz minimum span, collapsed lazy rendering and existing saved format.
+- Update help, documentation and existing UI expectations. Tests and browser
+  checks were not run, following the user's instructions.
+
+## 6.20.1 - 2026-10-25
+
+- Start Atomic moments and Probe signal scanning collapsed on Time evolution.
+  Use native Streamlit open-state tracking to create plots, controls and section
+  CSVs only while open. Defer pump-on steady-state convergence and probe spectra
+  until the scan is opened; retain cached calculations and saved display choices.
+- Settings formats and physics are unchanged. Update existing UI expectations
+  for collapsed defaults and reopening. Tests and browser checks were not run,
+  following the user's instructions.
+
+## 6.20.0 - 2026-10-25
+
+- Add Probe signal scanning to each Time evolution species tab, with one
+  frequency plot per row for rotation, ellipticity and absorption. Two detuning
+  sliders at the top left scan the sidebar probe's D1/D2 line relative to its
+  zero-pressure fine-structure center. All allowed hyperfine channels contribute,
+  with transition-center markers. Help and an icon CSV download sit at top right.
+- Independently converge the pump-on coherent master equation from the
+  unpolarized state using adaptive BDF intervals. Check stationarity, state
+  convergence, trace, Hermiticity and positivity; report nonconvergence rather
+  than plotting an unconverged state. The scan is independent of transient timing
+  and display axes, including self/cross spin exchange for both species.
+- Share complex polarizability and Jones/Stokes propagation between transient
+  and spectral readout. Contract unit-coefficient operators once per state and
+  combine spectral coefficients for 2001 scan points. CSVs contain plotted units,
+  frequency origin, pump/cell/probe settings and convergence information.
+- Use a native 420-pixel initial sidebar width on Time evolution. Settings
+  schema 2.3 adds independent per-species scan bounds, default ±12000 MHz,
+  adjustable within ±30000 MHz with a minimum span of 10 MHz. Older settings
+  are rejected without migration, per the user's explicit preference.
+- Added physical-consistency and export coverage and updated UI expectations.
+  Tests and browser checks were not run, following the user's instructions.
+
+## 6.19.4 - 2026-10-25
+
+- Remove the complete CSV download at the bottom of each Time evolution
+  species tab and its unused page-side data preparation. The three section
+  CSV downloads remain. Update page help and export documentation.
+- Settings and calculations are unchanged. Tests and browser checks were not
+  run, following the user's instructions.
+
+## 6.19.3 - 2026-10-25
+
+- Resolve atomic alignment names to the selected moment axis throughout
+  checkbox labels, graph headings, y-axis labels, help and section CSV column
+  names. The cyclic frames give Qzz, Qxy, Qxx−Qyy for z; Qxx, Qyz, Qyy−Qzz
+  for x; and Qyy, Qzx, Qzz−Qxx for y. Stable selection keys and calculated
+  values are unchanged; each species' plots follow its own moment axis.
+- Tests and browser checks were not run, following the user's instructions.
+
+## 6.19.2 - 2026-10-25
+
+- Give Time evolution section download buttons and both Axis selectors the
+  same 56-pixel width. Center the Zeeman Axis caption above its selector,
+  aligned with the download button in the third column.
+- Settings and calculations are unchanged. Tests and browser checks were not
+  run, following the user's instructions.
+
+## 6.19.1 - 2026-10-25
+
+- Shorten the Zeeman quantization selector label to Axis and fit it to the
+  third column below the help/download controls.
+- Move the atomic-moment Axis label and compact selector before the moment
+  checkboxes, with the label on the selector's left and a 20-pixel spacer
+  before the checkbox group. Axis values, persistence and calculations are unchanged.
+- Tests and browser checks were not run, following the user's instructions.
+
+## 6.19.0 - 2026-10-25
+
+- Remove the Time evolution sidebar quantization axes. Each species now has
+  a Zeeman-population axis at that section's bottom right and an independent
+  atomic-moment axis to the right of the moment checkboxes.
+- Evolve and cache the physical state in laboratory z; changing a display
+  axis re-expresses the cached density matrix without repeating integration.
+  The Zeeman axis defines population/coherence readout. The moment axis defines
+  electron polarization and local alignment; laboratory Fx,Fy,Fz and scalar
+  hyperfine polarization are invariant. Probe signals use the physical state.
+- Section and complete CSVs identify both axes. Complete CSV populations and
+  coherences use the Zeeman basis; longitudinal/transverse moments use the
+  moment frame. Settings schema 2.2 replaces q_axis_A/B with zeeman_axis_A/B
+  and moment_axis_A/B, initially z. Older formats are rejected without migration,
+  following the user's explicit compatibility preference.
+- Tests and browser checks were not run, following the user's instructions.
+
+## 6.18.2 - 2026-10-25
+
+- Remove the Plotted moments caption. Label the hyperfine/electron checkboxes
+  with their normalized mathematical observables, ⟨S·I⟩/ℏ² and 2⟨Sq⟩/ℏ.
+- Give each collapsible section two plot columns and a narrow third column
+  containing help above the download icon. In Probe signal, absorption sits
+  below optical rotation; ellipticity remains in the second column.
+- Typeset mathematical y-axis labels with native Streamlit LaTeX beside the
+  interactive charts, rotated vertically with page-scoped CSS. Subscripts,
+  superscripts and expectation brackets render as math; numeric axes and CSV
+  column names are unchanged. No dynamics or saved-setting changes.
+- Tests and browser checks were not run, following the user's instructions.
+
+## 6.18.1 - 2026-10-25
+
+- Replace per-graph downloads and explanation popups on Time evolution with
+  one download icon and one help popup at the top right inside each collapsible
+  Zeeman populations, Atomic moments and Probe signal section, per species.
+  Individual graph panels retain their titles and borders.
+- Each section CSV combines all displayed curves into one time-indexed table.
+  Column labels identify plot, curve and plotted units; shared timing, species
+  and axis metadata appears once. Help combines that section's explanations.
+  Empty moment selection disables its download; undefined optical samples are
+  retained. The complete per-species CSV remains available below the sections.
+- Render moment choices as native checkboxes so their mathematical labels use
+  LaTeX. Plot-panel headings and section-help equations also use LaTeX. The
+  Plotted moments caption stays on the left; stored selections are unchanged.
+  Native chart-axis labels and CSV column names remain plain text.
+- Settings and calculations are unchanged. Tests and browser checks were not
+  run, following the user's instruction to stop testing.
+
+## 6.18.0 - 2026-10-25
+
+- Replace Longitudinal moments with a Plotted moments selector, with its label
+  to the left. Hyperfine polarization and electron polarization are selectable,
+  alongside laboratory Fx, Fy, Fz and local Qqq, Quv, Quu−Qvv. Selected plots
+  use two columns; each manifold-resolved plot always includes both F levels.
+- Evaluate Cartesian and transverse moments from the complete density matrix.
+  The right-handed (u,v,q) frames are (y,z,x), (z,x,y), (x,y,z) for q=x,y,z.
+  Graph help and CSV metadata identify these axes. The complete CSV includes
+  all new moments regardless of plot selection; normalized graph units are 1.
+- Time evolution settings use schema 2.1 with a `plotted_moments` selection;
+  obsolete moment-type/manifold fields are removed. Older formats are rejected
+  without migration, consistent with the requested current-format-only policy.
+  Defaults show hyperfine/electron polarization, Fz and Qqq. Dynamics is unchanged.
+- Tests and browser refresh were not run, following the user's instructions.
+
+## 6.17.6 - 2026-10-25
+
+- Remove the Hyperfine manifolds selector from Time evolution Atomic moments.
+  Orientation and alignment always show both manifolds for each species,
+  including when a saved display choice selected fewer manifolds. Graph CSVs
+  include both curves. The longitudinal moment type selector remains.
+- Saved file structure and physics are unchanged. No tests were run, following
+  the user's instruction to stop testing.
+
+## 6.17.5 - 2026-10-25
+
+- Restore native Time evolution section outlines and header dividers. Remove
+  tracked section keys and refresh-on-toggle behavior; expanding or collapsing
+  uses normal client-side Streamlit behavior again.
+- Remove the regression test specific to tracked section refresh. No tests
+  were run for this reversal, following the user's instruction to stop testing.
+
+## 6.17.4 - 2026-10-25
+
+- Track Time evolution section open/closed states and refresh the results
+  layout on every toggle, so the page scroll range updates with visible content.
+  Mixed section states are preserved through that refresh. Atomic dynamics
+  stays cached; toggling does not resolve the atoms or change inputs.
+- Invisible section outlines and individual plot borders remain. Settings
+  formats, physics and exports are unchanged.
+
+## 6.17.3 - 2026-10-25
+
+- Make the outlines and header dividers of Time evolution's three collapsible
+  result sections transparent, retaining headings, toggle controls, layout spacing
+  and individual graph-panel borders. Styling is scoped to this page's
+  section keys. Settings, calculations and exports are unchanged.
+- Verification: live browser confirms transparent outlines/dividers and working
+  collapse/expand controls; full suite: 226 tests run, 11 existing skips, no failures.
+
+## 6.17.2 - 2026-10-25
+
+- Set the Time evolution electron plot title to Electron polarization and its
+  y-axis label to 2⟨S_q⟩/ℏ.
+- Reduce bottom whitespace on all Time evolution plots: 5-pixel bottom chart
+  padding and 0.25rem bottom panel padding, scoped to these plot panels.
+  Chart height remains 260 pixels. Settings and calculations are unchanged.
+- Verification: live browser confirms all nine panels use 4-pixel bottom
+  padding, 260-pixel charts and clear x-axis labels; electron title/axis checked.
+  Full suite: 226 tests run, 11 existing skips, no failures.
+
+## 6.17.1 - 2026-10-25
+
+- Align each Time evolution plot title, Download CSV button and question-mark
+  popup in one native horizontal header row. Keep the title on the left and
+  controls on the right, vertically centered. Remove the duplicate chart title
+  below that row and retain it as the chart's accessibility description.
+- Chart regions remain 260 pixels tall; calculations, exports and settings
+  formats are unchanged.
+- Verification: all nine native title/control header rows checked in the real
+  Streamlit page; full suite: 226 tests run, 11 existing skips, no failures.
+
+## 6.17.0 - 2026-10-25
+
+- Remove the Time evolution hyperfine-population panel. Add the scalar
+  hyperfine polarization ⟨S·I⟩/ℏ² to Atomic moments, alongside electron
+  polarization on the first plot row. Selected orientation/alignment plots
+  occupy a separate second row.
+- Calculate the correlation as [F(F+1)−I(I+1)−3/4]/2 averaged over the full
+  ground state, without manifold renormalization. Include it in graph and
+  complete CSV exports; retain hyperfine totals in the complete export.
+- Rename probe Output ellipticity to Ellipticity and the electron plot title
+  to 2⟨S_q⟩/ℏ. Hide legends on the three single-curve probe plots.
+- Atomic dynamics and settings formats are unchanged. Invalidate cached
+  evolution results for the newly added observable.
+- Verification: direct electron–nuclear spin-operator expectations, unpolarized
+  and pure-manifold limits for all isotopes, quantization-axis independence,
+  CSV values, real Streamlit row placement, optical legends and deselection
+  behavior. Full suite: 226 tests run, 11 existing skips, no failures.
+
+## 6.16.3 - 2026-10-25
+
+- Remove the Fa/Fb prefixes from Time evolution Zeeman plot titles. Hyperfine
+  population, orientation and alignment legends now use the isotope's actual
+  F values for each species. Per-graph CSV curve names match the legends.
+  Calculations, complete CSV field names and settings formats are unchanged.
+- Verification: actual Rb87/Cs133 Streamlit titles and legends checked;
+  full suite: 225 tests run, 11 existing skips, no failures.
+
+## 6.16.2 - 2026-10-25
+
+- Use three significant figures for Time evolution quantity labels and hover
+  values only when the graph's entire vertical data extent, across all shown
+  curves and including zero, lies strictly between -0.01 and +0.01 in plotted
+  units. Other graphs retain automatic axis labels and their original
+  six-significant-figure hover format, even for individual small samples.
+  Coordinates, calculations and CSVs retain full precision; settings formats
+  are unchanged.
+- Verification: whole-graph small, mixed and threshold ranges checked;
+  real Streamlit page renders all nine graphs. Full suite: 225 tests run,
+  11 existing skips, no failures.
+
+## 6.16.1 - 2026-10-25
+
+- Format Time evolution plotted quantities to four significant figures in
+  y-axis labels and hover tooltips. Calculations, curve coordinates and CSV
+  exports retain full precision; settings formats are unchanged.
+- Verification: all nine chart specifications checked through the real
+  Streamlit page; 225 regression tests run, 11 existing skips, no failures.
+
+## 6.16.0 - 2026-10-25
+
+- Replaced Time evolution's diagonal population dynamics with a ground-HFS
+  secular density-matrix master equation. All within-F Zeeman coherences,
+  signed-g-factor magnetic precession, collective optical repopulation and
+  pump AC-Stark dynamics are retained. Both optical terms stop at pump turn-off.
+- Each alkali's quantization axis is independent of the field and partner's
+  axis. Self/cross exchange uses full nuclear/electron reductions in a shared
+  laboratory frame. ER and uniform relaxation act on the coherent state.
+- Weak-probe Jones propagation now uses the full density matrix. Complete
+  CSVs include independent real/imaginary Zeeman coherences. Display sampling
+  follows Larmor harmonics, with an explicit warning at the 20,001-sample cap.
+- Time evolution settings require format 2.0 and the new model identifier;
+  older files are rejected without migration, as requested. ACC settings and
+  calculations retain their existing behavior. Magnetic shifts in optical
+  detunings and inter-ground-hyperfine coherences remain excluded.
+- Verification: signed Larmor rotation, exact dark unitary evolution,
+  trace/Hermiticity/positivity, collective optical covariance, collinear
+  population limits, angular momentum conservation, dual-species basis and
+  probe invariance, new-format validation, and real Streamlit transverse-axis
+  controls are covered by regression tests.
+- Full suite: 225 tests run, 11 existing skips, no failures. Live-browser check
+  confirms damped probe precession with a 10 nT x field and a z quantization
+  axis, preserving the existing graph layout and CSV controls.
+
+## 6.15.2 - 2026-10-25
+
+- Reduced all Time evolution plot regions from 520 to 260 pixels, retaining
+  top-right legends, download buttons, and explanation popups.
+- Verification: 214 tests run, 11 existing skips, no failures; Streamlit
+  checks confirm every plotted region is 260 pixels tall.
+
+## 6.15.1 - 2026-10-25
+
+### Changed
+
+- Added top-right CSV and explanation-popup controls to every Time evolution
+  graph panel. Each graph exports only its displayed curves, in plotted units,
+  with one column per curve and timing/species metadata. Complete species CSVs
+  remain available, including all signals and configuration.
+- Moved page-level descriptions into a question-mark popup beside the page
+  title, and moved graph explanations into their panel popups.
+- Doubled plot regions from 260 to 520 pixels and placed legends inside the
+  top-right corner. Zeeman legend ordering follows the numerical m sequence.
+  Event timing, calculations, and saved settings formats are unchanged.
+
+### Verification
+
+- Full unittest suite: 214 tests run, 11 existing skips, no failures.
+- Checked per-graph CSV units, displayed-curve selection and event metadata;
+  graph/page popup counts for single and dual species; 520-pixel chart regions;
+  top-right legends; and undefined-angle downloads. Visually verified the live
+  page header, help popup, and narrow three-column graph panels in the browser.
+
+## 6.15.0 - 2026-10-25
+
+### Changed
+
+- Removed the remaining Time evolution settings compatibility behavior:
+  missing-field defaults, ignored unknown fields, and extended duration ranges.
+  Schema 1.5 requires a complete current configuration and enforces total time
+  from 0.001 to 30 s, with turn-off from zero to total time. No older schemas
+  are accepted. ACC conditions remain at schema 6.14.
+- Shortened the slider labels to Total time (s) and Pump turn-off time (s).
+- Replaced the Time evolution transmission plot with fractional absorption,
+  1 − I_out/I_in, and exported the same absorption values alongside transmission.
+  Uniform-path Jones propagation and the atomic evolution are unchanged.
+
+### Verification
+
+- Full unittest suite: 212 tests run, 11 existing skips, no failures.
+- Checked strict complete-file loading, fixed 30 s limits, shortened slider
+  labels, absorption plot titles, zero-path and optically thin absorption,
+  and matching absorption/transmission CSV values.
+
+## 6.14.0 - 2026-10-25
+
+### Changed
+
+- Removed Only show allowed hyperfine transitions from ACC Magnetometer and
+  Time evolution. Pump/probe reference menus and ACC transition tables now
+  always filter allowed transitions. Optical calculations continue to include
+  all relevant allowed channels, including off-resonant excitation.
+- Renamed the Time evolution sidebar's Display section to Event Sequence and
+  moved the two time sliders into one row below that heading.
+- Removed the saved show_allowed_only field. ACC now writes/loads schema 6.14
+  and Time evolution schema 1.4. Per the user's compatibility choice, older
+  analysis formats are rejected and their migration paths are removed.
+
+### Verification
+
+- Full unittest suite: 211 tests run, 11 existing skips, no failures.
+- Streamlit checks cover allowed-only pump/probe menus on both pages,
+  stale checkbox state, Event Sequence heading and slider row, timing
+  persistence, and current-format round trips with older-file rejection.
+
+## 6.13.1 - 2026-10-25
+
+### Changed
+
+- Restricted the four D1/D2 probe presets to Time evolution. ACC Magnetometer
+  again lists only Custom Weak and its original weak/physical pump sources.
+- Selecting a preset fills the probe fields once; every field remains
+  editable while the preset stays selected. Edits survive reruns, navigation,
+  and save/load. Pump-linked weak sources keep their existing behavior.
+- Recorded the requirement to ask about older saved-condition compatibility
+  before future condition-sidebar changes. This UI correction retains the
+  existing saved field formats and adds no migrations.
+
+### Verification
+
+- Full unittest suite: 210 tests run, 11 existing skips, no failures.
+- Real Streamlit checks confirm both ACC menus exclude presets and all Time
+  evolution preset fields remain editable, retaining edits through reruns
+  and navigation. Edited settings also pass save/load round trips.
+
+## 6.13.0 - 2026-10-25
+
+### Added
+
+- Added Preset D1a, D1b, D2a, and D2b weak-probe sources independently for A
+  and B on ACC Magnetometer and Time evolution. All use z, a 1 cm path,
+  azimuth 0°, and ellipticity angle 0°. The a branches use
+  I+1/2→I−1/2 at −2000 MHz, and b branches use I−1/2→I+1/2 at +2000 MHz,
+  relative to the selected pressure-shifted D1/D2 transition.
+- Preset fields follow the selected isotope and stay fixed until Custom
+  Weak is selected for editing. Existing startup defaults and pump physics
+  are unchanged.
+
+### Compatibility
+
+- ACC condition schema 6.13 and Time evolution settings schema 1.3 save the
+  new source choices. ACC 6.12 and Time evolution 1.2 load unchanged; all
+  previously supported migrations retain their stored-value semantics.
+
+### Verification
+
+- Full unittest suite: 210 tests run, 11 existing skips, no failures.
+- Real Streamlit checks cover all four presets on both pages, isotope
+  changes, Custom Weak editing, A/B independence, and navigation persistence.
+
+## 6.12.1 - 2026-10-25
+
+### Changed
+
+- Updated new Time evolution settings for both species: Pump1 uses D1
+  Fa−1→Fa at zero detuning with sigma+ light along z and retains 10 µW/cm²;
+  Pump2 uses Fa→Fa with zero intensity and sigma+ along z. Pump3 is unchanged.
+- New weak probes are Custom Weak along z, with a 1 cm path, the D1 upper-to-
+  lower hyperfine branch (Rb87 2→1), −2000 MHz relative detuning, and zero
+  ellipticity. Their input azimuth remains 45°. Total time defaults to 4 s
+  and pump turn-off to 1 s. The atomic initial state remains unpolarized.
+- Advanced Time evolution settings to v1.2. Versions 1.0 and 1.1 preserve all
+  stored inputs and use their original defaults for omitted fields. ACC
+  startup settings and conditions are unchanged. Activating B translates
+  the displayed surrogate spectrum to the same relative hyperfine branches.
+
+### Verification
+
+- Full unittest suite: 204 tests run, 11 existing skips, no failures.
+- Verified all requested startup values in the real Streamlit page, relative
+  branches after Rb85/Cs133 selection, independent ACC defaults, and migration
+  of older stored configurations without applying the new startup values.
+
+## 6.12.0 - 2026-10-25
+
+### Added
+
+- Added independent R_u,A and R_u,B controls below R_ER on both analysis
+  sidebars, defaulting to 1 s⁻¹ in new settings. Uniform relaxation uses
+  `D_u[rho] = R_u (Tr(rho) I/N - rho)`, resetting the entire ground-state
+  distribution and damping all coherences at R_u, including nuclear moments.
+- Included the channel in single/dual-species steady states and population
+  Jacobians, pump-on/dark dynamics, secular RF generators, weak optical and
+  physical-pump feedback responses, and independent-transition RF helpers.
+- Added uniform population/coherence rate columns to Zeeman diagnostics and
+  CSVs, included them in total relaxation and linewidth normalization, and
+  exposed the uniform population generator in the optional matrix display.
+- Advanced ACC conditions to 6.12 and Time evolution settings to 1.1. Complete
+  ACC v6.9/v6.10 and dynamics v1.0 files migrate with R_u=0 to preserve their
+  previous relaxation model. Current files require valid, finite, nonnegative
+  rates; A/B values and page-specific configurations remain independent.
+
+### Verification
+
+- Full unittest suite: 203 tests run, 11 existing skips, no failures.
+- Verified trace-preserving uniform decay, independent A/B rates, agreement
+  between long-time evolution and the steady state, RF linewidths, physical
+  pump readout, zero-rate recovery, rate diagnostics, settings migrations, and
+  real Streamlit controls and navigation persistence.
+
+## 6.11.3 - 2026-10-25
+
+### Changed
+
+- Moved both Time evolution sliders into one row in the sidebar immediately
+  below the probe configuration. The normal total-time range now ends at 30 s, and
+  pump turn-off remains bounded by the selected total time. Existing saved
+  durations above 30 s retain their values until explicitly reduced.
+
+## 6.11.2 - 2026-10-25
+
+### Changed
+
+- Matched the Time evolution probe configuration layout to ACC Magnetometer:
+  source/direction/path length in a 45%/20%/35% row, reference line and F→F′
+  side by side, detuning beside its line-center caption, and azimuth beside
+  ellipticity. Applies to both probes with their independent settings retained.
+
+## 6.11.1 - 2026-10-25
+
+### Changed
+
+- Shortened the ACC Magnetometer and Time evolution sidebar labels from
+  Hyperfine transition to F→F′ for pumps and probes, and from Intensity to I
+  for pumps, retaining the µW/cm² units.
+
+## 6.11.0 - 2026-10-25
+
+### Added
+
+- Added **Analysis → Time evolution**, with independent atom/cell, six-pump,
+  quantization-axis, and weak-probe configurations. All ground Zeeman states
+  start equally populated. Two sliders set pump turn-off time t₁ and total
+  plotted time t₂; every curve spans zero through t₂ with a turn-off marker.
+- Integrated the nonlinear single/dual-species population equations in separate
+  pump-on and dark intervals. Electron randomization and self/cross spin
+  exchange continue after turn-off, and exchange uses instantaneous marginals.
+  The new path does not call the RF solver or physical-pump feedback closure.
+- Added Fa/Fb population totals, separate individual-Zeeman population plots
+  for each manifold (without manifold totals), electron polarization, and
+  selectable longitudinal orientation and traceless alignment per total atom.
+- Added separate weak-probe rotation, output ellipticity, and transmission
+  plots. Uniform-state Jones propagation reuses the existing Mathur tensor,
+  includes scalar absorption, and retains accumulated phase and attenuation.
+  The non-perturbing probe stays on when pumps are off. Undefined rotation at
+  circular input polarization is reported rather than displayed as zero.
+- Added independent Time evolution settings format v1.0, persistent navigation
+  state, and CSV exports with population, moment, optical, timing, and model
+  metadata. ACC conditions remain at schema 6.10 and its solver is unchanged.
+
+### Verification
+
+- Full unittest suite: 190 tests run, 11 existing skips, no failures.
+- Checked the nonlinear derivative against the existing collision maps, the
+  linear limit against matrix exponentials, probability and angular-momentum
+  conservation, timing endpoints, probe sign/units and zero-path limits, and
+  settings serialization. Streamlit AppTest exercises both species, slider
+  bounds, moment/probe controls, and independent settings across navigation.
+
 ## 6.10.1 - 2026-10-24
 
 ### Changed

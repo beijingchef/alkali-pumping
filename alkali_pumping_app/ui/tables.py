@@ -136,6 +136,8 @@ ZEEMAN_TABLE_COLUMNS = (
     ("Γ^{OP} (s^-1)", "Γ<sup>OP</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{OP}}$"),
     ("G^{ER} (s^-1)", "G<sup>ER</sup>", "s<sup>−1</sup>", ".1f", r"$G^{\mathrm{ER}}$"),
     ("Γ^{ER} (s^-1)", "Γ<sup>ER</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{\mathrm{ER}}$"),
+    ("G^{u} (s^-1)", "G<sup>u</sup>", "s<sup>−1</sup>", ".1f", r"$G^{u}$"),
+    ("Γ^{u} (s^-1)", "Γ<sup>u</sup>", "s<sup>−1</sup>", ".1f", r"$\Gamma^{u}$"),
     (
         "G^{SE,self} (s^-1)",
         "<span class='zeeman-scripted-symbol'>G<span class='zeeman-script-stack'><span>SE</span><span>self</span></span></span>",

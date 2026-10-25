@@ -15,6 +15,7 @@ book:
       chapters:
         - user-manual/getting-started.qmd
         - user-manual/acc-magnetometer.qmd
+        - user-manual/time-evolution.qmd
         - user-manual/condition-files.qmd
         - user-manual/interpreting-results.qmd
         - user-manual/data-export.qmd
@@ -34,6 +35,7 @@ book:
       chapters:
         - technical/software-architecture.qmd
         - technical/solver-data-flow.qmd
+        - technical/time-evolution.qmd
         - technical/numerical-methods.qmd
         - technical/condition-file-schema.qmd
         - technical/testing-and-validation.qmd

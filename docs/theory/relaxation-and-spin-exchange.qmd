@@ -4,6 +4,33 @@
 
 Electron-randomization collisions relax electronic polarization while preserving the nuclear reduced state according to the implemented collision map. The user enters the effective rate $R_{\mathrm{ER}}$. In a coated cell this rate can represent residual wall relaxation and other electron-randomizing processes not modeled microscopically.
 
+## Uniform ground-state relaxation {#uniform-ground-state-relaxation}
+
+Each species has an independent rate $R_{u,a}$, with a new-session default of
+$1\,\mathrm{s}^{-1}$. For $N_a$ ground Zeeman states the channel is
+
+$$
+\mathcal D_{u,a}(\rho_a)=R_{u,a}
+\left[\mathrm{Tr}(\rho_a)\frac{I_a}{N_a}-\rho_a\right].
+$$
+
+It conserves trace, preserves Hermiticity and positivity, and relaxes both
+electronic and nuclear polarization. The target is equal population per
+Zeeman state across both manifolds, so equilibrium hyperfine populations are
+proportional to their degeneracies. This differs from electron randomization,
+which preserves the nuclear reduced state in the collision map.
+
+The population generator is $L_{u,a}=R_{u,a}(\mathbf1\mathbf1^T/N_a-I)$.
+It enters the full population Jacobian, while every off-diagonal coherence
+receives $-R_{u,a}\rho_{ij}$. Pump turn-off does not switch this channel off.
+With no other dynamics, $p_i(t)=1/N_a+[p_i(0)-1/N_a]e^{-R_{u,a}t}$, and
+every traceless atomic moment decays with the same exponential.
+
+For normalized populations the signed fractional population-loss diagnostic
+is $G_i^u=R_u[1-1/(N p_i)]$, undefined at zero population. Adjacent-coherence
+decay is $\Gamma_i^u=R_u$. Both are included in the displayed totals and in
+the linewidth used for optional RF normalization.
+
 ## Self spin exchange {#self-spin-exchange}
 
 The self-exchange rate is calculated from the alkali density, thermal mean relative speed, and a species-specific cross section. The collision map is linearized about the calculated steady state for the RF response.
@@ -26,6 +53,6 @@ For the A response, only A is directly driven and read out, but B can influence 
 
 ## Relaxation reported in the app {#reported-relaxation}
 
-The Zeeman table separates optical-pumping, electron-randomization, self-exchange, and cross-exchange contributions. Adjacent-coherence widths enter the RF susceptibility, while population fractional rates describe redistribution of the zero-RF populations.
+The Zeeman table separates optical-pumping, electron-randomization, uniform-relaxation, self-exchange, and cross-exchange contributions. Adjacent-coherence widths enter the RF susceptibility, while population fractional rates describe redistribution of the zero-RF populations.
 
 The numerical constants and literature sources are summarized in [References](../references.qmd).

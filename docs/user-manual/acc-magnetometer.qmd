@@ -6,6 +6,13 @@ ACC means **antirelaxation coated cell**. The page is designed for weak-RF magne
 
 Alkali A is always active. Alkali B becomes active only when it is a different isotope or element from A. Enter the temperature, nitrogen pressure, electron-randomization rates, mixture density model, and static magnetic field.
 
+The next sidebar row below electron randomization contains independent
+uniform-relaxation rates $R_{u,A}$ and $R_{u,B}$, each defaulting to
+$1\,\mathrm{s}^{-1}$. These reset all ground-state populations toward equal
+probabilities and damp every coherence, including nuclear polarization.
+They affect the steady state, RF and optical response, physical-pump feedback,
+and all total relaxation diagnostics. Use zero to disable this channel.
+
 The population model is diagonal in the selected quantization basis. For the supported secular RF calculation, choose the static-field direction parallel to the quantization axis. A transverse static field would mix states in a way that the current population model does not retain.
 
 ## Pump configuration {#pump-configuration}
@@ -61,8 +68,12 @@ contributions add as complex signals, including for physical-pump readout,
 where both are extracted from the same feedback closure. Their amplitudes do
 not generally add. Rank decomposition remains an independent display choice.
 
-Condition files now use schema 6.10. Complete 6.9 files retain all stored inputs
-and the Fa atomic display when loaded, but run the new two-manifold physics.
-There is no legacy calculation mode; the pre-upgrade application is archived.
+Pump and probe F→F′ menus always list allowed hyperfine transitions. The
+former checkbox and saved `show_allowed_only` field are removed. The selected
+transition defines the detuning reference; all relevant allowed channels,
+including off-resonant channels, still enter the calculations.
+
+Condition files use schema **6.14**. Only this version is supported; older
+files are rejected without migration. The two-manifold physics remains active.
 
 See [Interpreting results](interpreting-results.qmd) for the phase convention and line-shape guidance.

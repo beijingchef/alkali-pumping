@@ -1,0 +1,170 @@
+# Coherent Time evolution
+
+The Time evolution page uses a ground-hyperfine secular density matrix
+$\rho=\rho_{F_a}\oplus\rho_{F_b}$, initially $I/N_g$. Every $m,m'$ element
+within either manifold is retained. Inter-manifold coherences at the ground
+hyperfine frequency are excluded. This is distinct from the ACC page's steady
+population calculation and linear RF response.
+
+For species $a$, in angular-frequency units,
+
+$$
+\dot\rho_a=-i[H_{B,a}/\hbar+u(t)H_{LS,a}/\hbar,\rho_a]
++u(t)\sum_j\mathcal D[J_{a,j}]\rho_a
++R_{ER,a}(\mathcal P[\rho_{I,a}\otimes I_2/2]-\rho_a)
++R_{u,a}(I\,\mathrm{Tr}\rho_a/N_a-\rho_a)
++R_{SE,a}(\mathcal P[\rho_{I,a}\otimes\rho_{S,a}]-\rho_a)
++R_{a\leftarrow b}(\mathcal P[\rho_{I,a}\otimes\rho_{S,b}]-\rho_a).
+$$
+
+Here $u(t)=1$ before pump turn-off and zero afterward,
+$\mathcal D[J]\rho=J\rho J^\dagger-\{J^\dagger J,\rho\}/2$,
+and $\mathcal P$ removes cross-hyperfine blocks. Nuclear and electron reductions
+come from the coupled-to-uncoupled Clebsch–Gordan transformation. Electron
+marginals are trace normalized; nuclear marginals retain the target trace.
+Both species are evolved in a common lab-z basis, so electron spin transfer
+does not depend on their independently selected display bases.
+
+The static Hamiltonian is
+$H_B/\hbar=2\pi(\mu_B/h)10^{-9}B_{\mathrm{nT}}\sum_F g_F P_F F_b P_F$,
+with dimensionless spin operators, the field's laboratory axis $b$, and the
+existing signed hyperfine $g_F$, including the nuclear contribution. Thus
+$\dot{\langle F_y\rangle}=-\omega_F\langle F_z\rangle$ for a field along x.
+The linear Zeeman approximation is retained; Breit–Rabi mixing is excluded.
+
+## Optical elimination and normalization
+
+Each incoming ground manifold $F_i$ and excited manifold $F_e$ has a signed
+absorption matrix $A_{ei}=\sum_q\epsilon_q d_q$, using the existing Wigner
+dipoles and laboratory Jones polarization. If $r$ is the existing intensity
+rate scale and $V$ its complex, peak-normalized Voigt response,
+
+$$
+J_{F_o,F_e,F_i,q}=\sqrt{r\,\mathrm{Re}V_{ei}}\,D_{F_o,F_e,q}A_{ei},\qquad
+H_{LS}/\hbar=\tfrac12\sum_{ei}r\,\mathrm{Im}V_{ei}A_{ei}^\dagger A_{ei}.
+$$
+
+Emission matrices are normalized over all outgoing ground states and emitted
+polarizations: $\sum_{F_o,q}D^\dagger D=I_e$. Each emission matrix retains the
+amplitudes of all excited m states in that manifold. Splitting it into
+independent m-resolved jumps would erase spontaneous coherence transfer and
+break rotation covariance. Different incoming/outgoing hyperfine manifolds
+and different excited F manifolds have separate jumps. Excited-hyperfine
+interference and explicit excited-state precession are omitted.
+
+On collinear diagonal states the dissipative populations reproduce the existing
+optical rate generator. The dispersive Hamiltonian uses the same factor and
+sign as the Light shift page. All active pumps, including off-target tails,
+contribute to this dynamics. Pump-off removes both optical terms. Magnetic
+shifts and light shifts are not fed back into optical detunings.
+
+The use of an excited-state-eliminated ground master equation follows the
+general approach discussed by [Chang, Guo and Qin, Phys. Rev. A 99, 063411
+(2019)](https://doi.org/10.1103/PhysRevA.99.063411). The specific Voigt weighting
+and secular collective jumps above define this application's approximation.
+
+## Bases, integration and detection
+
+The page offers section CSV downloads. The complete export helper described
+below remains available programmatically; its former bottom-page button is removed.
+
+The Atomic moments and Probe signal scanning expanders default to closed and
+use native `on_change="rerun"` tracking with independent per-species keys.
+Their content is guarded by the container's `.open` state: chart creation,
+section CSV preparation and widgets run only while open. Steady-state convergence
+and spectral readout are inside the scan guard, so they do not run on initial
+page load. Cached physical evolution remains shared. Persistent setting keys
+preserve axes, moment choices and scan limits across hidden-widget cleanup;
+expander visibility is session UI state outside the saved-condition format.
+
+Each species has independent display axes for populations and moments. The
+physical integration and probe remain in laboratory z. The Zeeman axis defines
+the displayed populations and exported coherences; the moment axis defines
+electron polarization and local alignment. Changing either only re-expresses
+the cached density matrix, without repeating integration. Both are independent
+of the field direction. The local
+transverse frames remain cyclic: q=z uses (x,y,z), q=x uses (y,z,x), and q=y
+uses (z,x,y). The output is $U_q^\dagger\rho_{lab}U_q$, with the corresponding
+spin rotation. Hyperfine totals, laboratory orientation and probe signals are
+invariant under this change of basis. Complete CSVs record both axes; population
+and coherence columns use the Zeeman frame while moment columns use the moment
+frame. Section CSV metadata identifies the relevant frame and both selections.
+
+The moment readout contracts the complete output density matrix with operators
+in that same basis. Laboratory orientation uses
+$U_q^\dagger F_j U_q/\hbar$, $j=x,y,z$, and is independent of the chosen basis.
+In local coordinates $(u,v,q)$, the transverse alignment operators are
+$Q_{uv}=(F_uF_v+F_vF_u)/2$ and $Q_{uu}-Q_{vv}=F_u^2-F_v^2$.
+Their expectation values are divided by $\hbar^2$ and retain coherences.
+All manifold-resolved moments are per total atom, without division by manifold
+population. CSVs identify u and v explicitly; the complete export includes
+all calculated moments even when their graphs are hidden.
+
+The displayed hyperfine polarization is the scalar
+$\langle\mathbf S\cdot\mathbf I\rangle/\hbar^2$. Since $\mathbf F=\mathbf I+\mathbf S$
+and $S=1/2$, its eigenvalue in a ground-F manifold is
+$[F(F+1)-I(I+1)-3/4]/2$. Thus the full-ensemble expectation is
+$(I/2)P(F_a)-[(I+1)/2]P(F_b)$. Within-F coherences do not contribute to this
+scalar operator, which is proportional to the identity within each block.
+It vanishes for $I/N_g$, lies between $-(I+1)/2$ and $I/2$, and is independent
+of quantization axis. The complete CSV exports it as the dimensionless
+`hyperfine_polarization` field, alongside the retained manifold totals.
+
+Complex adaptive BDF integration runs separately on each side of the switch,
+with relative tolerance $2\times10^{-10}$ and absolute tolerance $10^{-12}$.
+The result checks trace, Hermiticity and eigenvalue positivity before correcting
+only numerical roundoff. Samples are allocated approximately in proportion to
+interval duration, include the switch once, and target 20 samples per cycle
+through the fastest possible rank-$2F$ Larmor harmonic. At 20,001 output samples
+the page explicitly warns of possible undersampling. This cap does not change
+the adaptive internal integration steps. Very fast precession over long
+intervals can require substantial computation.
+
+The detector contracts the complete density matrix with the existing Mathur
+tensor, $\langle\alpha_{ab}\rangle=\mathrm{Tr}(\rho\alpha_{ab})$, then propagates
+the Jones vector through the uniform cell. The probe contributes no Hamiltonian
+or relaxation. The complete CSV includes real and imaginary parts of every
+independent upper-triangular within-F coherence; populations provide the
+diagonal and Hermiticity supplies the lower triangle. They use the selected
+Zeeman display basis and are dimensionless probabilities per total atom.
+
+## Pump-on steady-state probe scan
+
+`physics/probe_scan.py` builds the same coupled coherent master equation in
+laboratory z and starts from the same unpolarized state. Pumps remain on for
+the entire convergence calculation. Autonomous BDF intervals double until two
+consecutive intervals have a maximum state change below $10^{-9}$ and a small
+stationary residual. For each species the residual tolerance is $10^{-10}$
+times its smallest positive dissipative rate plus a floating-point allowance
+of $100\epsilon$ times its fastest generator scale. The initial interval is
+the inverse of the smallest positive dissipative rate. Integration uses the
+transient tolerances; 30 intervals are allowed. A stationary initial state is
+returned directly. Trace, Hermiticity and positivity are checked before readout.
+Failure to converge is reported rather than labeling a transient state steady.
+This convergence time is independent of the user event-sequence times.
+
+`density_probe_spectrum` evaluates the existing all-hyperfine-channel complex
+polarizability sweep. Its frequency coordinate is relative to the bare
+fine-structure D-line center; pressure shifts remain in the transition centers.
+For a fixed density matrix, the unit-coefficient scalar, vector and rank-2
+operators are contracted once. Their frequency-dependent coefficients are
+then combined into the transverse $2\times2$ polarizability at each detuning.
+Time and frequency readout share exact Jones propagation and Stokes conversion.
+The continuous weak probe does not enter the stationary master equation.
+
+Each species scans 2001 equally spaced points over its saved bounds. Defaults
+are ±7000 MHz; a native two-handle range slider allows ±15000 MHz with a
+minimum 10 MHz span, enforced when the handles meet. It writes the existing
+independent minimum/maximum settings without changing the saved format. Changing
+the limits reuses the cached steady state. Probe line, direction, polarization
+and path length are inherited; its fixed detuning/reference transition and the
+display quantization axes do not constrain the frequency scan. CSVs contain
+plotted signals and frequency-origin, probe/cell/pump and convergence metadata.
+
+The scan header uses native columns for a left-side label, a half-width slider
+and right-aligned section controls. Its help and download share one horizontal
+row, in that order; time-domain section controls retain their vertical layout.
+The slider's native label is collapsed while its accessible label is retained.
+
+Settings format 2.4 and the v3 coherent model identifier are both required.
+Earlier settings are rejected without migration, as requested by the user.
