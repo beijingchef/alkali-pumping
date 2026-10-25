@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Fix the Time evolution UI test harness to submit stateful expander values
+  on reruns, matching browser behavior. This restores moment-selection,
+  dual-species, probe-scan, navigation-persistence, and display-axis checks
+  without changing application behavior or weakening their assertions.
+- Document the test-only expander adapter and current-format validation scope.
+- Validation: all 8 Time evolution UI tests pass; the complete suite passes
+  all 224 tests with no failures or skips (146.344 seconds).
+
 ## 6.20.7 - 2026-10-25
 
 - Verify that Time evolution Save includes pending widget edits in the current

@@ -7,7 +7,7 @@ The repository separates several forms of verification:
 - unit tests for angular momentum, spectra, rates, and matrix construction;
 - physical-invariant tests for conservation, Hermiticity, trace, and units;
 - regression tests for signs and normalization, including LDOR;
-- condition-file round-trip and migration tests;
+- current-format condition-file round-trip and validation tests;
 - export and display-transformation tests;
 - navigation and Streamlit runtime smoke tests.
 
@@ -24,6 +24,14 @@ On the development computer, project guidance specifies the exact installed Pyth
 ## Streamlit page verification {#streamlit-page-verification}
 
 Multipage tests initialize `alkali_pumping.py` as the entrypoint and then switch to a child page. Initializing a child page directly can change relative routing semantics and is not an equivalent test.
+
+Stateful expanders are represented as container blocks in the installed
+`AppTest`, which omits them when serializing widget values for the next run.
+The Time evolution UI tests add a scoped serializer adapter that submits each
+stateful expander's registered boolean value, matching the browser's widget
+state. This preserves explicit open/close interactions across other widget
+changes without forcing panels open or bypassing the app's rendering logic.
+The adapter is removed after every test; production Streamlit is unchanged.
 
 ## Scientific review {#scientific-review}
 

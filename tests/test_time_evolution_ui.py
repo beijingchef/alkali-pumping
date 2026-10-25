@@ -7,7 +7,9 @@ import re
 import unittest
 from unittest.mock import patch
 
+from streamlit.proto.WidgetStates_pb2 import WidgetState
 from streamlit.testing.v1 import AppTest
+from streamlit.testing.v1 import element_tree
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,26 @@ PAGE = "alkali_pumping_app/pages/time_evolution.py"
 
 
 class TimeEvolutionUiTests(unittest.TestCase):
+    def setUp(self):
+        # AppTest currently serializes only Widget nodes. Stateful expanders
+        # are Block nodes, so their bool values are omitted from reruns and
+        # reset to collapsed. Submit their real registered state as a browser
+        # does; do not force sections open or bypass the app's render gates.
+        original_get_widget_state = element_tree.get_widget_state
+
+        def widget_state_with_expanders(node):
+            state = original_get_widget_state(node)
+            if state is None and isinstance(node, element_tree.Expander) and node.proto.id:
+                return WidgetState(
+                    id=node.proto.id,
+                    bool_value=node.root._runner.session_state[node.proto.id],
+                )
+            return state
+
+        adapter = patch.object(element_tree, "get_widget_state", side_effect=widget_state_with_expanders)
+        adapter.start()
+        self.addCleanup(adapter.stop)
+
     def set_moments(self, app, choices):
         from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS
         for name in PLOTTED_MOMENTS:
