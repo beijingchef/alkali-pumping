@@ -93,7 +93,8 @@ def prepare_density_model(model, common, output_axis):
     identity = np.eye(n)
     def commutator(h):
         return -1j * (np.kron(h, identity) - np.kron(identity, h.T))
-    optical = commutator(h_light)
+    light_shift = commutator(h_light)
+    optical = light_shift.copy()
     for jump in jumps:
         loss = jump.conj().T @ jump
         optical += np.kron(jump, jump.conj()) - .5 * (np.kron(loss, identity) + np.kron(identity, loss.T))
@@ -107,12 +108,93 @@ def prepare_density_model(model, common, output_axis):
                  nuclear_size=amplitudes.shape[1], output_axis=output_axis,
                  basis_rotation=basis_rotation(states, output_axis),
                  density_dark=commutator(h_b)[np.ix_(indices, indices)],
+                 density_light_shift=light_shift[np.ix_(indices, indices)],
                  density_optical=optical[np.ix_(indices, indices)],
                  max_larmor_hz=float(np.max(np.abs(g))) * MU_B_OVER_H_HZ_PER_T * 1e-9 * abs(field))
     return model
 
 
+class DensityDynamics:
+    """Prepared master equation and exact complex Jacobian for one solve.
+
+    For a collision target T(n,e)=R(n tensor e), differentiate both marginals.
+    Electron normalization contributes d(e/trace e)=(de-e_normalized*dtrace)/trace.
+    Keeping that term is essential for BDF's off-trace trial states and for
+    cross-species Jacobian blocks. No Hermitian conjugates enter this derivative.
+    """
+
+    def __init__(self, models):
+        self.models = tuple(models)
+        self.boundaries = np.cumsum([0, *[m['density_size'] for m in models]])
+        self.slices = tuple(slice(a, b) for a, b in zip(self.boundaries[:-1], self.boundaries[1:]))
+        self.size = int(self.boundaries[-1])
+        self.generators = {False: [], True: []}
+        self.nuclear_identities = []
+        self.electron_identity = np.eye(4)
+        self.electron_traces = []
+        unpolarized_electron = np.array([.5, 0, 0, .5])
+        for m in models:
+            identity = np.eye(m['density_size'])
+            trace = np.eye(m['size']).ravel()[m['density_indices']]
+            nuclear_identity = np.eye(m['nuclear_map'].shape[0])
+            randomization = m['recombine'] @ np.kron(nuclear_identity, unpolarized_electron[:, None]) @ m['nuclear_map']
+            uniform = np.outer(trace / m['size'], trace)
+            cross_rate = m['R_SE_cross'] if len(models) == 2 else 0.
+            dark = (m['density_dark'] + m['R_ER'] * (randomization - identity)
+                    + m['R_u'] * (uniform - identity) - (m['R_SE_self'] + cross_rate) * identity)
+            self.generators[False].append(dark)
+            self.generators[True].append(dark + m['density_optical'])
+            self.nuclear_identities.append(nuclear_identity)
+            self.electron_traces.append(m['electron_map'][0] + m['electron_map'][3])
+
+    def _marginals(self, state):
+        local = [state[s] for s in self.slices]
+        nuclear = [m['nuclear_map'] @ rho for m, rho in zip(self.models, local)]
+        electron = [m['electron_map'] @ rho for m, rho in zip(self.models, local)]
+        return local, nuclear, electron
+
+    def derivative(self, state, pumps_on):
+        local, nuclear, electron = self._marginals(state)
+        result = np.empty(self.size, complex)
+        for i, (m, rho, generator) in enumerate(zip(self.models, local, self.generators[pumps_on])):
+            value = generator @ rho
+            if m['R_SE_self']:
+                e = electron[i] / (electron[i][0] + electron[i][3])
+                value += m['R_SE_self'] * (m['recombine'] @ np.outer(nuclear[i], e).ravel())
+            if len(self.models) == 2 and m['R_SE_cross']:
+                partner = electron[1-i]
+                e = partner / (partner[0] + partner[3])
+                value += m['R_SE_cross'] * (m['recombine'] @ np.outer(nuclear[i], e).ravel())
+            result[self.slices[i]] = value
+        return result
+
+    def jacobian(self, state, pumps_on):
+        _, nuclear, electron = self._marginals(state)
+        result = np.zeros((self.size, self.size), complex)
+        for i, (m, generator) in enumerate(zip(self.models, self.generators[pumps_on])):
+            local = generator.copy()
+            # Partial derivative of the target with respect to electron state.
+            to_electron = m['recombine'] @ np.kron(nuclear[i][:, None], self.electron_identity)
+            if m['R_SE_self']:
+                trace = electron[i][0] + electron[i][3]
+                e = electron[i] / trace
+                de = (m['electron_map'] - np.outer(e, self.electron_traces[i])) / trace
+                to_nuclear = m['recombine'] @ np.kron(self.nuclear_identities[i], e[:, None])
+                local += m['R_SE_self'] * (to_nuclear @ m['nuclear_map'] + to_electron @ de)
+            if len(self.models) == 2 and m['R_SE_cross']:
+                j = 1-i
+                trace = electron[j][0] + electron[j][3]
+                e = electron[j] / trace
+                de = (self.models[j]['electron_map'] - np.outer(e, self.electron_traces[j])) / trace
+                to_nuclear = m['recombine'] @ np.kron(self.nuclear_identities[i], e[:, None])
+                local += m['R_SE_cross'] * (to_nuclear @ m['nuclear_map'])
+                result[self.slices[i], self.slices[j]] = m['R_SE_cross'] * (to_electron @ de)
+            result[self.slices[i], self.slices[i]] = local
+        return result
+
+
 def density_derivative(state, models, pumps_on):
+    """Reference RHS for standalone callers; integrators prepare DensityDynamics once."""
     boundaries = np.cumsum([0, *[m['density_size'] for m in models]])
     local = [state[boundaries[i]:boundaries[i+1]] for i in range(len(models))]
     nuclear = [m['nuclear_map'] @ rho for m, rho in zip(models, local)]

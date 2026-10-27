@@ -1,5 +1,47 @@
 # Changelog
 
+## 6.20.10 - 2026-10-28
+
+- Prepare constant density generators, state boundaries, electron-randomization
+  and uniform-relaxation maps once per calculation. Supply transient and
+  stationary BDF integration with an analytic complex Jacobian, including
+  normalized electron marginals and both cross-species derivative blocks.
+- Defer transient integration when every time-domain section is closed.
+  Opening only Probe signal scanning performs its stationary calculation
+  independently. Share one transient retrieval between species per rerun.
+- Add Auto update (initially checked) and Apply controls for batching physical
+  edits. Hide affected curves and downloads while changes are pending. Applying
+  with closed sections records the inputs without integrating. Execution controls
+  are session preferences outside saved-condition files.
+- Bound transient caches separately to two trajectories below 8 MiB and one
+  large trajectory. Cache four population/moment display views without retaining
+  their full rotated density trajectories; reduce stationary/probe caches to
+  four entries each and spectra to eight. Evicted inputs are recomputed.
+
+- Select the Time evolution transient integrator independently for pump-on
+  and dark intervals. Retain BDF for damping-dominated/short intervals and
+  choose DOP853 for sustained coherent evolution without faster damping,
+  considering magnetic precession, AC-Stark shifts, optical damping and
+  both species' collision/relaxation rates.
+- Preserve the master equation, output times, tolerances, and trace,
+  Hermiticity and positivity checks. Retry failed/nonfinite DOP853 intervals
+  from their original state with BDF; preserve errors if the retry fails.
+- Include a separate numerical-solver version in transient and stationary cache keys.
+  Settings format 2.5, the physical-model identifier and stationary probe-scan
+  convergence criteria remain unchanged.
+- Local four-second Rb87 timings (single runs, original BDF versus complete
+  optimization): default zero field 0.447 → 0.337 s; transverse 5 nT
+  8.165 → 1.165 s (7.0×); tenfold pump at zero field 0.474 → 0.362 s;
+  tenfold pump with transverse 5 nT 6.951 → 2.912 s. Prepared BDF alone takes
+  3.844 s in the transverse example (2.1×). Maximum density differences from
+  original BDF are below 2.3×10⁻⁹; tolerances and physical checks are unchanged.
+  These are development-machine measurements, not hosted timing guarantees.
+- Validation: all 243 tests pass with no failures or skips (155.209 seconds),
+  including finite-difference Jacobian comparisons, tighter BDF and exact linear
+  references, physical-state invariants, bounded-cache eviction/version checks,
+  and real-page closed-section/manual-Apply/navigation/export checks.
+  Git diff whitespace checks pass.
+
 ## 6.20.9 - 2026-10-27
 
 - Order Time evolution moment and probe plots by their selection lists.

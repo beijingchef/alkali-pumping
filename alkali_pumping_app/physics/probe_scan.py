@@ -3,7 +3,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from .coherent_evolution import density_derivative, prepare_density_model
+from .coherent_evolution import DensityDynamics, prepare_density_model
 from .time_evolution import build_population_dynamics
 
 
@@ -24,7 +24,8 @@ def pump_on_steady_state(species_A, species_B, beams, common):
     models = build_population_dynamics(first, second, beams, common)
     for model in models:
         prepare_density_model(model, common, "z")
-    boundaries = np.cumsum([0, *[model["density_size"] for model in models]])
+    dynamics = DensityDynamics(models)
+    boundaries = dynamics.boundaries
     state = np.concatenate([
         (np.eye(model["size"]) / model["size"]).ravel()[model["density_indices"]]
         for model in models
@@ -41,7 +42,7 @@ def pump_on_steady_state(species_A, species_B, beams, common):
     tolerance = np.array(slow_rates) * 1e-10 + roundoff
 
     def residual(values):
-        derivative = density_derivative(values, models, True)
+        derivative = dynamics.derivative(values, True)
         return np.array([np.max(np.abs(derivative[a:b])) for a, b in zip(boundaries[:-1], boundaries[1:])])
 
     elapsed, stable = 0., 0
@@ -56,8 +57,9 @@ def pump_on_steady_state(species_A, species_B, beams, common):
         if converged:
             break
         solution = solve_ivp(
-            lambda time, values: density_derivative(values, models, True),
+            lambda time, values: dynamics.derivative(values, True),
             (0., duration), state, method="BDF", t_eval=[duration], rtol=rtol, atol=atol,
+            jac=lambda time, values: dynamics.jacobian(values, True),
         )
         if not solution.success:
             raise RuntimeError("Pump-on steady state failed: " + solution.message)

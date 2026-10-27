@@ -73,9 +73,30 @@ per-species keys. Zeeman populations, Atomic moments and Probe signal scanning
 default to closed. Content is guarded by the container's `.open` state: chart creation,
 section CSV preparation and widgets run only while open. Steady-state convergence
 and spectral readout are inside the scan guard, so they do not run on initial
-page load. Cached physical evolution remains shared. Persistent setting keys
+page load. Transient integration is also inside the combined guard for the three
+time-domain sections. All closed means no transient solve, even after physical
+edits; scan-only rendering computes only the stationary state. One trajectory
+retrieval per rerun is shared by both species. Persistent setting keys
 preserve axes, moment/probe choices and scan limits across hidden-widget cleanup;
 expander visibility is session UI state outside the saved-condition format.
+
+Auto update defaults on. In manual mode, fingerprints of the applied physical
+inputs and transient timing gate the calculations. Pending physical edits hide
+the affected curves and downloads until Apply; a timing edit gates transients
+only. Applying with all sections closed records the fingerprints without a
+solve. Probe readout and display settings are excluded from these fingerprints.
+Auto update is a persistent page-session preference, not a saved condition field.
+
+`ui/time_evolution_cache.py` separates two transient entries below 8 MiB from
+one entry at or above that estimated density size. The estimate uses the same
+Larmor-driven sample rule and full complex density dimensions as the solver.
+Four display entries retain only populations, moments and metadata, removing
+the rotated density trajectory before caching. Steady-state and probe-readout
+caches retain four entries each; spectra retain eight. These are entry limits,
+not a process-wide memory cap: live results, serialization and temporary
+rotations still consume memory. Evicted physical inputs are recomputed.
+The separate solver version invalidates transient and stationary cache entries
+when the numerical policy changes without changing the physical-model identity.
 
 Each species has independent display axes for populations and moments. The
 physical integration and probe remain in laboratory z. The Zeeman axis defines
@@ -110,8 +131,36 @@ It vanishes for $I/N_g$, lies between $-(I+1)/2$ and $I/2$, and is independent
 of quantization axis. The complete CSV exports it as the dimensionless
 `hyperfine_polarization` field, alongside the retained manifold totals.
 
-Complex adaptive BDF integration runs separately on each side of the switch,
+Complex adaptive integration runs separately on each side of the switch,
 with relative tolerance $2\times10^{-10}$ and absolute tolerance $10^{-12}$.
+`DensityDynamics` prepares state boundaries, constant dark/pump generators,
+electron-randomization maps and uniform-relaxation maps once per solve. Only
+the evolving nuclear/electron marginals and nonlinear spin-exchange targets
+are evaluated in the derivative. For $T=R(n\otimes\bar e)$,
+$\bar e=e/\mathrm{Tr}(e)$, the exact differential is
+$dT=R(dn\otimes\bar e+n\otimes d\bar e)$ with
+$d\bar e=(de-\bar e\,d\mathrm{Tr}(e))/\mathrm{Tr}(e)$.
+BDF receives the resulting analytic complex Jacobian, including cross-species
+off-diagonal blocks. The normalization derivative is retained for off-trace
+trial states. The stationary probe solver uses the same prepared derivative
+and Jacobian while retaining its convergence criteria and accuracy refinements.
+The method is selected by a conservative rate heuristic. For each species,
+the coherent scale is the infinity norm of the magnetic commutator plus the
+pump AC-Stark commutator when pumps are on. The damping scale is
+$R_u+2(R_{\mathrm{ER}}+R_{\mathrm{SE,self}}+R_{\mathrm{SE,cross}})$ plus the
+infinity norm of the optical generator after subtracting its AC-Stark
+commutator. The factor two is a conservative estimate for the two marginals
+in spin-exchange targets; this is a performance heuristic rather than a
+spectral stiffness proof. Taking the maximum of each scale over all active
+species, DOP853 is selected only when the coherent scale times interval
+duration is at least $2\pi$ and damping does not exceed the coherent scale.
+Otherwise BDF remains selected. A failed or nonfinite DOP853 result retries
+the complete interval with BDF from the original state, with identical
+output times and tolerances. Persistent integration failures remain errors.
+The transient cache includes an independent solver-policy version, so a
+solver-policy update invalidates old trajectories without changing the
+physical-model identifier or settings schema. Stationary probe scans retain
+their existing BDF convergence procedure.
 The result checks trace, Hermiticity and eigenvalue positivity before correcting
 only numerical roundoff. Samples are allocated approximately in proportion to
 interval duration, include the switch once, and target 20 samples per cycle

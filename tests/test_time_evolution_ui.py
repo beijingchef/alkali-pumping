@@ -162,6 +162,9 @@ class TimeEvolutionUiTests(unittest.TestCase):
                 app.session_state[f"te_{state_key}_open_A"] = title == opened
             # A changed physical condition must not render or read out closed sections.
             with ExitStack() as stack:
+                if opened in (None, "Probe signal scanning"):
+                    stack.enter_context(patch("alkali_pumping_app.physics.time_evolution.compute_density_evolution",
+                                              side_effect=AssertionError("Closed transient sections integrated")))
                 for title, target in (
                     ("Zeeman populations", "alkali_pumping_app.ui.time_evolution_data.zeeman_plot_frame"),
                     ("Probe signal", "alkali_pumping_app.physics.optical_readout.density_probe_signals"),
@@ -195,7 +198,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.session_state["te_probe_signal_open_A"] = False
         app.number_input(key="te_probe_det_rel_A").set_value(-2100.).run()
         self.assertFalse(app.exception)
-        self.assertFalse(app.main.checkbox)
+        self.assertFalse([w for w in app.main.checkbox if w.key.startswith("te_probe_option_")])
         app.session_state["te_probe_signal_open_A"] = True
         app.run()
         self.assertTrue(app.checkbox(key="te_probe_option_A_Ellipticity").value)
@@ -293,6 +296,43 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertFalse(app.exception)
         assert_order("Atomic moments", moment_order)
         assert_order("Probe signal", probe_order)
+
+    def test_manual_apply_batches_physical_edits_and_never_displays_stale_curves(self):
+        from alkali_pumping_app.physics import time_evolution as physics
+        app = self.app(open_moments=False, open_zeeman=False)
+        self.assertTrue(app.checkbox(key="te_auto_update").value)
+        app.checkbox(key="te_auto_update").uncheck().run()
+        with patch.object(physics, "compute_density_evolution", side_effect=AssertionError("Pending edits integrated")):
+            app.number_input(key="te_intensity_A1").set_value(13.).run()
+            app.number_input(key="te_gamma_ER_A").set_value(12.).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(len(app.get("vega_lite_chart")), 0)
+        self.assertEqual(len(app.main.get("download_button")), 0)
+        self.assertTrue(any("Pending condition changes" in item.value for item in app.info))
+        with patch.object(physics, "compute_density_evolution", wraps=physics.compute_density_evolution) as integrate:
+            app.button(key="te_apply_conditions").click().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(integrate.call_count, 1)
+        self.assertEqual(len(app.get("vega_lite_chart")), 2)
+        self.assertFalse(any("Pending condition changes" in item.value for item in app.info))
+        # Applying with every section closed records approval but still defers work.
+        app.session_state["te_probe_signal_open_A"] = False
+        app.run()
+        with patch.object(physics, "compute_density_evolution", side_effect=AssertionError("Closed sections integrated")):
+            app.number_input(key="te_intensity_A1").set_value(14.).run()
+            app.button(key="te_apply_conditions").click().run()
+        self.assertFalse(app.exception)
+        app.session_state["te_probe_signal_open_A"] = True
+        with patch.object(physics, "compute_density_evolution", wraps=physics.compute_density_evolution) as integrate:
+            app.run()
+        self.assertFalse(app.exception)
+        self.assertEqual(integrate.call_count, 1)
+        self.assertEqual(len(app.get("vega_lite_chart")), 2)
+        # Returning to automatic mode calculates pending conditions immediately.
+        app.number_input(key="te_intensity_A1").set_value(15.).run()
+        app.checkbox(key="te_auto_update").check().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(len(app.get("vega_lite_chart")), 2)
 
     def test_save_includes_current_edits_and_current_format(self):
         from alkali_pumping_app.ui import downloads

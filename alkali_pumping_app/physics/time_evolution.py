@@ -17,6 +17,7 @@ from .system_model import build_species_linear_model
 
 
 TIME_EVOLUTION_MODEL_VERSION = "v3-coherent-ground-hfs-secular-master-equation"
+TIME_EVOLUTION_SOLVER_VERSION = "v2-prepared-rhs-analytic-jacobian-and-rate-selection"
 
 
 def build_population_dynamics(species_A, species_B, beams, common):
@@ -167,6 +168,32 @@ def density_display_view(species, zeeman_axis, moment_axis):
                 moments=density_moments(moment_model, moment_density))
 
 
+def _density_integration_method(models, pumps_on, duration):
+    """Use DOP853 for sustained coherent motion without faster damping.
+
+    Infinity norms bound coherent and optical-damping generator rates in s^-1.
+    Twice the collision rates conservatively accounts for the two marginal
+    factors in the spin-exchange target. This is a performance heuristic, not
+    a change to the master equation or integration accuracy. Apply it to the
+    complete coupled system and separately on either side of pump turn-off.
+    BDF remains the default for damping-dominated or short intervals.
+    """
+    coherent_rate, damping_rate = 0., 0.
+    for model in models:
+        hamiltonian = model["density_dark"]
+        damping = (model["R_u"] + 2 * (model["R_ER"] + model["R_SE_self"]
+                                      + model["R_SE_cross"]))
+        if pumps_on:
+            light_shift = model["density_light_shift"]
+            hamiltonian = hamiltonian + light_shift
+            damping += np.linalg.norm(model["density_optical"] - light_shift, ord=np.inf)
+        coherent_rate = max(coherent_rate, float(np.linalg.norm(hamiltonian, ord=np.inf)))
+        damping_rate = max(damping_rate, float(damping))
+    if coherent_rate * duration >= 2 * np.pi and damping_rate <= coherent_rate:
+        return "DOP853"
+    return "BDF"
+
+
 def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
                               sample_count=801):
     """Evolve full within-F density blocks; q axes specify output bases only.
@@ -175,7 +202,7 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
     coherent absorption/repopulation and AC-Stark evolution until the switch.
     Optical detunings omit magnetic shifts. No RF or probe enters this equation.
     """
-    from .coherent_evolution import prepare_density_model, density_derivative
+    from .coherent_evolution import prepare_density_model, DensityDynamics
     t1_s, t2_s = float(t1_s), float(t2_s)
     if not np.isfinite([t1_s, t2_s]).all() or not 0 <= t1_s <= t2_s or t2_s <= 0:
         raise ValueError("Times must satisfy 0 ≤ t1 ≤ t2, with finite t2 > 0.")
@@ -187,6 +214,7 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
                                        beams, common)
     for model, config in zip(models, configs):
         prepare_density_model(model, common, config["q_axis"])
+    dynamics = DensityDynamics(models)
     initial = np.concatenate([(np.eye(m["size"]) / m["size"]).ravel()[m["density_indices"]]
                               for m in models]).astype(complex)
     # Zeeman populations can contain every tensor rank through 2*F_max.
@@ -206,11 +234,22 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
         if stop <= start:
             continue
         indices = np.flatnonzero((times >= start) & (times <= stop))
+        method = _density_integration_method(models, pumps_on, stop - start)
+        jacobian = lambda time, rho, active=pumps_on: dynamics.jacobian(rho, active)
         solution = solve_ivp(
-            lambda time, rho: density_derivative(rho, models, pumps_on),
-            (start, stop), current, method="BDF", t_eval=times[indices],
+            lambda time, rho, active=pumps_on: dynamics.derivative(rho, active),
+            (start, stop), current, method=method, t_eval=times[indices],
             rtol=2e-10, atol=1e-12,
+            **({"jac": jacobian} if method == "BDF" else {}),
         )
+        if method == "DOP853" and (not solution.success or not np.isfinite(solution.y).all()):
+            # Restart the complete interval from its original state and keep
+            # exactly the same output grid and tolerances on the BDF retry.
+            solution = solve_ivp(
+                lambda time, rho, active=pumps_on: dynamics.derivative(rho, active),
+                (start, stop), current, method="BDF", t_eval=times[indices],
+                rtol=2e-10, atol=1e-12, jac=jacobian,
+            )
         if not solution.success:
             raise RuntimeError("Density-matrix integration failed: " + solution.message)
         density[indices] = solution.y.T

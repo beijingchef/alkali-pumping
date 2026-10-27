@@ -4,7 +4,7 @@
 
 The application distinguishes:
 
-- **Application version:** user-visible release, currently 6.20.9.
+- **Application version:** user-visible release, currently 6.20.10.
 - **Condition schema:** saved ACC settings format, currently 6.14; Time evolution uses 2.5 with its coherent model identifier. Only these analysis formats are supported.
 - **Physics-model identifier:** a descriptive string naming the active scientific model.
 

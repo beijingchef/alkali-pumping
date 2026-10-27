@@ -1,15 +1,17 @@
 """Coherent pumping transients and pump-on steady-state probe spectra."""
 
 import altair as alt
+from hashlib import sha256
+import pickle
 import numpy as np
 import streamlit as st
 
 from alkali_pumping_app.physics.constants import ATOMS
-from alkali_pumping_app.physics.optical_readout import density_probe_signals, density_probe_spectrum
-from alkali_pumping_app.physics.probe_scan import pump_on_steady_state
-from alkali_pumping_app.physics.time_evolution import (
-    TIME_EVOLUTION_MODEL_VERSION, compute_density_evolution, density_display_view,
+from alkali_pumping_app.ui.time_evolution_cache import (
+    evolution_cached as _evolution_cached, display_cached as _display_cached,
+    steady_cached as _steady_cached, spectrum_cached as _spectrum_cached, probe_cached as _probe_cached,
 )
+from alkali_pumping_app.ui.page_state import register_persistent_page_settings
 from alkali_pumping_app.ui.exports import dataframe_to_csv_bytes
 from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS, PLOTTED_PROBE_SIGNALS
 from alkali_pumping_app.ui.time_evolution_data import (
@@ -18,7 +20,6 @@ from alkali_pumping_app.ui.time_evolution_data import (
 from alkali_pumping_app.ui.time_evolution_settings import (
     key, render_sidebar,
 )
-from alkali_pumping_app.version import PHYSICS_MODEL_VERSION
 
 
 st.set_page_config(initial_sidebar_state=420)
@@ -94,7 +95,10 @@ not depend on the pump turn-off or total-time sliders.
 
 Zeeman populations, Atomic moments and Probe signal scanning start collapsed.
 Only open sections create plots and controls or refresh them after sidebar
-changes. Atomic moments default to hyperfine polarization and $\langle F_z\rangle$.
+changes. Closing all time-domain sections defers transient integration until
+one is opened. Turn off Auto update to edit several physical conditions, then
+press Apply once. Pending curves and downloads are hidden until applied.
+Atomic moments default to hyperfine polarization and $\langle F_z\rangle$.
 Probe signal checkboxes select absorption, optical rotation and ellipticity;
 absorption and optical rotation start checked. Each species has its own probe
 selection. The scan always shows all three signals and calculates its steady
@@ -103,40 +107,6 @@ Selected plots start in default checkbox order. Newly checked plots append at
 the end; unchecking removes a plot, and checking it again appends it at the end.
 Plot order is retained in saved settings and section CSV columns.
 """)
-
-
-@st.cache_data(max_entries=12, show_spinner=False)
-def _evolution_cached(config_A, config_B, physical_beams, cell, switch_time, total_time,
-                      model_version=TIME_EVOLUTION_MODEL_VERSION,
-                      observable_version="v2-cartesian-and-transverse-moments",
-                      physics_version=PHYSICS_MODEL_VERSION):
-    return compute_density_evolution(config_A, config_B, physical_beams, cell, switch_time, total_time)
-
-
-@st.cache_data(max_entries=24, show_spinner=False)
-def _display_cached(species, zeeman_axis, moment_axis):
-    return density_display_view(species, zeeman_axis, moment_axis)
-
-
-@st.cache_data(max_entries=8, show_spinner=False)
-def _steady_cached(config_A, config_B, physical_beams, cell,
-                   physics_version=PHYSICS_MODEL_VERSION):
-    return pump_on_steady_state(config_A, config_B, physical_beams, cell)
-
-
-@st.cache_data(max_entries=24, show_spinner=False)
-def _spectrum_cached(species, probe, cell, coefficients, lower, upper,
-                     physics_version=PHYSICS_MODEL_VERSION):
-    line = probe["line"]
-    return density_probe_spectrum(
-        atom=ATOMS[species["atom_name"]], ground_states=species["ground_states"],
-        density_matrix=species["density_matrix"][0], q_axis="z", line=line,
-        detunings_MHz=np.linspace(lower, upper, 2001),
-        **{name: probe[name] for name in ("k_axis", "azimuth_deg", "ellipticity_deg", "path_length_cm")},
-        density_cm3=species["density_cm3"], n2_pressure_torr=cell["n2_pressure_torr"],
-        temperature_C=cell["temperature_C"], n2_width_MHz_per_torr=coefficients[line]["width"],
-        n2_shift_MHz_per_torr=coefficients[line]["shift"],
-    )
 
 
 def _store_scan_range(label):
@@ -164,21 +134,6 @@ def _scan_range_slider(label):
     st.slider("Detuning range (MHz)", min_value=-15000., max_value=15000.,
               step=10., key=widget_key, on_change=_store_scan_range, args=(label,),
               label_visibility="collapsed")
-
-
-@st.cache_data(max_entries=24, show_spinner=False)
-def _probe_cached(species, probe, cell, coefficients,
-                  model_version=TIME_EVOLUTION_MODEL_VERSION,
-                  physics_version=PHYSICS_MODEL_VERSION):
-    """Return optical angles, transmission, and absorbed intensity fraction."""
-    line = probe["line"]
-    return density_probe_signals(
-        atom=ATOMS[species["atom_name"]], ground_states=species["ground_states"],
-        density_matrix=species["density_matrix"], q_axis=species["q_axis"], **probe,
-        density_cm3=species["density_cm3"], n2_pressure_torr=cell["n2_pressure_torr"],
-        temperature_C=cell["temperature_C"], n2_width_MHz_per_torr=coefficients[line]["width"],
-        n2_shift_MHz_per_torr=coefficients[line]["shift"],
-    )
 
 
 def _moment_expression(name, q):
@@ -300,34 +255,76 @@ def _plot(frame, y_label, title, *, species, label, plot_id, value_unit, explana
             st.altair_chart(chart, width="stretch")
 
 
-with st.spinner("Calculating pumping and relaxation…"):
-    try:
-        evolution = _evolution_cached(species_A, species_B, beams, common, t1, t2)
-    except (ValueError, RuntimeError) as exc:
-        st.error(str(exc))
-        st.stop()
+# Execution controls are session UI preferences, independent of saved conditions.
+st.session_state.setdefault(key("auto_update"), True)
+register_persistent_page_settings([key("auto_update")])
+physical_beams = [beam for beam in beams if beam["intensity"] > 0]
+physical_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
+transient_signature = sha256(pickle.dumps((physical_signature, t1, t2))).hexdigest()
+with st.container(horizontal=True, vertical_alignment="center"):
+    auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
+    apply_changes = st.button("Apply", key=key("apply_conditions"), disabled=auto_update, width="content")
+if auto_update or apply_changes:
+    st.session_state[key("applied_transient")] = transient_signature
+    st.session_state[key("applied_steady")] = physical_signature
+time_ready = st.session_state.get(key("applied_transient")) == transient_signature
+scan_ready = st.session_state.get(key("applied_steady")) == physical_signature
+if not time_ready or not scan_ready:
+    st.info("Pending condition changes. Press Apply to update the opened sections.")
 
-if evolution["sampling_limited"]:
-    st.warning("The output is limited to 20,001 samples. Fast Larmor oscillations may be "
-               "undersampled; reduce total time or magnetic field to resolve them.")
-
+# Reserve all section headers before any expensive calculation. One trajectory
+# is retrieved per rerun and shared by both species, only when a time section is open.
+evolution = None
 labels = ["A", "B"] if species_B is not None else ["A"]
-tabs = st.tabs([f"Alkali {label} · {evolution[label]['atom_name']}" for label in labels])
+configs = {"A": species_A, "B": species_B}
+tabs = st.tabs([f"Alkali {label} · {configs[label]['atom_name']}" for label in labels])
 for label, tab in zip(labels, tabs):
     with tab:
-        physical_species = evolution[label]
-        config = species_A if label == "A" else species_B
-        species = _display_cached(physical_species,
-                                  st.session_state[key(f"zeeman_axis_{label}")],
-                                  st.session_state[key(f"moment_axis_{label}")])
-        times = evolution["time_s"]
-        Fs = sorted({state["F"] for state in species["ground_states"]})
+        config = configs[label]
+        species = dict(atom_name=config["atom_name"],
+                       q_axis=st.session_state[key(f"zeeman_axis_{label}")],
+                       zeeman_axis=st.session_state[key(f"zeeman_axis_{label}")],
+                       moment_axis=st.session_state[key(f"moment_axis_{label}")])
+        upper_F = ATOMS[config["atom_name"]]["I"] + .5
+        Fs = [upper_F - 1, upper_F]
         manifold_labels = {"Fa": f"F = {Fs[-1]:g}", "Fb": f"F = {Fs[0]:g}"}
         zeeman_section = st.expander(
             "Zeeman populations", expanded=False, key=key(f"zeeman_populations_open_{label}"),
             on_change="rerun",
         )
-        if zeeman_section.open:
+        moment_section = st.expander(
+            "Atomic moments", expanded=False, key=key(f"atomic_moments_open_{label}"), on_change="rerun",
+        )
+        probe_section = st.expander(
+            "Probe signal", expanded=True, key=key(f"probe_signal_open_{label}"), on_change="rerun",
+        )
+        scan_section = st.expander(
+            "Probe signal scanning", expanded=False, key=key(f"probe_scan_open_{label}"), on_change="rerun",
+        )
+        if time_ready and any(section.open for section in (zeeman_section, moment_section, probe_section)):
+            if evolution is None:
+                with st.spinner("Calculating pumping and relaxation…"):
+                    try:
+                        evolution = _evolution_cached(species_A, species_B, physical_beams, common, t1, t2)
+                    except (ValueError, RuntimeError) as exc:
+                        st.error(str(exc))
+                        st.stop()
+                if evolution["sampling_limited"]:
+                    st.warning("The output is limited to 20,001 samples. Fast Larmor oscillations may be "
+                               "undersampled; reduce total time or magnetic field to resolve them.")
+            physical_species = evolution[label]
+            times = evolution["time_s"]
+            if zeeman_section.open or moment_section.open:
+                species = _display_cached(physical_species, species["zeeman_axis"], species["moment_axis"])
+        if not time_ready:
+            for section in (zeeman_section, moment_section, probe_section):
+                if section.open:
+                    with section:
+                        st.info("Press Apply to calculate these curves for the current conditions.")
+        if not scan_ready and scan_section.open:
+            with scan_section:
+                st.info("Press Apply to calculate the scan for the current conditions.")
+        if zeeman_section.open and time_ready:
             with zeeman_section:
                 zeeman_columns = st.columns([1, 1, 0.15], gap="small")
                 zeeman_plots = []
@@ -346,11 +343,7 @@ for label, tab in zip(labels, tabs):
                         st.markdown("Axis", text_alignment="center", width=SECTION_CONTROL_WIDTH)
                         st.selectbox("Axis", ["z", "x", "y"], width=SECTION_CONTROL_WIDTH,
                                      label_visibility="collapsed", key=key(f"zeeman_axis_{label}"))
-        moment_section = st.expander(
-            "Atomic moments", expanded=False, key=key(f"atomic_moments_open_{label}"),
-            on_change="rerun",
-        )
-        if moment_section.open:
+        if moment_section.open and time_ready:
             with moment_section:
                 moments = species["moments"]
                 moment_plots = []
@@ -435,11 +428,7 @@ for label, tab in zip(labels, tabs):
              r"Absorption is the lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$, including scalar absorption. "
              "Zero means no loss and one means complete attenuation. It is not logarithmic absorbance."),
         )
-        probe_section = st.expander(
-            "Probe signal", expanded=True, key=key(f"probe_signal_open_{label}"),
-            on_change="rerun",
-        )
-        if probe_section.open:
+        if probe_section.open and time_ready:
             with probe_section:
                 with st.container(horizontal=True, gap="small"):
                     for name in PLOTTED_PROBE_SIGNALS:
@@ -470,11 +459,7 @@ for label, tab in zip(labels, tabs):
                 with probe_columns[2]:
                     _section_controls(probe_plots, species=species, label=label,
                                       section_id="probe_signal", title="Probe signal")
-        scan_section = st.expander(
-            "Probe signal scanning", expanded=False, key=key(f"probe_scan_open_{label}"),
-            on_change="rerun",
-        )
-        if scan_section.open:
+        if scan_section.open and scan_ready:
             with scan_section:
                 scan_columns = st.columns([.35, 1, .8], gap="small", vertical_alignment="center")
                 with scan_columns[0]:
@@ -486,7 +471,7 @@ for label, tab in zip(labels, tabs):
                 scan_plots, scan_export = [], None
                 try:
                     with st.spinner("Converging the pump-on steady state and scanning the weak probe…"):
-                        steady = _steady_cached(species_A, species_B, beams, common)
+                        steady = _steady_cached(species_A, species_B, physical_beams, common)
                         spectrum = _spectrum_cached(steady[label], probes[label], common,
                                                     config["n2_coeffs"], lower, upper)
                     scan_export = probe_scan_export_dataframe(

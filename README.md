@@ -1,4 +1,4 @@
-# Alkali Pumping v6.20.9
+# Alkali Pumping v6.20.10
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -17,8 +17,15 @@ five workflows:
   with all pumps on from zero to the turn-off slider `t₁`, then relax with the
   pumps off through the total-time slider `t₂`. Self and cross spin exchange
   follow the instantaneous density matrices, including all within-hyperfine
-  Zeeman coherences. Magnetic precession and pump AC-Stark evolution are included;
-  each alkali has independent Zeeman-population and atomic-moment display axes,
+  Zeeman coherences. Magnetic precession and pump AC-Stark evolution are included.
+  Transient integration automatically chooses BDF for damping-dominated or short
+  intervals and DOP853 for sustained coherent motion without faster damping.
+  Each pump-on/dark interval is selected separately, with unchanged error
+  tolerances and physical-state checks. A failed or nonfinite DOP853 solve
+  restarts that interval with BDF. The steady-state probe scan retains BDF.
+  Both solvers reuse prepared constant matrices and collision maps; BDF uses
+  an analytic Jacobian, including self and cross spin exchange.
+  Each alkali has independent Zeeman-population and atomic-moment display axes,
   which can differ from the magnetic-field axis. The compact Zeeman **Axis**
   selector sits in the third column with its label centered above it. Axis
   selectors share the download buttons' width. The moment **Axis** label sits to the left
@@ -64,6 +71,15 @@ five workflows:
   Atomic moments and Probe signal scanning start collapsed; Probe signal starts
   open. All sections create and refresh plots and controls only while open,
   including after sidebar edits, using native Streamlit open-state tracking.
+  Closing all time-domain sections defers transient integration until one is
+  opened; opening only the scan computes its steady state independently.
+  **Auto update** starts checked. Uncheck it to batch physical-condition edits,
+  then press **Apply** once. Pending curves and downloads are hidden until
+  applied. Display and probe-readout edits continue to reuse the physical state.
+  Transient caches retain two small trajectories and one trajectory of at least
+  8 MiB. Four display-cache entries retain populations and moments without
+  duplicated full density trajectories. Cached results are reused only for
+  matching inputs; eviction can require recalculation.
   Selections, axes and scan limits survive closing and reopening. Individual
   graph panels retain borders.
   Legends are inside the top right. Single-curve probe, hyperfine-polarization

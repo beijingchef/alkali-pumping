@@ -81,6 +81,21 @@ sections are toggled, reusing cached calculations. Moment and probe selections,
 axes and scan bounds survive closing/reopening and page navigation.
 Individual graph borders remain.
 
+Closing all three time-domain sections defers transient integration, including
+after physical-condition edits. Opening one calculates the current conditions
+or reuses a matching cached trajectory. Opening only **Probe signal scanning**
+performs its separate steady-state calculation without a transient solve.
+
+**Auto update** starts checked. To combine several physical-condition edits,
+uncheck it, edit the sidebar, then press **Apply**. Pending plots and downloads
+are hidden until applied. Applying while every section is closed records the
+conditions without calculating them; opening a section performs its calculation.
+Probe-readout and display choices reuse an already applied physical state.
+Auto update and section visibility are session preferences outside saved files.
+The cache retains two small transient trajectories and one large trajectory
+(at least 8 MiB); display caches keep observables without full density matrices.
+A matching result can be reused while retained, and an evicted result is recalculated.
+
 Moment and probe plots start in default checkbox order, reading left to right
 then down. Checking an additional plot appends it after the existing plots.
 Unchecking removes only that plot; checking it again places it at the end.
@@ -191,9 +206,16 @@ The field drives signed-g-factor Larmor precession throughout; pumping includes
 coherent optical repopulation and AC-Stark evolution until turn-off.
 See the [master equation and conventions](../technical/time-evolution.qmd).
 
-The solver uses adaptive BDF integration separately on the two sides of t₁,
-carrying the full state continuously into the dark interval. It checks trace,
-Hermiticity and positivity before removing numerical roundoff. Display sampling
+The transient solver selects BDF or DOP853 independently on the two sides of
+t₁, carrying the full state continuously into the dark interval. It retains
+BDF for damping-dominated or short intervals, and uses DOP853 for sustained
+coherent evolution without faster damping. Both use the same relative and
+absolute tolerances, $2\times10^{-10}$ and $10^{-12}$. A failed or nonfinite
+DOP853 solve restarts the interval with BDF. The steady-state probe scan keeps
+its BDF convergence procedure. Both transient and stationary calculations prepare
+constant matrices once; BDF receives an analytic Jacobian for the nonlinear
+collision terms. The transient result checks trace, Hermiticity and positivity
+before removing numerical roundoff. Display sampling
 increases with Larmor frequency, up to 20,001 samples; a warning identifies
 possible undersampling at the cap. Shorten the total time or reduce the field
 to resolve faster oscillations. Internal integration uses adaptive steps.
