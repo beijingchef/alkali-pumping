@@ -9,7 +9,7 @@ import streamlit as st
 
 from alkali_pumping_app.physics import *
 from alkali_pumping_app.ui.conditions import *
-from alkali_pumping_app.ui.downloads import save_button_with_immediate_download
+from alkali_pumping_app.ui.downloads import save_button_with_immediate_download, update_settings_download_snapshot
 from alkali_pumping_app.ui.exports import (
     dataframe_to_csv_bytes,
     weak_probe_export_dataframe,
@@ -390,6 +390,9 @@ def _pump_configuration_ui(
                 )
     if st.session_state.pop("_pump_requires_app_rerun", False):
         st.rerun()
+    # Inactive-pump edits can commit in this fragment without a full rerun.
+    snapshot, _ = prepare_condition_download()
+    update_settings_download_snapshot("save_condition_button", snapshot)
     return beam_A1, beam_A2, beam_A3, beam_B1, beam_B2, beam_B3
 
 
@@ -697,7 +700,6 @@ def _probe_configuration_ui(
 
 
 with st.sidebar:
-    st.header("Settings")
     condition_controls_placeholder = st.empty()
 
     st.header("Atom / cell")
@@ -846,14 +848,10 @@ with st.sidebar:
                 key="condition_name",
                 on_change=sync_condition_save_name,
             )
-        # Streamlit prepares the file before a download-button callback runs.
-        # Synchronize first so the initial click uses the visible setting name.
         condition_save_name = sync_condition_save_name()
-        payload = build_condition_payload(current_condition_values(condition_save_name))
         save_button_with_immediate_download(
             save_placeholder,
-            data=json.dumps(payload, indent=2),
-            file_name=f"{condition_save_name}.json",
+            prepare=prepare_condition_download,
             mime="application/json",
             key="save_condition_button",
         )

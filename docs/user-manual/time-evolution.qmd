@@ -86,7 +86,11 @@ after physical-condition edits. Opening one calculates the current conditions
 or reuses a matching cached trajectory. Opening only **Probe signal scanning**
 performs its separate steady-state calculation without a transient solve.
 
-**Auto update** starts checked. To combine several physical-condition edits,
+**Auto update** and **Apply** sit together in a toolbar pinned to the bottom of
+the main area and stay visible while scrolling. Auto update starts checked.
+The toolbar's lower padding is half the native default, bringing its controls
+closer to the browser's lower edge (28 px at the default base font).
+To combine several physical-condition edits,
 uncheck it, edit the sidebar, then press **Apply**. Pending plots and downloads
 are hidden until applied. Applying while every section is closed records the
 conditions without calculating them; opening a section performs its calculation.
@@ -234,6 +238,13 @@ optical propagation time is neglected relative to population evolution. This
 path does not calculate or normalize by an RF susceptibility.
 
 ## Settings, export, and limits {#time-evolution-files-and-limits}
+
+The sidebar has separate **Open** and **Save** buttons beside **Setting name**.
+Save runs entirely in the browser, without an app or fragment rerun. It downloads
+the committed settings using the currently typed filename. Other unfinished
+input edits remain unapplied; commit them normally before Save to include them.
+Save does not apply conditions waiting for Apply. Open validates a selected file
+before applying its settings.
 
 Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
 version **2.5**, with the coherent model identifier. Only this version is supported; older files are rejected

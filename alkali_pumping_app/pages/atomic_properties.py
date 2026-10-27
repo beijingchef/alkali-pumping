@@ -391,7 +391,6 @@ def render_atomic_properties():
         float(st.session_state.get("temperature_C_for_table", 23.0)),
     )
     with st.sidebar:
-        st.header("Atomic-properties settings")
         isotope = st.selectbox(
             "Alkali isotope",
             isotope_names,

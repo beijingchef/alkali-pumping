@@ -25,6 +25,17 @@ The top menu is divided into two groups:
 
 Each analysis page manages its own settings. Navigating to another page does not intentionally reset the saved page state.
 
+Sidebars start directly with their controls, without a Settings title. Open and
+Save are separate buttons. Save downloads a snapshot of committed settings in
+the browser and does not rerun the app or apply unfinished input edits. The
+currently typed setting name is used for the filename and the name in the file.
+
+All pages use compact outer spacing: the gap below the navigation, the
+sidebar's upper space and the pinned bottom toolbar's lower padding are half
+the native defaults. The header and sidebar collapse control remain accessible.
+At the default font size, the desktop gaps are 34 px below navigation, 38 px
+above sidebar content, and 28 px below the bottom toolbar controls.
+
 ## Recommended first calculation {#recommended-first-calculation}
 
 1. Select the alkali isotope and cell temperature.

@@ -65,6 +65,19 @@ and secular collective jumps above define this application's approximation.
 
 ## Bases, integration and detection
 
+The sidebar has separate Open and Save controls beside Setting name. Build a
+committed settings snapshot after rendering the sidebar. The shared Save helper
+renders a browser-only button through `st.html`; it registers no Streamlit widget
+event. On click, JavaScript reads only the live filename, updates the name in the
+downloaded JSON and starts a Blob download. Pointer/mouse-down prevents input
+blur, so unfinished physical inputs are not committed. There is no app or
+fragment rerun. ACC's inactive-pump fragment refreshes its snapshot separately
+when committed controls change. Loading retains current-format validation and
+the page-isolated callback.
+After each load attempt, a session-only revision gives the uploader a fresh
+identity, retaining Open as a button instead of an uploaded-file chip and
+allowing the same file to be selected again. This revision is not saved.
+
 The page offers section CSV downloads. The complete export helper described
 below remains available programmatically; its former bottom-page button is removed.
 
@@ -80,7 +93,10 @@ retrieval per rerun is shared by both species. Persistent setting keys
 preserve axes, moment/probe choices and scan limits across hidden-widget cleanup;
 expander visibility is session UI state outside the saved-condition format.
 
-Auto update defaults on. In manual mode, fingerprints of the applied physical
+Auto update and Apply are native widgets inside a horizontal `st.bottom`
+container, pinned below the scrolling main content. Shared screen-only CSS in
+the entry point halves the native bottom padding from 3.5rem to 1.75rem. The
+row does not wrap. Auto update defaults on. In manual mode, fingerprints of the applied physical
 inputs and transient timing gate the calculations. Pending physical edits hide
 the affected curves and downloads until Apply; a timing edit gates transients
 only. Applying with all sections closed records the fingerprints without a

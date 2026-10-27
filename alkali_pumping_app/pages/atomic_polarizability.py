@@ -317,7 +317,6 @@ def _polarizability_chart(dataframe, markers, upper_F, y_axis_title):
 _initialize_state()
 
 with st.sidebar:
-    st.header("Atomic-polarizability settings")
 
     load_column, save_column, name_column = st.columns(
         [20, 20, 60], gap="xsmall", vertical_alignment="center"
@@ -443,6 +442,7 @@ with st.sidebar:
     )
     save_button_with_immediate_download(
         save_placeholder,
+        fallback_name="atomic-polarizability",
         data=json.dumps(payload, indent=2),
         file_name=f"{condition_name}.json",
         mime="application/json",

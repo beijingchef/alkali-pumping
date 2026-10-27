@@ -28,6 +28,9 @@ class _Streamlit:
     def set_page_config(self, **kwargs):
         self.page_config_calls.append(kwargs)
 
+    def html(self, body):
+        pass
+
     @staticmethod
     def Page(path, **kwargs):
         return SimpleNamespace(path=path, **kwargs)

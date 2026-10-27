@@ -53,4 +53,28 @@ navigation = st.navigation(
 )
 
 st.set_page_config(page_title=f"Optical pumping: {navigation.title}")
+
+# Keep the 3.75rem header clear and halve the remaining native content gap:
+# (6rem + 3.75rem)/2 without top navigation, (8rem + 3.75rem)/2 with it.
+# The native bottom container reserves 3.5rem below its controls; halve that too.
+st.html("""
+<style>
+@media screen {
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 4.875rem;
+    }
+    [data-testid="stAppViewContainer"]:has([data-testid="stTopNavSection"])
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 5.875rem;
+    }
+    [data-testid="stBottomBlockContainer"] {
+        padding-bottom: 1.75rem;
+    }
+    [data-testid="stSidebarHeader"] {
+        height: 1.875rem;
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+""")
 navigation.run()

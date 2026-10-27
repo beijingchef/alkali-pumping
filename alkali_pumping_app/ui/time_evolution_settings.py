@@ -37,6 +37,11 @@ def settings_values():
     return {name: st.session_state[key(name)] for name in DEFAULTS}
 
 
+def _prepare_settings_download():
+    payload = build_settings_payload(settings_values())
+    return json.dumps(payload, indent=2), payload["settings"]["condition_name"] + ".json"
+
+
 def _clamp_switch_time():
     st.session_state[key("t1_s")] = min(st.session_state[key("t1_s")], st.session_state[key("t2_s")])
 
@@ -64,8 +69,13 @@ def _time_controls():
                   on_change=_store_time_widget, args=("t1_s",))
 
 
+def _file_widget_key():
+    revision = st.session_state.get(key("file_revision"), 0)
+    return key(f"file_{revision}")
+
+
 def _load_settings():
-    uploaded = st.session_state.get(key("file"))
+    uploaded = st.session_state.get(_file_widget_key())
     if uploaded is None:
         return
     try:
@@ -77,6 +87,10 @@ def _load_settings():
         st.session_state[key("load_success")] = "Loaded Time evolution settings."
     except (ValueError, UnicodeDecodeError) as exc:
         st.session_state[key("load_error")] = str(exc)
+    finally:
+        # A fresh uploader keeps Open available after success or failure,
+        # instead of replacing the button with Streamlit's uploaded-file chip.
+        st.session_state[key("file_revision")] = st.session_state.get(key("file_revision"), 0) + 1
 
 
 def _atom_changed(label):
@@ -228,7 +242,6 @@ def render_sidebar():
     """Return independent species, pump, common-cell, and weak-probe configs."""
     initialize_settings()
     with st.sidebar:
-        st.header("Settings")
         controls = st.empty()
         st.header("Atom / cell")
         cols = st.columns(2, gap="xsmall")
@@ -291,17 +304,15 @@ def render_sidebar():
         st.header("Event Sequence")
         _time_controls()
         with controls.container():
-            cols = st.columns([0.2, 0.2, 0.6], gap="xsmall")
+            cols = st.columns([0.2, 0.2, 0.6], gap="xsmall", vertical_alignment="bottom")
             with cols[0]:
-                open_file_button(type=["json"], key=key("file"), on_change=_load_settings,
+                open_file_button(type=["json"], key=_file_widget_key(), on_change=_load_settings,
                                  help="Load independent Time evolution settings.")
             with cols[1]:
                 save_placeholder = st.empty()
             with cols[2]:
                 st.text_input("Setting name", key=key("condition_name"))
-            payload = build_settings_payload(settings_values())
-            save_button_with_immediate_download(save_placeholder, data=json.dumps(payload, indent=2),
-                                                file_name=payload["settings"]["condition_name"] + ".json",
+            save_button_with_immediate_download(save_placeholder, prepare=_prepare_settings_download,
                                                 mime="application/json", key=key("save"))
             if st.session_state.get(key("load_error")):
                 st.error(st.session_state.pop(key("load_error")))

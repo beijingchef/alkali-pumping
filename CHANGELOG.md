@@ -1,5 +1,63 @@
 # Changelog
 
+## 6.20.14 - 2026-10-28
+
+- Restore Time evolution's separate Open and Save buttons beside Setting name,
+  replacing the File dropdown. Remove Settings headings from all five sidebars.
+- Make settings Save a browser-only download on both analysis and reference
+  pages: no widget submission, app/fragment rerun or calculation. Download the
+  committed configuration and read only the currently typed setting name.
+  Prevent mouse-down blur so other unfinished inputs are not applied by Save.
+- Keep ACC's download snapshot current when inactive-pump controls commit in
+  their own fragment. Preserve existing filename defaults and condition formats.
+- Validation: all 245 tests pass (169.880 seconds). Browser downloads on both
+  analysis pages use an unfinished filename while leaving unfinished physical
+  inputs focused and unapplied; downloaded values retain the committed settings
+  and Save does not refresh its snapshot. Verify committed ACC fragment edits,
+  restored buttons and removal of Settings titles across all five pages.
+  Git diff whitespace checks pass.
+
+## 6.20.13 - 2026-10-28
+
+- Put Time evolution's Open and Save controls in a native File dropdown at
+  the top of its sidebar, with the setting name beside it. Retain the existing
+  pending-edit Save download, validated Open callback and load feedback.
+  Opening the dropdown does not rerun calculations. Saved settings remain
+  format 2.5; other pages retain their file controls.
+- Reset the uploader after each load attempt so File retains its Open action
+  and users can select the same file again. Keep validation feedback outside
+  the menu and leave saved condition fields unchanged.
+- Validation: all 244 tests pass (179.333 seconds), including pending-edit Save,
+  File menu placement, and repeated valid/invalid Open callbacks. Browser checks
+  verify the two menu actions, load a current-format file, and validate the actual
+  Save download against its loaded values. Git diff whitespace checks pass.
+
+## 6.20.12 - 2026-10-28
+
+- Halve the visible gap between navigation and main content across all pages,
+  retaining clearance for the native header. With the default font, desktop
+  clearance changes from 68 to 34 px; main top padding changes from 128 to 94 px.
+- Halve the pinned bottom container's lower padding from 3.5rem to 1.75rem
+  (56 to 28 px), bringing Auto update and Apply closer to the browser edge.
+  Use shared screen-only styles; native toolbar pinning and print spacing remain.
+- Halve the sidebar's upper space from 76 to 38 px at the default font by
+  reducing its native header height and following margin, keeping the collapse
+  button accessible. Apply the same spacing rules across pages.
+- Validation: all 243 tests pass (177.709 seconds). Browser measurements confirm
+  34 px below navigation, 38 px above sidebar content, and 28 px below the
+  toolbar controls. Verify shared spacing on Time evolution and Atomic
+  properties; Git diff whitespace checks pass.
+
+## 6.20.11 - 2026-10-28
+
+- Move Time evolution Auto update and Apply into a native pinned bottom toolbar,
+  keeping both controls visible while scrolling plots. Preserve batching,
+  pending-result handling and page-session settings; page help stays beside
+  the title. No saved-condition fields or numerical calculations change.
+- Validation: all 243 tests pass (153.404 seconds), including the real-page
+  Apply workflow, control placement and navigation persistence. Git diff
+  whitespace checks pass.
+
 ## 6.20.10 - 2026-10-28
 
 - Prepare constant density generators, state boundaries, electron-randomization

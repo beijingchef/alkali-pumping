@@ -301,6 +301,9 @@ class TimeEvolutionUiTests(unittest.TestCase):
         from alkali_pumping_app.physics import time_evolution as physics
         app = self.app(open_moments=False, open_zeeman=False)
         self.assertTrue(app.checkbox(key="te_auto_update").value)
+        self.assertTrue(app.button(key="te_apply_conditions").disabled)
+        self.assertNotIn("te_auto_update", [widget.key for widget in app.main.checkbox])
+        self.assertNotIn("te_apply_conditions", [widget.key for widget in app.main.button])
         app.checkbox(key="te_auto_update").uncheck().run()
         with patch.object(physics, "compute_density_evolution", side_effect=AssertionError("Pending edits integrated")):
             app.number_input(key="te_intensity_A1").set_value(13.).run()
@@ -333,47 +336,99 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.checkbox(key="te_auto_update").check().run()
         self.assertFalse(app.exception)
         self.assertEqual(len(app.get("vega_lite_chart")), 2)
+        app.checkbox(key="te_auto_update").uncheck().run()
+        app.switch_page("alkali_pumping_app/pages/ACC-Magnetometer.py").run()
+        self.assertFalse(app.exception)
+        self.assertNotIn("te_auto_update", [widget.key for widget in app.checkbox])
+        app.switch_page(PAGE).run()
+        self.assertFalse(app.exception)
+        self.assertFalse(app.checkbox(key="te_auto_update").value)
+        self.assertFalse(app.button(key="te_apply_conditions").disabled)
+        self.assertEqual(len(app.get("vega_lite_chart")), 2)
 
-    def test_save_includes_current_edits_and_current_format(self):
+    def test_open_can_repeat_after_valid_and_invalid_loads(self):
+        from copy import deepcopy
+        from io import BytesIO
+        from alkali_pumping_app.ui import time_evolution_settings as sidebar
+        from alkali_pumping_app.ui.time_evolution_conditions import DEFAULTS, build_settings_payload
+
+        values = deepcopy(DEFAULTS)
+        values.update(condition_name="loaded-via-file", intensity_A1=17.25, t1_s=.01, t2_s=.05)
+        raw = json.dumps(build_settings_payload(values)).encode("utf-8")
+        state = {sidebar.key(name): deepcopy(value) for name, value in DEFAULTS.items()}
+        with patch.object(sidebar.st, "session_state", state):
+            for attempt, uploaded in enumerate((raw, b"invalid JSON", raw), 1):
+                old_upload_key = sidebar._file_widget_key()
+                state[old_upload_key] = BytesIO(uploaded)
+                sidebar._load_settings()
+                self.assertNotEqual(sidebar._file_widget_key(), old_upload_key)
+                self.assertEqual(state[sidebar.key("file_revision")], attempt)
+                self.assertEqual(sidebar.settings_values(), values)
+                if attempt == 2:
+                    self.assertTrue(state[sidebar.key("load_error")])
+                else:
+                    self.assertIsNone(state[sidebar.key("load_error")])
+                    self.assertEqual(state[sidebar.key("load_success")], "Loaded Time evolution settings.")
+
+    def test_acc_save_publishes_committed_conditions_without_a_trigger_widget(self):
+        from alkali_pumping_app.ui import downloads
+        app = AppTest.from_file(str(ROOT / "alkali_pumping.py"), default_timeout=60).run()
+        self.assertFalse(app.exception)
+        self.assertNotIn("Settings", [heading.value for heading in app.sidebar.header])
+        app.text_input(key="condition_name").set_value("committed-pump-save").run()
+        app.number_input(key="_pump_widget_intensity_A1").set_value(11.).run()
+        with patch.object(downloads.st, "html", wraps=downloads.st.html) as render_html:
+            app.run()
+        self.assertFalse(app.exception)
+        bodies = [call.args[0] for call in render_html.call_args_list
+                  if call.args and 'class="alkali-settings-save"' in str(call.args[0])]
+        self.assertEqual(len(bodies), 1)
+        encoded = re.search(r'data-settings-snapshot="([^"]+)"', bodies[0])
+        payload = json.loads(base64.b64decode(encoded.group(1)))
+        self.assertEqual(payload["conditions"]["condition_name"], "committed-pump-save")
+        self.assertEqual(payload["conditions"]["intensity_A1"], 11.)
+        self.assertNotIn("save_condition_button", [button.key for button in app.button])
+
+    def test_save_publishes_committed_settings_in_the_current_format(self):
         from alkali_pumping_app.ui import downloads
         from alkali_pumping_app.ui.time_evolution_conditions import (
             DEFAULTS, SCHEMA_VERSION, parse_settings_payload,
         )
-
         app = self.app(open_moments=False)
+        self.assertFalse(app.sidebar.get("popover"))
+        self.assertEqual(len(app.sidebar.get("file_uploader")), 1)
+        self.assertNotIn("te_save", [button.key for button in app.button])
+        self.assertNotIn("Settings", [heading.value for heading in app.sidebar.header])
         app.selectbox(key="te_atom_B_name").select("Rb85").run()
         self.assertFalse(app.exception)
         app.checkbox(key="te_probe_option_A_Absorption").uncheck().run()
         app.checkbox(key="te_probe_option_A_Absorption").check().run()
         app.session_state["te_plotted_moments"] = ["F_z", "Hyperfine polarization"]
         edits = {
-            "condition_name": "current-settings-save-check",
+            "condition_name": "committed-settings-save-check",
             "intensity_A1": 35., "gamma_u_B": 7.5,
             "probe_det_rel_A": -1234., "probe_path_length_cm_B": 2.5,
             "t1_s": .6, "t2_s": 3.5,
             "plotted_moments": ["F_z", "Hyperfine polarization"],
             "plotted_probe_signals_A": ["Optical rotation", "Absorption"],
         }
-        # Submit pending edits and Save together, as the actual button does.
+        # Commit edits normally. Browser checks exercise Save itself because it
+        # intentionally has no Streamlit widget event and cannot rerun AppTest.
         app.text_input(key="te_condition_name").set_value(edits["condition_name"])
         for name in ("intensity_A1", "gamma_u_B", "probe_det_rel_A", "probe_path_length_cm_B"):
             app.number_input(key="te_" + name).set_value(edits[name])
         for name in ("t1_s", "t2_s"):
             app.slider(key="_time_widget_te_" + name).set_value(edits[name])
         with patch.object(downloads.st, "html", wraps=downloads.st.html) as render_html:
-            app.button(key="te_save").click().run()
+            app.run()
         self.assertFalse(app.exception)
         self.assertFalse(app.error)
-        scripts = [call.args[0] for call in render_html.call_args_list
-                   if call.args and "const encoded =" in str(call.args[0])]
-        self.assertEqual(len(scripts), 1)
-        script = scripts[0]
-        encoded = re.search(r'const encoded = ("[^"]+");', script)
-        self.assertIsNotNone(encoded)
-        payload = json.loads(base64.b64decode(json.loads(encoded.group(1))))
+        bodies = [call.args[0] for call in render_html.call_args_list
+                  if call.args and 'class="alkali-settings-save"' in str(call.args[0])]
+        self.assertEqual(len(bodies), 1)
+        encoded = re.search(r'data-settings-snapshot="([^"]+)"', bodies[0])
+        payload = json.loads(base64.b64decode(encoded.group(1)))
         self.assertEqual(payload["version"], SCHEMA_VERSION)
-        self.assertIn('link.download = "current-settings-save-check.json";', script)
-        self.assertIn('type: "application/json"', script)
         saved = parse_settings_payload(payload)
         self.assertEqual(saved, {name: app.session_state["te_" + name] for name in DEFAULTS})
         for name, value in edits.items():

@@ -1111,7 +1111,6 @@ def render_light_shift_page():
     initialize_light_shift_conditions()
 
     with st.sidebar:
-        st.header("Light-shift settings")
         load_column, save_column, name_column = st.columns(
             [20, 20, 60], gap="xsmall", vertical_alignment="center"
         )
@@ -1442,6 +1441,7 @@ def render_light_shift_page():
         payload = build_light_shift_payload(current_light_shift_values(condition_name))
         save_button_with_immediate_download(
             save_placeholder,
+            fallback_name="light-shift",
             data=json.dumps(payload, indent=2),
             file_name=f"{condition_name}.json",
             mime="application/json",

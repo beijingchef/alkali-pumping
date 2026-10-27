@@ -267,6 +267,13 @@ def current_condition_values(condition_name=None):
     return values
 
 
+def prepare_condition_download():
+    """Snapshot current ACC settings after pending widget callbacks finish."""
+    name = sync_condition_save_name()
+    payload = build_condition_payload(current_condition_values(name))
+    return json.dumps(payload, indent=2), f"{name}.json"
+
+
 def normalize_rf_frequency_bounds(label="A", prefer="lower"):
     lower_key = f"rf_frequency_lower_hz_{label}"
     upper_key = f"rf_frequency_upper_hz_{label}"

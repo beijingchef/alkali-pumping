@@ -261,9 +261,10 @@ register_persistent_page_settings([key("auto_update")])
 physical_beams = [beam for beam in beams if beam["intensity"] > 0]
 physical_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
 transient_signature = sha256(pickle.dumps((physical_signature, t1, t2))).hexdigest()
-with st.container(horizontal=True, vertical_alignment="center"):
-    auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
-    apply_changes = st.button("Apply", key=key("apply_conditions"), disabled=auto_update, width="content")
+with st.bottom:
+    with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
+        auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
+        apply_changes = st.button("Apply", key=key("apply_conditions"), disabled=auto_update, width="content")
 if auto_update or apply_changes:
     st.session_state[key("applied_transient")] = transient_signature
     st.session_state[key("applied_steady")] = physical_signature

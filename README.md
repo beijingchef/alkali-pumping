@@ -1,8 +1,13 @@
-# Alkali Pumping v6.20.10
+# Alkali Pumping v6.20.14
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
 exchange in a one- or two-alkali vapor.
+
+The main-content gap below the navigation is half Streamlit's default on all
+pages. The pinned bottom toolbar's lower padding is also halved (56 to 28 px
+with the default 16 px base font). The sidebar's upper space is reduced from
+76 to 38 px, including its compact collapse-button header.
 
 The app starts on **Analysis → ACC Magnetometer**, and the top navigation separates
 five workflows:
@@ -38,6 +43,10 @@ five workflows:
   weak-probe rotation, output ellipticity, and absorption signals. The probe
   stays on throughout; RF and physical-pump feedback are absent. Settings and
   CSV exports are independent of ACC Magnetometer.
+  The sidebar has separate **Open** and **Save** buttons beside the setting name.
+  Save downloads committed settings immediately in the browser without rerunning
+  the app. It uses the currently typed setting name and leaves other unfinished
+  edits unapplied. Open validates the current settings format before loading it.
   Both timing sliders share one row under **Event Sequence** below the probe configuration, with
   a maximum total time of 30 s and turn-off bounded by total time. Their labels
   are Total time (s) and Pump turn-off time (s). Absorption is the fraction
@@ -73,7 +82,9 @@ five workflows:
   including after sidebar edits, using native Streamlit open-state tracking.
   Closing all time-domain sections defers transient integration until one is
   opened; opening only the scan computes its steady state independently.
-  **Auto update** starts checked. Uncheck it to batch physical-condition edits,
+  **Auto update** and **Apply** share a native toolbar pinned to the bottom of
+  the main area, staying visible while plots scroll. Auto update starts checked.
+  Uncheck it to batch physical-condition edits,
   then press **Apply** once. Pending curves and downloads are hidden until
   applied. Display and probe-readout edits continue to reuse the physical state.
   Transient caches retain two small trajectories and one trajectory of at least
