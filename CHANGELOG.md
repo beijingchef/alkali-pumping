@@ -1,14 +1,41 @@
 # Changelog
 
-## Unreleased
+## 6.20.9 - 2026-10-27
 
+- Order Time evolution moment and probe plots by their selection lists.
+  Defaults follow checkbox order: hyperfine polarization then ⟨F_z⟩, and
+  Absorption then Optical rotation. Each newly checked plot appends at the end;
+  unchecking removes it without reordering the others, and rechecking appends it.
+- Preserve the order across sidebar edits, section closing/reopening,
+  navigation and settings save/load. Section CSV columns follow plot order.
+  Moment order remains shared by both species; probe order stays independent.
+- Reuse the existing ordered selection lists in settings format 2.5.
+  No saved fields, defaults, validation rules or physics calculations change.
+- Validation: the focused plot-order and Save UI checks pass. The complete
+  suite passes all 228 tests with no failures or skips (147.459 seconds).
+  Git diff whitespace checks pass.
+
+## 6.20.8 - 2026-10-27
+
+- Render Time evolution plots, section controls and CSVs only while their
+  sections are open, including after sidebar edits. Zeeman populations now
+  starts collapsed; Atomic moments and Probe signal scanning remain collapsed.
+- Default atomic-moment selection to hyperfine polarization and ⟨F_z⟩.
+- Add a row of Absorption, Optical rotation and Ellipticity checkboxes to each
+  species' Probe signal section, with the first two checked initially. Export
+  only selected signals; disable the download for an empty selection. Preserve
+  selections across closing/reopening and navigation. Scans retain all signals.
+- Advance Time evolution settings to format 2.5 for the moment defaults and
+  independent saved probe selections. Only the new format is supported, as
+  requested; no migration is performed. Physics and ACC settings are unchanged.
 - Fix the Time evolution UI test harness to submit stateful expander values
   on reruns, matching browser behavior. This restores moment-selection,
   dual-species, probe-scan, navigation-persistence, and display-axis checks
   without changing application behavior or weakening their assertions.
 - Document the test-only expander adapter and current-format validation scope.
-- Validation: all 8 Time evolution UI tests pass; the complete suite passes
-  all 224 tests with no failures or skips (146.344 seconds).
+- Validation: all 35 focused Time evolution tests pass, including 10 real-page
+  UI checks. The complete suite passes all 227 tests with no failures or skips
+  (153.399 seconds). Git diff whitespace checks pass.
 
 ## 6.20.7 - 2026-10-25
 

@@ -11,7 +11,7 @@ from alkali_pumping_app.physics.time_evolution import (
     TIME_EVOLUTION_MODEL_VERSION, compute_density_evolution, density_display_view,
 )
 from alkali_pumping_app.ui.exports import dataframe_to_csv_bytes
-from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS
+from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS, PLOTTED_PROBE_SIGNALS
 from alkali_pumping_app.ui.time_evolution_data import (
     probe_scan_export_dataframe, section_export_dataframe, series_frame, zeeman_plot_frame,
 )
@@ -92,9 +92,16 @@ three frequency plots show rotation, ellipticity and absorption one per row;
 their light dashed lines mark allowed hyperfine transitions. Scan results do
 not depend on the pump turn-off or total-time sliders.
 
-Atomic moments and Probe signal scanning start collapsed. Their plots and
-controls are created only while open; the scan steady state is calculated
-only when its section is opened.
+Zeeman populations, Atomic moments and Probe signal scanning start collapsed.
+Only open sections create plots and controls or refresh them after sidebar
+changes. Atomic moments default to hyperfine polarization and $\langle F_z\rangle$.
+Probe signal checkboxes select absorption, optical rotation and ellipticity;
+absorption and optical rotation start checked. Each species has its own probe
+selection. The scan always shows all three signals and calculates its steady
+state only while open.
+Selected plots start in default checkbox order. Newly checked plots append at
+the end; unchecking removes a plot, and checking it again appends it at the end.
+Plot order is retained in saved settings and section CSV columns.
 """)
 
 
@@ -188,10 +195,15 @@ def _moment_expression(name, q):
     return None
 
 
-def _store_plotted_moments():
-    st.session_state[key("plotted_moments")] = [
-        name for name in PLOTTED_MOMENTS if st.session_state[key(f"moment_option_{name}")]
-    ]
+def _store_plot_choice(selection_name, name, option_key):
+    # Update only the toggled choice so the remaining plots keep their order.
+    selected = list(st.session_state[key(selection_name)])
+    if st.session_state[option_key]:
+        if name not in selected:
+            selected.append(name)
+    else:
+        selected = [item for item in selected if item != name]
+    st.session_state[key(selection_name)] = selected
 
 
 def _section_controls(plots, *, species, label, section_id, title, export_frame=None,
@@ -209,6 +221,8 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
                 st.markdown(plot["explanation"])
             if not plots and section_id == "atomic_moments":
                 st.markdown("Select moment checkboxes to display and download atomic-moment curves.")
+            if not plots and section_id == "probe_signal":
+                st.markdown("Select probe checkboxes to display and download probe-signal curves.")
             st.markdown(help_text or (
                 "The dashed vertical line marks pump turn-off. The CSV contains all displayed "
                 "curves in this section, one column per curve, with plot names and plotted units "
@@ -302,30 +316,36 @@ tabs = st.tabs([f"Alkali {label} · {evolution[label]['atom_name']}" for label i
 for label, tab in zip(labels, tabs):
     with tab:
         physical_species = evolution[label]
+        config = species_A if label == "A" else species_B
         species = _display_cached(physical_species,
                                   st.session_state[key(f"zeeman_axis_{label}")],
                                   st.session_state[key(f"moment_axis_{label}")])
         times = evolution["time_s"]
         Fs = sorted({state["F"] for state in species["ground_states"]})
         manifold_labels = {"Fa": f"F = {Fs[-1]:g}", "Fb": f"F = {Fs[0]:g}"}
-        with st.expander("Zeeman populations", expanded=True):
-            zeeman_columns = st.columns([1, 1, 0.15], gap="small")
-            zeeman_plots = []
-            for name, F, column in zip(("Fa", "Fb"), reversed(Fs), zeeman_columns[:2]):
-                with column:
-                    _plot(zeeman_plot_frame(times, species, name), "Population", f"F = {F:g}",
-                          species=species, label=label, plot_id=f"zeeman_{name}", value_unit="1",
-                          section_plots=zeeman_plots, math_title=rf"F={F:g}",
-                          explanation=rf"Individual Zeeman populations in $F={F:g}$ along the "
-                          "selected quantization axis. Values are probabilities per total atom, "
-                          "without renormalizing within the manifold.")
-            with zeeman_columns[2]:
-                _section_controls(zeeman_plots, species=species, label=label,
-                                  section_id="zeeman_populations", title="Zeeman populations")
-                with st.container(horizontal_alignment="center", gap="xsmall"):
-                    st.markdown("Axis", text_alignment="center", width=SECTION_CONTROL_WIDTH)
-                    st.selectbox("Axis", ["z", "x", "y"], width=SECTION_CONTROL_WIDTH,
-                                 label_visibility="collapsed", key=key(f"zeeman_axis_{label}"))
+        zeeman_section = st.expander(
+            "Zeeman populations", expanded=False, key=key(f"zeeman_populations_open_{label}"),
+            on_change="rerun",
+        )
+        if zeeman_section.open:
+            with zeeman_section:
+                zeeman_columns = st.columns([1, 1, 0.15], gap="small")
+                zeeman_plots = []
+                for name, F, column in zip(("Fa", "Fb"), reversed(Fs), zeeman_columns[:2]):
+                    with column:
+                        _plot(zeeman_plot_frame(times, species, name), "Population", f"F = {F:g}",
+                              species=species, label=label, plot_id=f"zeeman_{name}", value_unit="1",
+                              section_plots=zeeman_plots, math_title=rf"F={F:g}",
+                              explanation=rf"Individual Zeeman populations in $F={F:g}$ along the "
+                              "selected quantization axis. Values are probabilities per total atom, "
+                              "without renormalizing within the manifold.")
+                with zeeman_columns[2]:
+                    _section_controls(zeeman_plots, species=species, label=label,
+                                      section_id="zeeman_populations", title="Zeeman populations")
+                    with st.container(horizontal_alignment="center", gap="xsmall"):
+                        st.markdown("Axis", text_alignment="center", width=SECTION_CONTROL_WIDTH)
+                        st.selectbox("Axis", ["z", "x", "y"], width=SECTION_CONTROL_WIDTH,
+                                     label_visibility="collapsed", key=key(f"zeeman_axis_{label}"))
         moment_section = st.expander(
             "Atomic moments", expanded=False, key=key(f"atomic_moments_open_{label}"),
             on_change="rerun",
@@ -354,10 +374,9 @@ for label, tab in zip(labels, tabs):
                                     caption = r"$2\langle S_q\rangle/\hbar$"
                                 else:
                                     caption = rf"$\langle {expression}\rangle$"
-                                st.checkbox(caption, key=option_key, on_change=_store_plotted_moments,
-                                            width="content")
-                selected_moments = [name for name in PLOTTED_MOMENTS
-                                    if name in st.session_state[key("plotted_moments")]]
+                                st.checkbox(caption, key=option_key, on_change=_store_plot_choice,
+                                            args=("plotted_moments", name, option_key), width="content")
+                selected_moments = st.session_state[key("plotted_moments")]
                 frame_explanation = (
                     rf"The right-handed frame is $(\hat{{\mathbf u}},\hat{{\mathbf v}},\hat{{\mathbf q}})"
                     rf"=(\hat{{\mathbf {u}}},\hat{{\mathbf {v}}},\hat{{\mathbf {q}}})$. "
@@ -403,37 +422,54 @@ for label, tab in zip(labels, tabs):
                 with moment_columns[2]:
                     _section_controls(moment_plots, species=species, label=label,
                                       section_id="atomic_moments", title="Atomic moments")
-        with st.expander("Probe signal", expanded=True):
-            probe_plots = []
-            config = species_A if label == "A" else species_B
-            try:
-                signals = _probe_cached(physical_species, probes[label], common, config["n2_coeffs"])
-            except (ValueError, RuntimeError) as exc:
-                st.error("Weak-probe readout failed: " + str(exc))
-                continue
-            plots = (
-                ("rotation_rad", 1000, "Rotation (mrad)", "Optical rotation", "mrad",
-                 "Rotation is relative to the input azimuth, in mrad. It is undefined for circular input "
-                 "polarization or effectively extinguished output."),
-                ("ellipticity_rad", 1000, "Ellipticity (mrad)", "Ellipticity", "mrad",
-                 "Ellipticity is the transmitted ellipse angle in mrad, rather than its change from the "
-                 "input angle. It is undefined at effectively extinguished output."),
-                ("absorption", 1, "Absorption 1 − I_out/I_in", "Absorption", "1",
-                 r"Absorption is the lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$, including scalar absorption. "
-                 "Zero means no loss and one means complete attenuation. It is not logarithmic absorbance."),
-            )
-            probe_columns = st.columns([1, 1, 0.15], gap="small")
-            for index, (signal, scale, y_label, title, value_unit, explanation) in enumerate(plots):
-                with probe_columns[index % 2]:
-                    _plot(series_frame(times, {title: signals[signal] * scale}, y_label), y_label, title,
-                          species=species, label=label, plot_id=f"probe_{signal}", value_unit=value_unit,
-                          section_plots=probe_plots,
-                          show_legend=False,
-                          explanation=explanation + " The continuous weak probe uses uniform-path Jones "
-                          "propagation and does not alter the atomic evolution.")
-            with probe_columns[2]:
-                _section_controls(probe_plots, species=species, label=label,
-                                  section_id="probe_signal", title="Probe signal")
+        # The frequency scan always uses all signals, independently of the
+        # time-domain section's open state and selected checkboxes.
+        plots = (
+            ("rotation_rad", 1000, "Rotation (mrad)", "Optical rotation", "mrad",
+             "Rotation is relative to the input azimuth, in mrad. It is undefined for circular input "
+             "polarization or effectively extinguished output."),
+            ("ellipticity_rad", 1000, "Ellipticity (mrad)", "Ellipticity", "mrad",
+             "Ellipticity is the transmitted ellipse angle in mrad, rather than its change from the "
+             "input angle. It is undefined at effectively extinguished output."),
+            ("absorption", 1, "Absorption 1 − I_out/I_in", "Absorption", "1",
+             r"Absorption is the lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$, including scalar absorption. "
+             "Zero means no loss and one means complete attenuation. It is not logarithmic absorbance."),
+        )
+        probe_section = st.expander(
+            "Probe signal", expanded=True, key=key(f"probe_signal_open_{label}"),
+            on_change="rerun",
+        )
+        if probe_section.open:
+            with probe_section:
+                with st.container(horizontal=True, gap="small"):
+                    for name in PLOTTED_PROBE_SIGNALS:
+                        option_key = key(f"probe_option_{label}_{name}")
+                        st.session_state[option_key] = name in st.session_state[key(f"plotted_probe_signals_{label}")]
+                        st.checkbox(name, key=option_key, on_change=_store_plot_choice,
+                                    args=(f"plotted_probe_signals_{label}", name, option_key), width="content")
+                probe_plot_specs = {plot[3]: plot for plot in plots}
+                selected_plots = [probe_plot_specs[name]
+                                  for name in st.session_state[key(f"plotted_probe_signals_{label}")]]
+                probe_plots = []
+                signals = None
+                if selected_plots:
+                    try:
+                        signals = _probe_cached(physical_species, probes[label], common, config["n2_coeffs"])
+                    except (ValueError, RuntimeError) as exc:
+                        st.error("Weak-probe readout failed: " + str(exc))
+                probe_columns = st.columns([1, 1, 0.15], gap="small")
+                if signals is not None:
+                    for index, (signal, scale, y_label, title, value_unit, explanation) in enumerate(selected_plots):
+                        with probe_columns[index % 2]:
+                            _plot(series_frame(times, {title: signals[signal] * scale}, y_label), y_label, title,
+                                  species=species, label=label, plot_id=f"probe_{signal}", value_unit=value_unit,
+                                  section_plots=probe_plots,
+                                  show_legend=False,
+                                  explanation=explanation + " The continuous weak probe uses uniform-path Jones "
+                                  "propagation and does not alter the atomic evolution.")
+                with probe_columns[2]:
+                    _section_controls(probe_plots, species=species, label=label,
+                                      section_id="probe_signal", title="Probe signal")
         scan_section = st.expander(
             "Probe signal scanning", expanded=False, key=key(f"probe_scan_open_{label}"),
             on_change="rerun",

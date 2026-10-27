@@ -11,12 +11,13 @@ from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.4"
+SCHEMA_VERSION = "2.5"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
     "Q_qq", "Q_uv", "Q_uu-Q_vv",
 )
+PLOTTED_PROBE_SIGNALS = ("Absorption", "Optical rotation", "Ellipticity")
 SHARED_KEYS = (
     "condition_name", "atom_A_name", "atom_B_name", "density_mode", "density_ratio_B_to_A",
     "gamma_ER_A", "gamma_ER_B", "static_field_axis", "static_field_nT",
@@ -30,7 +31,7 @@ SHARED_KEYS = (
 )
 DEFAULTS = {key: deepcopy(DEFAULT_STARTUP_CONDITION[key]) for key in SHARED_KEYS}
 DEFAULTS.update(condition_name="time-evolution", t1_s=1.0, t2_s=4.0,
-                plotted_moments=["Hyperfine polarization", "Electron polarization", "F_z", "Q_qq"])
+                plotted_moments=["Hyperfine polarization", "F_z"])
 for _label in ("A", "B"):
     _atom_name = DEFAULTS[f"atom_{_label}_name"]
     _atom = ATOMS[DEFAULTS["atom_A_name"] if _atom_name == "None" else _atom_name]
@@ -38,6 +39,7 @@ for _label in ("A", "B"):
     _lower_F = _upper_F - 1
     DEFAULTS.update({
         f"zeeman_axis_{_label}": "z", f"moment_axis_{_label}": "z",
+        f"plotted_probe_signals_{_label}": ["Absorption", "Optical rotation"],
         f"probe_scan_min_MHz_{_label}": -7000.0, f"probe_scan_max_MHz_{_label}": 7000.0,
         f"transition_{_label}1": f"{_lower_F:g}→{_upper_F:g}",
         f"det_rel_{_label}1": 0.0,
@@ -116,11 +118,15 @@ def validate_settings(values):
             raise ValueError("Probe scan limits must lie within ±15000 MHz and be at least 10 MHz apart.")
     if not 0.001 <= result["t2_s"] <= 30 or not 0 <= result["t1_s"] <= result["t2_s"]:
         raise ValueError("Times must satisfy 0 ≤ t1 ≤ t2 and 0.001 ≤ t2 ≤ 30 seconds.")
-    selection = result["plotted_moments"]
-    if (not isinstance(selection, list)
-            or any(item not in PLOTTED_MOMENTS for item in selection)
-            or len(selection) != len(set(selection))):
-        raise ValueError("Invalid plotted_moments selection.")
+    for field, allowed in (
+        ("plotted_moments", PLOTTED_MOMENTS),
+        *[(f"plotted_probe_signals_{label}", PLOTTED_PROBE_SIGNALS) for label in ("A", "B")],
+    ):
+        selection = result[field]
+        if (not isinstance(selection, list)
+                or any(item not in allowed for item in selection)
+                or len(selection) != len(set(selection))):
+            raise ValueError(f"Invalid {field} selection.")
     result["condition_name"] = clean_condition_name(result["condition_name"])
     return result
 

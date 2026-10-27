@@ -6,7 +6,7 @@ Saved condition files are versioned public interfaces. A file contains applicati
 
 The ACC Magnetometer currently writes schema **6.14**, including the active
 physics-model identifier and independent `gamma_u_A/B` uniform-relaxation
-rates. Time evolution uses its own schema **2.4**, with the same physical
+rates. Time evolution uses its own schema **2.5**, with the same physical
 fields under an independent state namespace. Light shift and Atomic
 polarizability use their own independently versioned formats.
 
@@ -14,7 +14,7 @@ polarizability use their own independently versioned formats.
 
 The loader validates application, format, and version identifiers before
 applying values. ACC accepts only schema 6.14; Time evolution accepts only
-schema 2.4 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
+schema 2.5 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
 the user's explicit compatibility choice for this release. Required fields
 are validated before their settings enter session state.
 
@@ -33,6 +33,14 @@ The `plotted_moments` list accepts Hyperfine polarization, Electron polarization
 F_x, F_y, F_z, Q_qq, Q_uv and Q_uu-Q_vv, without duplicates. Empty selection
 hides all moment graphs. The former `moment_types` and `moment_manifolds`
 fields are not part of this format. Both manifolds are always plotted.
+New sessions select Hyperfine polarization and F_z. The independent
+`plotted_probe_signals_A/B` lists accept Absorption, Optical rotation and
+Ellipticity without duplicates, initially selecting the first two. Empty
+selection hides time-domain probe graphs and disables their section download.
+Probe frequency scans always show and export all three signals.
+The existing selection lists retain plot order. Checkbox callbacks remove only
+the unchecked item or append the newly checked item; rendering and section CSVs
+iterate those lists directly. Saved order is restored without sorting.
 
 Per-species `zeeman_axis_A/B` and `moment_axis_A/B` independently store x, y
 or z, initially z. The former shared `q_axis_A/B` fields are not accepted.
@@ -53,7 +61,7 @@ bound is at most 14990 MHz and the upper bound at least −14990 MHz.
 
 ## Probe-source settings {#probe-source-migration}
 
-Time evolution schema 2.4 includes the source values
+Time evolution schema 2.5 includes the source values
 `Preset D1a`, `Preset D1b`, `Preset D2a`, and `Preset D2b`. These are weak,
 nonperturbing probes available only on Time evolution. Selecting one fills
 editable fields once using the current isotope: z, 1 cm, zero azimuth and ellipticity;

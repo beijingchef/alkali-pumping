@@ -8,7 +8,7 @@ Condition files preserve user inputs and display selections as JSON. ACC Magneto
 
 The current ACC Magnetometer condition schema is **6.14**. Only this version
 is supported. Older files are rejected without migration, as requested for
-this sidebar update. Time evolution accepts only its **2.4** settings format and coherent model identifier,
+this sidebar update. Time evolution accepts only its **2.5** settings format and coherent model identifier,
 requires all current fields, rejects unknown fields, and limits total time to
 30 seconds. No missing-field defaults or historical time extensions are applied.
 The removed `show_allowed_only` field is not saved; allowed
@@ -30,7 +30,7 @@ The application version and condition-schema version are separate. A UI release 
 `PumpN weak` means a nonperturbing detector and ACC's plain `PumpN` means
 the physical pump.
 
-Time evolution v2.4 includes four editable weak-probe preset source choices:
+Time evolution v2.5 includes four editable weak-probe preset source choices:
 `Preset D1a`, `Preset D1b`, `Preset D2a`, `Preset D2b`. The saved optical
 fields retain any edits made after selecting a preset. ACC does not list
 these presets.

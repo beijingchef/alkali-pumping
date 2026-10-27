@@ -72,13 +72,21 @@ their usual formatting. Calculations and CSVs retain full precision.
 Page-level model and sequence
 descriptions are in the question-mark popup at the right of the page title.
 The four collapsible result sections use native outlines, header dividers,
-and expand/collapse controls. **Atomic moments** and **Probe signal scanning**
-start collapsed. Their plots, widgets and downloads are created only while
-open; the scan's steady-state calculation is deferred until opening. Native
-Streamlit state tracking reruns the script when these two sections are toggled,
-reusing cached calculations. Moment selections, axes and scan bounds survive
-closing and reopening. The other sections retain client-side toggling.
+and expand/collapse controls. **Zeeman populations**, **Atomic moments** and
+**Probe signal scanning** start collapsed; **Probe signal** starts open.
+All sections create and refresh their plots, widgets and downloads only while
+open, including after sidebar changes; the scan's steady-state calculation is
+deferred until opening. Native Streamlit state tracking reruns the script when
+sections are toggled, reusing cached calculations. Moment and probe selections,
+axes and scan bounds survive closing/reopening and page navigation.
 Individual graph borders remain.
+
+Moment and probe plots start in default checkbox order, reading left to right
+then down. Checking an additional plot appends it after the existing plots.
+Unchecking removes only that plot; checking it again places it at the end.
+This order survives sidebar edits, closing/reopening, navigation and settings
+save/load. Section CSV columns follow the plotted order. Moment order is
+shared by both species; each species has its own probe order.
 
 - **Zeeman populations:** one plot per manifold containing only individual
   $m$-state populations.
@@ -100,15 +108,19 @@ Individual graph borders remain.
   Orientation and alignment are divided by $\hbar$ and $\hbar^2$, respectively,
   and are per total atom without manifold renormalization. Both manifolds are
   always included. Selected graphs use two columns; the shared selection
-  applies to both species tabs. Defaults show hyperfine/electron polarization,
-  $\langle F_z\rangle$ and $\langle Q_{qq}\rangle$; an empty list hides all
+  applies to both species tabs. Defaults show hyperfine polarization and
+  $\langle F_z\rangle$; an empty list hides all
   atomic-moment graphs. The electron y-axis is $2\langle S_q\rangle/\hbar$.
   The scalar hyperfine correlation is
   $[\langle F^2\rangle/\hbar^2-I(I+1)-3/4]/2$
   $=(I/2)P(F_a)-[(I+1)/2]P(F_b)$, with no manifold normalization. It is zero
   initially and is independent of quantization axis.
-- **Probe signal:** Optical rotation and Ellipticity occupy the first row;
-  Absorption sits below Optical rotation. Rotation is relative to the input azimuth, and ellipticity is the
+- **Probe signal:** a row of checkboxes selects Absorption, Optical rotation
+  and Ellipticity independently for each species. Absorption and Optical
+  rotation start checked. Selected plots fill two columns, and their CSV
+  contains only selected curves. An empty selection hides the graphs and
+  disables the download. Probe selections do not affect the frequency scan.
+  Rotation is relative to the input azimuth, and ellipticity is the
   transmitted ellipse angle, both plotted in mrad. Absorption is the
   dimensionless lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$,
   including scalar absorption. It ranges from zero for no loss to one for
@@ -202,7 +214,7 @@ path does not calculate or normalize by an RF susceptibility.
 ## Settings, export, and limits {#time-evolution-files-and-limits}
 
 Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
-version **2.4**, with the coherent model identifier. Only this version is supported; older files are rejected
+version **2.5**, with the coherent model identifier. Only this version is supported; older files are rejected
 without migration. Every current field is required, and unknown fields are
 rejected. No omitted settings are filled from defaults. Times must satisfy
 $0\le t_1\le t_2\le30$ s with $t_2\ge0.001$ s. Invalid values and ACC condition files are rejected
@@ -217,9 +229,9 @@ Each time-domain section's CSV exports all of its displayed curves, one column p
 and one row per time sample, in the plotted units. Column labels include the
 plot title, curve name and units. Shared metadata includes time in seconds,
 pump turn-off and total time, pump state, species, quantization axis, local
-alignment axes and section name. Moment selection affects the Atomic moments
-download; rotation and ellipticity use mrad. With no moments selected, that
-section's download is disabled. Undefined optical-angle samples remain empty
+alignment axes and section name. Moment and probe selections affect their
+respective downloads; rotation and ellipticity use mrad. With no curves
+selected, that section's download is disabled. Undefined optical-angle samples remain empty
 in the section CSV, and their explanations remain in its help popup.
 
 The scan CSV contains detuning in MHz, rotation/ellipticity in mrad, absorption,

@@ -1,4 +1,4 @@
-# Alkali Pumping v6.20.7
+# Alkali Pumping v6.20.9
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -44,17 +44,27 @@ five workflows:
   with y-axis label 2⟨S_q⟩/ℏ. Native moment checkboxes have no group caption;
   the hyperfine/electron choices show ⟨S·I⟩/ℏ² and 2⟨S_q⟩/ℏ.
   Mathematical checkbox labels, plot headings, y-axis labels and help equations
-  use LaTeX; CSV names remain plain text. Absorption sits below optical rotation.
+  use LaTeX; CSV names remain plain text. A row of probe checkboxes selects
+  Absorption, Optical rotation and Ellipticity independently for each species;
+  Absorption and Optical rotation start checked. Only selected curves are
+  plotted and exported, and an empty selection disables that section's download.
+  Moment and probe plots initially follow their default checkbox order, reading
+  left to right then down. Newly checked plots append at the end; unchecking
+  removes a plot without reordering the others, and rechecking appends it again.
+  The order survives section closing, navigation and saving/loading settings;
+  section CSV columns follow the same order.
   Choose hyperfine/electron polarization, laboratory
   ⟨F_x⟩, ⟨F_y⟩, ⟨F_z⟩, or local ⟨Q_qq⟩, ⟨Q_uv⟩, ⟨Q_uu−Q_vv⟩.
   Alignment labels resolve to actual Cartesian components: for moment axis z,
   they show ⟨Q_zz⟩, ⟨Q_xy⟩ and ⟨Q_xx−Q_yy⟩, including in section CSV headers.
   Selected plots use two columns and always show both hyperfine manifolds
   where applicable. The right-handed (u,v,q) frames are (y,z,x), (z,x,y),
-  (x,y,z) for q=x,y,z. Defaults show hyperfine/electron polarization, Fz and Qqq.
-  Collapsible result sections use their native outlines. Atomic moments and
-  Probe signal scanning start collapsed and create their plots and controls
-  only while open, using native Streamlit open-state tracking. Individual
+  (x,y,z) for q=x,y,z. Defaults show hyperfine polarization and Fz.
+  Collapsible result sections use their native outlines. Zeeman populations,
+  Atomic moments and Probe signal scanning start collapsed; Probe signal starts
+  open. All sections create and refresh plots and controls only while open,
+  including after sidebar edits, using native Streamlit open-state tracking.
+  Selections, axes and scan limits survive closing and reopening. Individual
   graph panels retain borders.
   Legends are inside the top right. Single-curve probe, hyperfine-polarization
   and electron-polarization plots omit legends. Manifold legends show F values;
@@ -233,7 +243,7 @@ the former checkbox and saved `show_allowed_only` field have been removed.
 The selected reference defines detuning; calculations still include all
 relevant allowed transitions, including off-resonant contributions.
 ACC writes and loads condition schema **6.14**. Time evolution writes and
-loads its independent settings schema **2.4** and coherent-model identifier. Time evolution requires every
+loads its independent settings schema **2.5** and coherent-model identifier. Time evolution requires every
 current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
 (with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
 for previous configurations. Older analysis condition

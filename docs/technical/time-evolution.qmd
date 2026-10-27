@@ -68,13 +68,13 @@ and secular collective jumps above define this application's approximation.
 The page offers section CSV downloads. The complete export helper described
 below remains available programmatically; its former bottom-page button is removed.
 
-The Atomic moments and Probe signal scanning expanders default to closed and
-use native `on_change="rerun"` tracking with independent per-species keys.
-Their content is guarded by the container's `.open` state: chart creation,
+All result expanders use native `on_change="rerun"` tracking with independent
+per-species keys. Zeeman populations, Atomic moments and Probe signal scanning
+default to closed. Content is guarded by the container's `.open` state: chart creation,
 section CSV preparation and widgets run only while open. Steady-state convergence
 and spectral readout are inside the scan guard, so they do not run on initial
 page load. Cached physical evolution remains shared. Persistent setting keys
-preserve axes, moment choices and scan limits across hidden-widget cleanup;
+preserve axes, moment/probe choices and scan limits across hidden-widget cleanup;
 expander visibility is session UI state outside the saved-condition format.
 
 Each species has independent display axes for populations and moments. The
@@ -177,5 +177,13 @@ and right-aligned section controls. Its help and download share one horizontal
 row, in that order; time-domain section controls retain their vertical layout.
 The slider's native label is collapsed while its accessible label is retained.
 
-Settings format 2.4 and the v3 coherent model identifier are both required.
+All four result sections use native open-state gating: closed sections build
+no charts, section controls or exports on sidebar reruns. Zeeman populations,
+Atomic moments and Probe signal scanning default closed; Probe signal defaults
+open. Saved atomic-moment defaults select hyperfine polarization and F_z.
+Independent `plotted_probe_signals_A/B` lists select time-domain probe curves
+and exported columns, defaulting to Absorption and Optical rotation. The
+frequency scan remains independent and always includes all three signals.
+
+Settings format 2.5 and the v3 coherent model identifier are both required.
 Earlier settings are rejected without migration, as requested by the user.
