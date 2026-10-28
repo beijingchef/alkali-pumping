@@ -16,7 +16,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         settings.update(t1_s=30., t2_s=30.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
         payload = build_settings_payload(DEFAULTS)
-        self.assertEqual(payload["version"], "2.7")
+        self.assertEqual(payload["version"], "2.8")
         self.assertNotIn("q_axis_A", payload["settings"])
         self.assertNotIn("q_axis_B", payload["settings"])
         self.assertNotIn("moment_types", payload["settings"])
@@ -50,6 +50,19 @@ class TimeEvolutionConditionTests(unittest.TestCase):
                         {"probe_scan_min_MHz_B": 100.}, {"probe_scan_max_MHz_B": -95.}):
             with self.subTest(updates=updates), self.assertRaisesRegex(ValueError, "scan limits"):
                 build_settings_payload(dict(settings, **updates))
+
+    def test_independent_scan_axes_round_trip_and_require_new_format(self):
+        from alkali_pumping_app.physics.scan_basis import SCAN_POPULATION_AXES
+        for axis in SCAN_POPULATION_AXES:
+            settings = dict(DEFAULTS, probe_scan_axis_A=axis, probe_scan_axis_B='probe minor')
+            self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
+        for label in ('A', 'B'):
+            self.assertEqual(DEFAULTS[f'probe_scan_axis_{label}'], 'z')
+            with self.assertRaisesRegex(ValueError, f'probe_scan_axis_{label}'):
+                build_settings_payload(dict(DEFAULTS, **{f'probe_scan_axis_{label}': 'invalid'}))
+        payload = build_settings_payload(DEFAULTS)
+        payload['version'] = '2.7'
+        with self.assertRaises(ValueError): parse_settings_payload(payload)
 
     def test_independent_section_axes_round_trip_and_reject_invalid_axes(self):
         settings = dict(DEFAULTS, zeeman_axis_A="x", moment_axis_A="y", zeeman_axis_B="y", moment_axis_B="z")

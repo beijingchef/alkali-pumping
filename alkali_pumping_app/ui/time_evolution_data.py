@@ -161,6 +161,11 @@ def probe_scan_export_dataframe(spectrum, *, species, label, probe, config, comm
         population = np.diag(species['density_matrix'][0]).real
     population = np.asarray(population).reshape(-1)
     columns['population_quantization_axis'] = species.get('zeeman_axis', species['q_axis'])
+    for component, value in zip("xyz", species.get("quantization_axis_vector", [])):
+        columns[f"population_axis_{component}"] = float(value)
+    for field in ("basis_theta_deg", "basis_phi_deg", "basis_rotation_convention"):
+        if field in species:
+            columns[f"population_{field}"] = species[field]
     for state, value in zip(species['ground_states'], population):
         columns[f"population_F{state['F']:g}_m{state['m']:g}"] = float(value)
     for partner_label in ("A", "B"):
@@ -179,13 +184,17 @@ def probe_scan_export_dataframe(spectrum, *, species, label, probe, config, comm
 
 
 def steady_density_matrix_export_dataframe(species, *, label):
-    """Export every complex matrix element in the stored basis, per total atom."""
+    """Export every complex matrix element in the supplied basis, per total atom."""
     rho = np.asarray(species["density_matrix"])[0]
     states = species["ground_states"]
     rows, columns = np.indices(rho.shape)
     rows, columns = rows.ravel(), columns.ravel()
+    basis = {f"quantization_axis_{component}": float(value)
+             for component, value in zip("xyz", species.get("quantization_axis_vector", []))}
+    basis.update({field: species[field] for field in
+                  ("basis_theta_deg", "basis_phi_deg", "basis_rotation_convention") if field in species})
     return pd.DataFrame({
-        "row_index": rows, "column_index": columns,
+        **basis, "row_index": rows, "column_index": columns,
         "row_F": [states[i]["F"] for i in rows],
         "row_m": [states[i]["m"] for i in rows],
         "column_F": [states[i]["F"] for i in columns],

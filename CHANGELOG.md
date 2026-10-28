@@ -1,5 +1,80 @@
 # Changelog
 
+## 6.21.5 - 2026-10-28
+
+- Remove the ACC sidebar Display heading and Show rate matrices checkbox.
+  Keep each rate-matrices subsection always available at the end of its Zeeman
+  section, initially closed, including the coupled Jacobian for dual alkalis.
+- Add a native pinned bottom Auto update / Apply toolbar matching Time evolution.
+  Auto update starts checked. Manual physical-condition edits defer models,
+  equilibrium, responses and pump-rate diagnostics until Apply. Hide pending
+  results/downloads; closed sections remain deferred after Apply. Readout and
+  display edits reuse the applied physical state. Execution preferences survive
+  navigation independently of Time evolution and stay outside saved conditions.
+- Use current-only ACC condition schema 6.16, removing `show_rate_matrices`.
+  Reject older files without migration, following the requested policy.
+  Preserve the numerical physics and model identifier.
+- Validation: all 274 tests pass (301.996 seconds), including manual Apply,
+  pending fragment guards, deferred closed sections, independent page preferences,
+  current-format round trips and rejection of obsolete formats/fields. Browser
+  checks verify the pinned toolbar, pending edits and Apply behavior.
+
+## 6.21.4 - 2026-10-28
+
+- Move each alkali's rate matrices to a closed subsection at the end of its
+  Zeeman properties and populations section, retaining Show rate matrices.
+  Include the coupled A/B population Jacobian in that subsection.
+- Use native open-state gates and independent fragments for ACC results.
+  Closed sections skip plotting, table construction, exports and readout work;
+  closing all physics results defers equilibrium solving. Sidebar pump-rate
+  diagnostics remain available without solving the steady state.
+- Separate bounded caches for optical models, population equilibrium, shared
+  response modes and each species' atomic/optical readout. Probe edits no longer
+  invalidate equilibrium; atomic observables do not invalidate optical readouts.
+  Preserve shared RF dependencies, hidden controls, navigation and browser Save.
+- Preserve the physics equations, model identifier and ACC condition schema 6.15.
+- Validation: all 268 tests pass (259.115 seconds). A comparison with the original
+  committed solver matches 1,384 numeric fields exactly across single/dual
+  species and weak/physical-pump readouts. Browser checks verify the nested
+  closed matrix subsection and response-section toggles.
+
+## 6.21.3 - 2026-10-28
+
+- Let open magnetometry expanders use their natural content height, avoiding
+  stale animation sizing that can cut off scrolling to the optical response
+  when the atomic response is also open and other sections are collapsed.
+
+- Add an independent scan population axis before the signal checkboxes: x,
+  y, z, B direction, probe major and probe minor. Axis changes rotate the
+  cached stationary matrix without recalculating pumping or probe spectra.
+- Use the selected basis in population and density-matrix CSV exports, with
+  axis vectors and the Euler convention that fixes coherence phases.
+- Store independent A/B scan axes in Time evolution format 2.8, following
+  the current-format-only policy. The transient Zeeman selector is decoupled.
+- Validation: all 263 tests pass (203.699 seconds), including arbitrary-axis
+  matrix invariants, independent A/B fragments, cache reuse, selected-basis
+  exports, navigation and settings round trips.
+
+## 6.21.2 - 2026-10-28
+
+- Isolate each Time evolution result section in a native fragment. Opening or
+  collapsing only rebuilds that section; shared trajectories and bounded caches
+  avoid duplicate integrations. Keep navigation states, hidden axis settings,
+  manual Apply and browser-only Save synchronized. Shared display edits still
+  refresh dependent views. Saved condition formats and physics are unchanged.
+- Validation: 258 checks verified, including native A/B fragment isolation,
+  cached integration reuse, pending Apply, hidden axes, navigation and Save.
+
+- Halve the gap between the two steady-state population plots by reclaiming
+  20 pixels of hidden axis space, retaining equal plotting heights.
+
+- Equalize the two steady-state Zeeman population plotting heights by reserving
+  identical horizontal-axis space in both panels, keeping the total height fixed.
+
+- Let the three magnetic-field controls resize with the sidebar on both
+  analysis pages. Use the same responsive equal-column layout as the other
+  condition fields instead of forcing a minimum-width scrolling row.
+
 ## 6.21.1 - 2026-10-28
 
 - Add pump-on Zeeman population bars in the left 30% of the steady-state

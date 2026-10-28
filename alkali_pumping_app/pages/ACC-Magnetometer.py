@@ -1,6 +1,7 @@
 """ACC-Magnetometer analysis page for the Alkali Pumping application."""
 
-import json
+from hashlib import sha256
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,7 +18,11 @@ from alkali_pumping_app.ui.exports import (
 )
 from alkali_pumping_app.ui.population_plot import render_population_plot as _render_population_plot
 from alkali_pumping_app.ui.magnetic_field import render_field_controls
-from alkali_pumping_app.ui.page_state import register_persistent_page_settings
+from alkali_pumping_app.ui.page_state import register_persistent_page_settings, preserve_persistent_page_settings
+from alkali_pumping_app.physics.field_geometry import static_field_vector_nT
+from alkali_pumping_app.ui.magnetometry_cache import (
+    models_cached, equilibrium_cached, atomic_cached, optical_cached,
+)
 from alkali_pumping_app.ui.rf_display import (
     add_probe_decomposition_legend,
     prepare_weak_rf_plot_values,
@@ -36,7 +41,7 @@ from alkali_pumping_app.ui.text import (
     line_center_detuning_caption,
 )
 from alkali_pumping_app.ui.uploads import open_file_button
-from alkali_pumping_app.version import PHYSICS_MODEL_VERSION
+from alkali_pumping_app.version import CONDITION_SCHEMA_VERSION
 
 
 register_persistent_page_settings(
@@ -47,6 +52,9 @@ register_persistent_page_settings(
         "result_species_tab",
         "zeeman_visible_columns_A",
         "zeeman_visible_columns_B",
+        "acc_auto_update",
+        *(f"acc_{section}_open_{label}" for label in ("A", "B")
+          for section in ("zeeman", "atomic", "optical", "transitions", "rf_transitions", "rate_matrices")),
     )
 )
 
@@ -63,6 +71,12 @@ st.html(
             padding-left: 1rem;
             padding-right: 1rem;
         }
+    }
+    /* Open response sections must contribute their full content height to
+       page scrolling, even after neighboring expanders have collapsed. */
+    [data-testid="stExpander"] details[open] {
+        height: auto !important;
+        overflow: visible !important;
     }
     div[data-testid="stPopoverBody"]:has(.st-key-zeeman_column_options_A),
     div[data-testid="stPopoverBody"]:has(.st-key-zeeman_column_options_B) {
@@ -819,16 +833,13 @@ with st.sidebar:
         atom_A_name, atom_B_name, active_B, n2_coeffs_A, n2_coeffs_B
     )
 
-    st.header("Display")
-    show_rate_matrices = st.checkbox("Show rate matrices", key="show_rate_matrices")
-
     with condition_controls_placeholder.container():
         load_col, save_col, name_col = st.columns([0.20, 0.20, 0.60], gap="xsmall", vertical_alignment="bottom")
         with load_col:
             open_file_button(
                 type=["json"],
                 key="condition_file_uploader",
-                help="Load ACC condition files in the current v6.15 format. Older formats are unsupported.",
+                help=f"Load ACC condition files in the current v{CONDITION_SCHEMA_VERSION} format. Older formats are unsupported.",
                 on_change=load_condition_callback,
             )
         with save_col:
@@ -886,39 +897,6 @@ def _physical_beam_config(beam):
     }
 
 
-@st.cache_data(max_entries=24, show_spinner=False)
-def _compute_alkali_equilibrium_cached(
-    species_A_config, species_B_config, physical_beams, common,
-    physics_model_version=PHYSICS_MODEL_VERSION,
-):
-    # Include the scientific model in the cache key across application upgrades.
-    return compute_alkali_system(
-        species_A_config, species_B_config, physical_beams, common
-    )
-
-
-@st.cache_data(max_entries=48, show_spinner=False)
-def _compute_alkali_responses_cached(
-    equilibrium, response_A, response_B, common,
-    physics_model_version=PHYSICS_MODEL_VERSION,
-):
-    return compute_alkali_responses(equilibrium, response_A, response_B, common)
-
-response_A = {
-    "rf_axis": st.session_state["rf_axis_A"],
-    "rf_observable": st.session_state["rf_observable_A"],
-    "rf_frequencies_hz": rf_frequencies_A,
-    "probe": probe_A,
-}
-response_B = None
-if active_B:
-    response_B = {
-        "rf_axis": st.session_state["rf_axis_B"],
-        "rf_observable": st.session_state["rf_observable_B"],
-        "rf_frequencies_hz": rf_frequencies_B,
-        "probe": probe_B,
-    }
-
 species_A_config = {
     "label": "A",
     "atom_name": atom_A_name,
@@ -927,13 +905,6 @@ species_A_config = {
     "R_u": R_u_A,
     "n2_coeffs": n2_coeffs_A,
     "q_axis": q_axis_A,
-    # The equilibrium does not depend on RF scan settings or probe readout.
-    # Keep one placeholder response so the equilibrium builder can
-    # finalize its static diagnostics; actual responses are attached below.
-    "rf_axis": "x",
-    "rf_observable": "Fx",
-    "rf_frequencies_hz": np.array([0.0]),
-    "probe": probe_A,
 }
 species_B_config = None
 if active_B:
@@ -945,10 +916,6 @@ if active_B:
         "R_u": R_u_B,
         "n2_coeffs": n2_coeffs_B,
         "q_axis": q_axis_B,
-        "rf_axis": "x",
-        "rf_observable": "Fx",
-        "rf_frequencies_hz": np.array([0.0]),
-        "probe": probe_B,
     }
 common = {
     "temperature_C": temperature_C,
@@ -962,21 +929,77 @@ physical_beams = [
     for beam in all_beams
     if float(beam["intensity"]) > 0.0
 ]
-equilibrium = _compute_alkali_equilibrium_cached(
-    species_A_config, species_B_config, physical_beams, common,
-    physics_model_version=PHYSICS_MODEL_VERSION,
-)
-system = _compute_alkali_responses_cached(
-    equilibrium, response_A, response_B, common,
-    physics_model_version=PHYSICS_MODEL_VERSION,
-)
+# Execution preferences are session-local, as on the Time evolution page.
+st.session_state.setdefault("acc_auto_update", True)
+physical_signature = sha256(pickle.dumps(
+    (species_A_config, species_B_config, physical_beams, common)
+)).hexdigest()
+with st.bottom:
+    with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
+        auto_update = st.checkbox("Auto update", key="acc_auto_update", width="content")
+        apply_changes = st.button("Apply", key="acc_apply_conditions", disabled=auto_update, width="content")
+if auto_update or apply_changes:
+    st.session_state["acc_applied_physics"] = physical_signature
+physics_ready = st.session_state.get("acc_applied_physics") == physical_signature
+if not physics_ready:
+    st.info("Pending condition changes. Press Apply to update the opened sections.")
+
+# Sidebar pump rates use optical models without solving an equilibrium. Defer
+# even these models while manual physical-condition edits await Apply.
+models = (models_cached(species_A_config, species_B_config, physical_beams, common)
+          if physics_ready else None)
+system = None
+_page_rendering = True
+
+
+def _physics_view_ready():
+    if not physics_ready:
+        st.info("Press Apply to calculate this section for the current conditions.")
+    return physics_ready
+
+
+def _equilibrium_result():
+    global system
+    if system is None:
+        system = equilibrium_cached(models, common)
+    solve = system["solve"]
+    if not solve.get("converged", True):
+        st.warning(
+            "The nonlinear spin-exchange fixed-point iteration did not fully converge "
+            f"(residual={solve.get('residual', float('nan')):.3g})."
+        )
+    return system
+
+
+def _rf_configuration(label, *, atomic=False):
+    response = {
+        "rf_axis": st.session_state[f"rf_axis_{label}"],
+        "rf_frequencies_hz": _rf_frequency_samples(label),
+    }
+    if atomic:
+        response["rf_observable"] = st.session_state[f"rf_observable_{label}"]
+    return response
+
+
+def _begin_result_fragment():
+    # Full-page navigation cleanup does not run during a fragment interaction.
+    if not _page_rendering:
+        preserve_persistent_page_settings()
+        snapshot, _name = prepare_condition_download()
+        update_settings_download_snapshot("save_condition_button", snapshot)
 
 
 def _populate_rate_captions():
     for beam in (beam_A1, beam_A2, beam_A3, beam_B1, beam_B2, beam_B3):
         if not beam["active"]:
             continue
-        result = system[beam["target_label"]]
+        if models is None:
+            caption = "pump rate: pending Apply"
+            st.session_state[f"_pump_rate_caption_{beam['name'][4:]}"] = caption
+            if beam["rate_placeholder"] is not None:
+                beam["rate_placeholder"].caption(accent_caption(caption))
+            continue
+        result = models[beam["target_label"]]
         diagnostic = next(
             ((candidate, info) for candidate, info in result["diagnostics"] if candidate["name"] == beam["name"]),
             None,
@@ -1180,7 +1203,7 @@ def _add_rf_resonance_markers(axis, result, label):
                      linewidth=0.8, alpha=0.28)
 
 
-def _render_shared_rf_controls(result, label):
+def _render_shared_rf_controls(label):
     _compact_title(f"Alkali {label} field response")
     axis_col, lower_col, upper_col = st.columns(3, gap="xsmall")
     with axis_col:
@@ -1208,7 +1231,20 @@ def _render_shared_rf_controls(result, label):
             f"These RF-{label} settings are shared by the atomic-moment and Probe-{label} plots."
         )
     )
-    with st.expander("Zeeman transitions in RF sweep", expanded=False):
+    _render_rf_transition_section(label)
+
+
+@st.fragment
+def _render_rf_transition_section(label):
+    _begin_result_fragment()
+    section = st.expander("Zeeman transitions in RF sweep", expanded=False,
+                          key=f"acc_rf_transitions_open_{label}", on_change="rerun")
+    if not section.open:
+        return
+    with section:
+        if not _physics_view_ready():
+            return
+        result = _equilibrium_result()[label]
         resonances = _rf_resonances_in_sweep(result, label)
         if resonances.empty:
             st.caption("No finite adjacent-transition frequencies lie inside this sweep.")
@@ -1259,7 +1295,7 @@ def _render_rf(result, label):
             st.download_button(
                 "Download CSV", dataframe_to_csv_bytes(export),
                 file_name=f"{condition_save_name}_alkali-{label}_weak-rf.csv",
-                mime="text/csv; charset=utf-8", key=f"download_rf_{label}", width="content",
+                mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_rf_{label}", width="content",
             )
     with help_col:
         with st.popover("❓"):
@@ -1433,7 +1469,7 @@ def _render_probe_response(result, label):
                 dataframe_to_csv_bytes(export),
                 file_name=f"{condition_save_name}_probe-{label}-{signal}.csv",
                 mime="text/csv; charset=utf-8",
-                key=f"download_probe_{label}",
+                key=f"download_probe_{label}", on_click="ignore",
                 width="content",
             )
     with help_col:
@@ -1658,37 +1694,25 @@ def _matrix_dataframe(matrix, result, prefix=""):
     return pd.DataFrame(matrix, index=labels, columns=labels)
 
 
-def _render_species_result(result, label):
-    q_control, q_caption = st.columns([0.22, 0.78], gap="small")
-    with q_control:
-        q_axis_key = f"q_axis_{label}"
-        st.selectbox(
-            f"Alkali {label} quantization axis",
-            ["z", "x", "y"],
-            key=_prime_result_widget(q_axis_key),
-            on_change=_store_result_widget_value,
-            args=(q_axis_key,),
+@st.fragment
+def _render_zeeman_section(label, atom_name):
+    _begin_result_fragment()
+    section = st.expander(f"{atom_name} ground-state Zeeman properties and populations", expanded=True,
+                          key=f"acc_zeeman_open_{label}", on_change="rerun")
+    if not section.open:
+        return
+    with section:
+        if not _physics_view_ready():
+            return
+        result = _equilibrium_result()[label]
+        display_df = _zeeman_display_dataframe(result)
+        visible_columns_key = f"zeeman_visible_columns_{label}"
+        existing_visible_columns = st.session_state.get(
+            visible_columns_key, list(ZEEMAN_DEFAULT_VISIBLE_COLUMN_KEYS)
         )
-    with q_caption:
-        st.caption(
-            accent_caption(
-                f"Shared static field: {static_field_nT:g} nT, θ={static_field_theta_deg:d}°, φ={static_field_phi_deg:d}°; "
-                f"Alkali {label} upper-manifold Larmor frequency: "
-                f"{result['bias_larmor_hz']:.6g} Hz."
-            )
-        )
-    display_df = _zeeman_display_dataframe(result)
-    visible_columns_key = f"zeeman_visible_columns_{label}"
-    existing_visible_columns = st.session_state.get(
-        visible_columns_key, list(ZEEMAN_DEFAULT_VISIBLE_COLUMN_KEYS)
-    )
-    st.session_state[visible_columns_key] = [
-        key for key in ZEEMAN_OPTIONAL_COLUMN_KEYS if key in existing_visible_columns
-    ]
-    with st.expander(
-        f"{result['atom_name']} ground-state Zeeman properties and populations",
-        expanded=True,
-    ):
+        st.session_state[visible_columns_key] = [
+            key for key in ZEEMAN_OPTIONAL_COLUMN_KEYS if key in existing_visible_columns
+        ]
         left, right = st.columns([1, 3], gap="small")
         with left:
             _compact_title("Populations")
@@ -1719,7 +1743,7 @@ def _render_species_result(result, label):
                     st.download_button(
                         "Download CSV", dataframe_to_csv_bytes(display_df),
                         file_name=f"{condition_save_name}_alkali-{label}_zeeman.csv",
-                        mime="text/csv; charset=utf-8", key=f"download_zeeman_{label}", width="content",
+                        mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_zeeman_{label}", width="content",
                     )
             with help_col:
                 with st.popover("❓"):
@@ -1759,35 +1783,106 @@ $G_m$ and $\Gamma_m$ are the sums of all displayed population-loss and adjacent-
                 unsafe_allow_html=True,
             )
         _render_population_and_rate_summary(result)
-    _render_shared_rf_controls(result, label)
-    with st.expander(f"{result['atom_name']} atomic response", expanded=True):
-        _render_rf(result, label)
-    with st.expander(f"{result['atom_name']} optical response", expanded=True):
-        _render_probe_response(result, label)
-    with st.expander("Optical transition frequencies"):
-        transition_df = hyperfine_transition_table(
-            atom=result["atom"], n2_pressure_torr=n2_pressure_torr,
-            n2_coeffs=result["n2_coeffs"], allowed_only=True,
-            pump_beams=[
-                beam for beam in all_beams if beam["target_label"] == label
-            ],
-            temperature_C=temperature_C,
+        _render_rate_matrices(result, label)
+
+
+def _render_rate_matrices(result, label):
+    section = st.expander(f"Alkali {label} rate matrices", expanded=False,
+                          key=f"acc_rate_matrices_open_{label}", on_change="rerun")
+    if not section.open:
+        return
+    with section:
+        st.markdown("**Optical population generator**")
+        st.dataframe(_matrix_dataframe(result["L_optical"], result), width="stretch")
+        st.markdown("**Electron-randomization map**")
+        st.dataframe(_matrix_dataframe(result["M_ER"], result), width="stretch")
+        st.markdown("**Uniform-relaxation population generator (s⁻¹)**")
+        st.dataframe(_matrix_dataframe(result["L_uniform"], result), width="stretch")
+        st.markdown("**Self spin-exchange map**")
+        st.dataframe(_matrix_dataframe(result["self_map"], result), width="stretch")
+        st.markdown("**Cross spin-exchange map**")
+        st.dataframe(_matrix_dataframe(result["cross_map"], result), width="stretch")
+        st.markdown("**Local small-signal population Jacobian block**")
+        st.dataframe(_matrix_dataframe(result["J_population"], result), width="stretch")
+        if active_B:
+            equilibrium = _equilibrium_result()
+            st.markdown("**Coupled A/B population Jacobian**")
+            labels = [f"{species}:{state['label']}" for species in ("A", "B")
+                      for state in equilibrium[species]["ground_states"]]
+            st.dataframe(pd.DataFrame(equilibrium["J_coupled"], index=labels, columns=labels), width="stretch")
+            st.caption(accent_caption(
+                "Block order: J_AA, J_AB; J_BA, J_BB. "
+                "Off-diagonal blocks are cross-species spin-exchange feedback."
+            ))
+
+
+@st.fragment
+def _render_atomic_section(label, atom_name):
+    _begin_result_fragment()
+    section = st.expander(f"{atom_name} atomic response", expanded=True,
+                          key=f"acc_atomic_open_{label}", on_change="rerun")
+    if section.open:
+        with section:
+            if not _physics_view_ready():
+                return
+            result = atomic_cached(_equilibrium_result(), label, _rf_configuration(label, atomic=True), common)
+            _render_rf(result, label)
+
+
+@st.fragment
+def _render_optical_section(label, atom_name):
+    _begin_result_fragment()
+    section = st.expander(f"{atom_name} optical response", expanded=True,
+                          key=f"acc_optical_open_{label}", on_change="rerun")
+    if section.open:
+        with section:
+            if not _physics_view_ready():
+                return
+            probe = probe_A if label == "A" else probe_B
+            result = optical_cached(_equilibrium_result(), label, _rf_configuration(label), probe, common)
+            _render_probe_response(result, label)
+
+
+@st.fragment
+def _render_transition_section(label, atom_name):
+    _begin_result_fragment()
+    section = st.expander("Optical transition frequencies", expanded=False,
+                          key=f"acc_transitions_open_{label}", on_change="rerun")
+    if section.open:
+        with section:
+            if not _physics_view_ready():
+                return
+            transition_df = hyperfine_transition_table(
+                atom=ATOMS[atom_name], n2_pressure_torr=n2_pressure_torr,
+                n2_coeffs=n2_coeffs_A if label == "A" else n2_coeffs_B, allowed_only=True,
+                pump_beams=[beam for beam in all_beams if beam["target_label"] == label],
+                temperature_C=temperature_C,
+            )
+            st.markdown(render_transition_table_html(transition_df), unsafe_allow_html=True)
+
+
+def _render_species_result(label):
+    atom_name = atom_A_name if label == "A" else atom_B_name
+    q_control, q_caption = st.columns([0.22, 0.78], gap="small")
+    with q_control:
+        q_axis_key = f"q_axis_{label}"
+        st.selectbox(
+            f"Alkali {label} quantization axis", ["z", "x", "y"],
+            key=_prime_result_widget(q_axis_key), on_change=_store_result_widget_value,
+            args=(q_axis_key,),
         )
-        st.markdown(render_transition_table_html(transition_df), unsafe_allow_html=True)
-    if show_rate_matrices:
-        with st.expander(f"Alkali {label} rate matrices", expanded=False):
-            st.markdown("**Optical population generator**")
-            st.dataframe(_matrix_dataframe(result["L_optical"], result), width="stretch")
-            st.markdown("**Electron-randomization map**")
-            st.dataframe(_matrix_dataframe(result["M_ER"], result), width="stretch")
-            st.markdown("**Uniform-relaxation population generator (s⁻¹)**")
-            st.dataframe(_matrix_dataframe(result["L_uniform"], result), width="stretch")
-            st.markdown("**Self spin-exchange map**")
-            st.dataframe(_matrix_dataframe(result["self_map"], result), width="stretch")
-            st.markdown("**Cross spin-exchange map**")
-            st.dataframe(_matrix_dataframe(result["cross_map"], result), width="stretch")
-            st.markdown("**Local small-signal population Jacobian block**")
-            st.dataframe(_matrix_dataframe(result["J_population"], result), width="stretch")
+    with q_caption:
+        field_parallel = static_field_vector_nT(common)["xyz".index(st.session_state[q_axis_key])]
+        larmor_hz = upper_larmor_frequency_from_field_nT(atom_name, field_parallel)
+        st.caption(accent_caption(
+            f"Shared static field: {static_field_nT:g} nT, θ={static_field_theta_deg:d}°, φ={static_field_phi_deg:d}°; "
+            f"Alkali {label} upper-manifold Larmor frequency: {larmor_hz:.6g} Hz."
+        ))
+    _render_zeeman_section(label, atom_name)
+    _render_shared_rf_controls(label)
+    _render_atomic_section(label, atom_name)
+    _render_optical_section(label, atom_name)
+    _render_transition_section(label, atom_name)
 
 
 if active_B:
@@ -1801,29 +1896,11 @@ if active_B:
     )
     if result_tab_A.open:
         with result_tab_A:
-            _render_species_result(system["A"], "A")
+            _render_species_result("A")
     elif result_tab_B.open:
         with result_tab_B:
-            _render_species_result(system["B"], "B")
+            _render_species_result("B")
 else:
-    _render_species_result(system["A"], "A")
+    _render_species_result("A")
 
-if show_rate_matrices and active_B:
-    with st.expander("Coupled A/B population Jacobian", expanded=False):
-        labels_A = [f"A:{state['label']}" for state in system["A"]["ground_states"]]
-        labels_B = [f"B:{state['label']}" for state in system["B"]["ground_states"]]
-        labels = labels_A + labels_B
-        st.dataframe(pd.DataFrame(system["J_coupled"], index=labels, columns=labels), width="stretch")
-        st.caption(
-            accent_caption(
-                "Block order: J_AA, J_AB; J_BA, J_BB. "
-                "Off-diagonal blocks are cross-species spin-exchange feedback."
-            )
-        )
-
-solve = system["solve"]
-if not solve.get("converged", True):
-    st.warning(
-        f"The nonlinear spin-exchange fixed-point iteration did not fully converge "
-        f"(residual={solve.get('residual', float('nan')):.3g})."
-    )
+_page_rendering = False

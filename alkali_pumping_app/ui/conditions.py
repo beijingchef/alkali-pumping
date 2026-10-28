@@ -108,7 +108,6 @@ CONDITION_KEYS = (
     *PUMP_CONDITION_KEYS,
     *RF_CONDITION_KEYS,
     *PROBE_CONDITION_KEYS,
-    "show_rate_matrices",
 )
 
 DEFAULT_STARTUP_CONDITION = {
@@ -232,7 +231,6 @@ DEFAULT_STARTUP_CONDITION = {
     "probe_add_pi_in_phase_B": False,
     "probe_show_quadrature_B": False,
     "probe_add_pi_quadrature_B": False,
-    "show_rate_matrices": False,
 }
 
 
@@ -351,7 +349,7 @@ def load_condition_callback():
         payload = json.loads(uploaded.getvalue().decode("utf-8"))
         loaded_name = apply_loaded_condition_dict(payload)
         st.session_state["_condition_load_message"] = (
-            f"Loaded condition: {loaded_name}. Calculated with the two-manifold model."
+            f"Loaded condition: {loaded_name}."
         )
         st.session_state.pop("_condition_load_error", None)
     except Exception as exc:

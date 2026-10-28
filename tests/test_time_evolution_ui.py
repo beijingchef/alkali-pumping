@@ -227,6 +227,183 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertEqual(app.session_state['te_plotted_scan_signals_A'], [])
         self.assertFalse(app.checkbox(key='te_scan_option_A_Optical rotation').value)
 
+    def test_section_toggles_are_fragment_local_and_reuse_calculations(self):
+        import streamlit as st
+        from tests.streamlit_fragments import FragmentSession
+        with FragmentSession() as session:
+            app = self.app()
+            app.selectbox(key='te_atom_B_name').select('Rb85').run()
+            sections = ('zeeman_populations', 'atomic_moments', 'probe_signal', 'probe_scan')
+            for label in ('A', 'B'):
+                for section in sections:
+                    app.session_state[f'te_{section}_open_{label}'] = True
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(len(app.get('vega_lite_chart')), 20)
+            with ExitStack() as stack:
+                for target in ('alkali_pumping_app.ui.time_evolution_settings.render_sidebar',
+                               'alkali_pumping_app.physics.time_evolution.compute_density_evolution',
+                               'alkali_pumping_app.physics.probe_scan.pump_on_steady_state'):
+                    stack.enter_context(patch(target, side_effect=AssertionError('Unrelated page/solver reran')))
+                for label in ('A', 'B'):
+                    for section in sections:
+                        widget_key = f'te_{section}_open_{label}'
+                        count = 4 if section == 'probe_scan' else 2
+                        app.session_state[widget_key] = False
+                        with patch.object(st, 'altair_chart', wraps=st.altair_chart) as render:
+                            session.run(app, widget_key)
+                        self.assertFalse(app.exception)
+                        self.assertEqual(render.call_count, 0)
+                        self.assertEqual(len(app.get('vega_lite_chart')), 20-count)
+                        app.session_state[widget_key] = True
+                        with patch.object(st, 'altair_chart', wraps=st.altair_chart) as render:
+                            session.run(app, widget_key)
+                        self.assertFalse(app.exception)
+                        self.assertEqual(render.call_count, count)
+                        self.assertEqual(len(app.get('vega_lite_chart')), 20)
+
+    def test_fragment_edits_keep_hidden_axes_save_and_dependent_views_current(self):
+        from alkali_pumping_app.ui import downloads
+        from tests.streamlit_fragments import FragmentSession
+        with FragmentSession() as session:
+            app = self.app()
+            app.selectbox(key='te_atom_B_name').select('Rb85').run()
+            app.session_state['te_atomic_moments_open_B'] = True
+            app.session_state['te_probe_scan_open_A'] = True
+            app.run()
+            # The transient Zeeman axis no longer changes the scan populations.
+            app.selectbox(key='te_zeeman_axis_A').select('x')
+            session.run(app, 'te_zeeman_axis_A')
+            self.assertFalse(app.exception)
+            scan = next(x for x in app.main.tabs[0].expander if x.label == 'Steady-state probe signal scanning')
+            self.assertEqual(json.loads(scan.get('vega_lite_chart')[1].proto.spec)['encoding']['x']['axis']['title'], 'm along z')
+            # Shared moment selections must update B as well as A.
+            app.checkbox(key='te_moment_option_F_y').check()
+            session.run(app, 'te_moment_option_F_y')
+            self.assertFalse(app.exception)
+            for tab in app.main.tabs:
+                moment = next(x for x in tab.expander if x.label == 'Atomic moments')
+                self.assertIn('⟨F_y⟩', [json.loads(c.proto.spec)['description'] for c in moment.get('vega_lite_chart')])
+            app.selectbox(key='te_moment_axis_A').select('y')
+            session.run(app, 'te_moment_axis_A')
+            app.session_state['te_atomic_moments_open_A'] = False
+            session.run(app, 'te_atomic_moments_open_A')
+            app.session_state['te_atomic_moments_open_A'] = True
+            session.run(app, 'te_atomic_moments_open_A')
+            self.assertFalse(app.exception)
+            self.assertEqual(app.selectbox(key='te_moment_axis_A').value, 'y')
+            # Browser-only Save must get the committed display choice even
+            # though its sidebar button was not rerendered.
+            app.checkbox(key='te_scan_option_A_Ellipticity').check()
+            with patch.object(downloads.st, 'html', wraps=downloads.st.html) as html:
+                session.run(app, 'te_scan_option_A_Ellipticity')
+            self.assertFalse(app.exception)
+            updates = [c.args[0] for c in html.call_args_list if c.args and 'button.dataset.settingsSnapshot =' in str(c.args[0])]
+            self.assertEqual(len(updates), 1)
+            encoded = re.search(r'button.dataset.settingsSnapshot = "([^"]+)"', updates[0]).group(1)
+            saved = json.loads(base64.b64decode(encoded))['settings']
+            self.assertEqual(saved['plotted_scan_signals_A'], ['Optical rotation', 'Absorption', 'Ellipticity'])
+            self.assertEqual(saved['moment_axis_A'], 'y')
+            self.assertEqual(saved['zeeman_axis_A'], 'x')
+            app.switch_page('alkali_pumping_app/pages/atomic_properties.py').run()
+            app.switch_page(PAGE).run()
+            self.assertFalse(app.exception)
+            self.assertTrue(app.session_state['te_atomic_moments_open_A'])
+            self.assertTrue(app.checkbox(key='te_scan_option_A_Ellipticity').value)
+            self.assertEqual(app.selectbox(key='te_moment_axis_A').value, 'y')
+
+    def test_fragment_open_defers_new_physics_and_respects_pending_apply(self):
+        from alkali_pumping_app.physics import time_evolution as physics
+        from tests.streamlit_fragments import FragmentSession
+        with FragmentSession() as session:
+            app = self.app(open_moments=False, open_zeeman=False)
+            app.session_state['te_probe_signal_open_A'] = False
+            session.run(app, 'te_probe_signal_open_A')
+            with patch.object(physics, 'compute_density_evolution', side_effect=AssertionError('Closed sections integrated')):
+                app.number_input(key='te_gamma_ER_A').set_value(137.9).run()
+            self.assertFalse(app.exception)
+            app.session_state['te_zeeman_populations_open_A'] = True
+            with patch.object(physics, 'compute_density_evolution', wraps=physics.compute_density_evolution) as integrate:
+                session.run(app, 'te_zeeman_populations_open_A')
+            self.assertFalse(app.exception)
+            self.assertEqual(integrate.call_count, 1)
+            app.session_state['te_atomic_moments_open_A'] = True
+            with patch.object(physics, 'compute_density_evolution', side_effect=AssertionError('Shared trajectory integrated twice')):
+                session.run(app, 'te_atomic_moments_open_A')
+            self.assertFalse(app.exception)
+            app.checkbox(key='te_auto_update').uncheck().run()
+            with patch.object(physics, 'compute_density_evolution', side_effect=AssertionError('Pending conditions integrated')):
+                app.number_input(key='te_gamma_ER_A').set_value(138.9).run()
+                app.session_state['te_probe_signal_open_A'] = True
+                session.run(app, 'te_probe_signal_open_A')
+            self.assertFalse(app.exception)
+            self.assertEqual(len(app.get('vega_lite_chart')), 0)
+            self.assertTrue(any('Press Apply' in item.value for item in app.info))
+            with patch.object(physics, 'compute_density_evolution', wraps=physics.compute_density_evolution) as integrate:
+                app.button(key='te_apply_conditions').click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(integrate.call_count, 1)
+            self.assertEqual(len(app.get('vega_lite_chart')), 6)
+
+    def test_independent_scan_axes_rerun_only_scan_and_export_selected_basis(self):
+        import streamlit as st
+        import pandas as pd
+        serialize = pd.DataFrame.to_csv
+        from alkali_pumping_app.physics.scan_basis import SCAN_POPULATION_AXES
+        from tests.streamlit_fragments import FragmentSession
+        with FragmentSession() as session:
+            app = self.app(open_moments=False, open_zeeman=False)
+            app.selectbox(key='te_atom_B_name').select('Rb85').run()
+            for label, transient_axis in (('A', 'y'), ('B', 'x')):
+                app.session_state[f'te_probe_signal_open_{label}'] = False
+                app.session_state[f'te_probe_scan_open_{label}'] = True
+                app.session_state[f'te_zeeman_axis_{label}'] = transient_axis
+            for name, value in (('static_field_theta_deg',53), ('static_field_phi_deg',127),
+                                ('static_field_nT',-.05), ('probe_azimuth_deg_A',31.), ('probe_azimuth_deg_B',-23.)):
+                app.number_input(key='te_'+name).set_value(value)
+            app.run()
+            self.assertFalse(app.exception)
+            self.assertEqual(len(app.get('vega_lite_chart')),8)
+            with ExitStack() as stack:
+                for target in ('alkali_pumping_app.ui.time_evolution_settings.render_sidebar',
+                               'alkali_pumping_app.physics.time_evolution.compute_density_evolution',
+                               'alkali_pumping_app.physics.probe_scan.pump_on_steady_state',
+                               'alkali_pumping_app.physics.optical_readout.density_probe_spectrum'):
+                    stack.enter_context(patch(target, side_effect=AssertionError('Display axis recalculated unrelated work')))
+                for label in ('A','B'):
+                    axis_key = f'te_probe_scan_axis_{label}'
+                    self.assertEqual(app.selectbox(key=axis_key).options, list(SCAN_POPULATION_AXES))
+                    other = 'B' if label=='A' else 'A'
+                    other_axis = app.session_state[f'te_probe_scan_axis_{other}']
+                    for axis in SCAN_POPULATION_AXES:
+                        app.selectbox(key=axis_key).select(axis)
+                        with patch.object(pd.DataFrame, 'to_csv', autospec=True, side_effect=serialize) as csv:
+                            with patch.object(st, 'altair_chart', wraps=st.altair_chart) as render:
+                                session.run(app, axis_key)
+                        self.assertFalse(app.exception)
+                        self.assertEqual(render.call_count,4)
+                        self.assertEqual(app.session_state[f'te_probe_scan_axis_{other}'],other_axis)
+                        self.assertEqual(app.session_state['te_zeeman_axis_A'],'y')
+                        self.assertEqual(app.session_state['te_zeeman_axis_B'],'x')
+                        matrix = next(c.args[0] for c in csv.call_args_list if 'rho_real' in c.args[0])
+                        spectrum = next(c.args[0] for c in csv.call_args_list if 'detuning_MHz' in c.args[0])
+                        self.assertEqual(set(matrix.quantization_axis),{axis})
+                        self.assertEqual(set(spectrum.population_quantization_axis),{axis})
+                        diagonal = matrix[matrix.row_index==matrix.column_index]
+                        self.assertAlmostEqual(diagonal.rho_real.sum(),1.)
+                        for row in diagonal.itertuples():
+                            self.assertAlmostEqual(spectrum[f'population_F{row.row_F:g}_m{row.row_m:g}'].iloc[0],row.rho_real)
+            app.session_state['te_probe_scan_open_A'] = False
+            session.run(app,'te_probe_scan_open_A')
+            app.session_state['te_probe_scan_open_A'] = True
+            session.run(app,'te_probe_scan_open_A')
+            self.assertEqual(app.selectbox(key='te_probe_scan_axis_A').value,'probe minor')
+            app.switch_page('alkali_pumping_app/pages/atomic_properties.py').run()
+            app.switch_page(PAGE).run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.selectbox(key='te_probe_scan_axis_A').value,'probe minor')
+            self.assertEqual(app.selectbox(key='te_probe_scan_axis_B').value,'probe minor')
+
     def test_section_open_states_survive_navigation_for_both_species(self):
         app = self.app(open_moments=False, open_zeeman=False)
         app.selectbox(key='te_atom_B_name').select('Rb85').run()

@@ -7,12 +7,13 @@ from .conditions import DEFAULT_STARTUP_CONDITION, PUMP_CONDITION_KEYS, clean_co
 from .magnetic_field import validate_field_conditions
 from .probe_presets import PROBE_PRESET_SOURCES
 from ..physics.constants import ATOMS
+from ..physics.scan_basis import SCAN_POPULATION_AXES
 from ..physics.polarization import allowed_polarizations
 from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.7"
+SCHEMA_VERSION = "2.8"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
@@ -40,7 +41,7 @@ for _label in ("A", "B"):
     _upper_F = float(_atom["I"]) + 0.5
     _lower_F = _upper_F - 1
     DEFAULTS.update({
-        f"zeeman_axis_{_label}": "z", f"moment_axis_{_label}": "z",
+        f"zeeman_axis_{_label}": "z", f"moment_axis_{_label}": "z", f"probe_scan_axis_{_label}": "z",
         f"plotted_probe_signals_{_label}": ["Absorption", "Optical rotation"],
         f"plotted_scan_signals_{_label}": ["Optical rotation", "Absorption"],
         f"probe_scan_min_MHz_{_label}": -7000.0, f"probe_scan_max_MHz_{_label}": 7000.0,
@@ -90,6 +91,7 @@ def validate_settings(values):
     for label in ("A", "B"):
         choices[f"zeeman_axis_{label}"] = ["x", "y", "z"]
         choices[f"moment_axis_{label}"] = ["x", "y", "z"]
+        choices[f"probe_scan_axis_{label}"] = SCAN_POPULATION_AXES
         for number in (1, 2, 3):
             prefix = f"{label}{number}"
             choices[f"line_{prefix}"] = ["D1", "D2"]

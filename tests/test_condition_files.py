@@ -40,18 +40,20 @@ class ConditionFileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "static_field_nT"):
                 conditions.apply_loaded_condition_dict(payload)
 
-    def test_condition_schema_is_v615(self):
-        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.15")
-        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.15")
+    def test_condition_schema_is_v616(self):
+        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.16")
+        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.16")
 
     def test_payload_has_current_shape(self):
         payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
         self.assertEqual(payload["app"], "alkali_pumping")
         self.assertEqual(payload["format"], "alkali_pumping_conditions")
-        self.assertEqual(payload["version"], "6.15")
+        self.assertEqual(payload["version"], "6.16")
         self.assertEqual(set(payload["conditions"]), set(conditions.CONDITION_KEYS))
         self.assertNotIn("include_spin_exchange", payload["conditions"])
         self.assertNotIn("show_allowed_only", payload["conditions"])
+        self.assertNotIn("show_rate_matrices", payload["conditions"])
+        self.assertNotIn("acc_auto_update", payload["conditions"])
 
     def test_default_atoms_and_pump_intensities(self):
         defaults = conditions.DEFAULT_STARTUP_CONDITION
@@ -94,7 +96,7 @@ class ConditionFileTests(unittest.TestCase):
         }
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(
-                ValueError, "expected 6.15"
+                ValueError, "expected 6.16"
             ):
                 conditions.apply_loaded_condition_dict(payload)
 
@@ -110,6 +112,30 @@ class ConditionFileTests(unittest.TestCase):
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(ValueError, "rf_axis_A"):
                 conditions.apply_loaded_condition_dict(payload)
+
+    def test_previous_matrix_visibility_format_is_rejected_without_partial_load(self):
+        payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
+        payload["version"] = "6.15"
+        payload["conditions"]["show_rate_matrices"] = True
+        state = {"condition_name": "unchanged", "acc_auto_update": False}
+        with patch.object(conditions.st, "session_state", state):
+            with self.assertRaisesRegex(ValueError, "expected 6.16"):
+                conditions.apply_loaded_condition_dict(payload)
+        self.assertEqual(state, {"condition_name": "unchanged", "acc_auto_update": False})
+
+    def test_obsolete_visibility_is_rejected_and_loading_keeps_execution_preference(self):
+        payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
+        payload["conditions"]["show_rate_matrices"] = False
+        state = {"acc_auto_update": False, "acc_applied_physics": "previous"}
+        with patch.object(conditions.st, "session_state", state):
+            with self.assertRaisesRegex(ValueError, "show_rate_matrices"):
+                conditions.apply_loaded_condition_dict(payload)
+            self.assertEqual(state, {"acc_auto_update": False, "acc_applied_physics": "previous"})
+            del payload["conditions"]["show_rate_matrices"]
+            conditions.apply_loaded_condition_dict(payload)
+        self.assertFalse(state["acc_auto_update"])
+        self.assertEqual(state["acc_applied_physics"], "previous")
+
 
 if __name__ == "__main__":
     unittest.main()

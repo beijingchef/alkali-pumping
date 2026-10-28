@@ -39,6 +39,27 @@ and total/rank/manifold optical readouts use the same resolvent.
 population equilibrium. Display manifold choices do not enter the RF source
 or equilibrium configuration.
 
+The ACC UI separately caches prepared optical population models, the equilibrium,
+shared response modes, and each species' atomic or optical readout. Probe
+configuration does not enter the model/equilibrium keys; the atomic observable
+does not enter the optical readout key. The combined public calculation API
+continues to return both readouts using the same equations.
+
+Native result fragments check their expander's open state before requesting
+an equilibrium or readout, constructing tables, plotting or exporting CSVs.
+Only open physics views request an equilibrium; sidebar pump-rate captions use
+the prepared optical models directly. The nested rate-matrices view merely
+formats matrices needed by the solver, and does so only while open. Closing
+that view does not remove matrices needed by another open result section.
+
+The ACC bottom toolbar tracks a signature of the atom/cell, active physical
+pumps and calculation axes. Auto update or Apply commits that signature; manual
+pending changes defer optical model construction as well as equilibrium and
+response evaluation. Open fragments hide pending results and exports. Readout
+and display choices do not change this physical signature. Applying with all
+physics views closed prepares sidebar pump-rate diagnostics without solving
+the equilibrium. ACC and Time evolution keep independent execution preferences.
+
 ## Physical-pump readout {#physical-pump-data-flow}
 
 If the selected probe mode is physical, `apply_physical_pump_readout` stores the direct response as `probe_weak_response`, constructs dispersive and dissipative Stokes sources, evaluates their generalized Liouvillian responses, and applies the [uniform feedback closure](../theory/uniform-density-matrix-feedback.qmd#feedback-closure).

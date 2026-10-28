@@ -270,11 +270,11 @@ Save does not apply conditions waiting for Apply. Open validates a selected file
 before applying its settings.
 
 Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
-version **2.7**, with the coherent model identifier. Only this version is supported; older files are rejected
+version **2.8**, with the coherent model identifier. Only this version is supported; older files are rejected
 without migration. Every current field is required, and unknown fields are
 rejected. No omitted settings are filled from defaults. Times must satisfy
 $0\le t_1\le t_2\le30$ s with $t_2\ge0.001$ s. Invalid values and ACC condition files are rejected
-before state changes. The ACC condition schema is **6.15**.
+before state changes. The ACC condition schema is **6.16**.
 
 Pump and probe F→F′ menus always show only allowed hyperfine transitions.
 The former checkbox and saved `show_allowed_only` field are removed. Selecting
@@ -319,10 +319,23 @@ Magnetic dynamics uses the linear Zeeman Hamiltonian rather than Breit–Rabi mi
 The **Zeeman populations** title row in **Steady-state probe signal scanning**
 includes a density-matrix CSV download. It contains every matrix element,
 including zero entries and both real and imaginary parts. Row and column
-indices and F,m labels identify the stored lab-z basis; probabilities are
-normalized per total atom. The selected display axis does not change this
-stored-basis export. The download reuses the converged steady state.
+indices, F,m labels and the axis unit vector identify the selected scan basis; probabilities are
+normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention. The download reuses the converged steady state.
 
 Small ticks beneath the probe-scan detuning slider track mark all allowed
 hyperfine transition centers within its full +/-10000 MHz domain. They include
 the current pressure shift and use the same centers as the signal plots.
+
+Opening or closing a result section updates only that section. Other open
+sections remain in place. Calculations are shared through the existing caches;
+physical-condition edits and Apply refresh the open sections as before. Shared
+display choices still refresh the views that depend on them.
+
+The scan's **Axis** selector is to the left of its signal checkboxes and is
+independent of the time-domain Zeeman selector. Choose x, y, z, B direction,
+probe major or probe minor. Each species starts at z. B direction follows the
+signed field; at zero field it uses the configured angles. Probe major/minor
+follow the input ellipse azimuth, including reference axes for circular input.
+Both population CSV values and the complete density-matrix download follow
+this selection and include basis metadata. Axis changes reuse the cached
+steady state and do not change the optical signals.

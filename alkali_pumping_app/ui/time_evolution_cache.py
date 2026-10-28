@@ -88,3 +88,10 @@ def probe_cached(species, probe, cell, coefficients,
         temperature_C=cell['temperature_C'], n2_width_MHz_per_torr=coefficients[line]['width'],
         n2_shift_MHz_per_torr=coefficients[line]['shift'],
     )
+
+
+@st.cache_data(max_entries=4, show_spinner=False)
+def scan_display_cached(species, axis, direction):
+    """Cache only a single stationary matrix per display basis, never a trajectory."""
+    from ..physics.scan_basis import scan_population_view
+    return scan_population_view(species, axis, direction)

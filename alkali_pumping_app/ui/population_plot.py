@@ -15,6 +15,11 @@ def render_population_plot(result, *, figure_width=4.6, height=None, bar_width=.
         limit = max(.01, 1.08*float(np.max(population)))
         # Separate native chart viewports include their axes in the height;
         # concatenated Vega views otherwise add axes outside the stated height.
+        upper_panel_key = f"population_upper_{result['atom_name']}"
+        # Reclaim half of the upper panel's hidden x-axis space (~40 px).
+        # The overlap stays inside that blank space; both chart viewports
+        # retain the same plotting height.
+        st.html(f"<style>.st-key-{upper_panel_key} {{ margin-bottom: -20px; }}</style>")
         with st.container(gap=None):
             for index, (F, m_values, manifold_population) in enumerate(groups):
                 last = index == len(groups)-1
@@ -25,15 +30,22 @@ def render_population_plot(result, *, figure_width=4.6, height=None, bar_width=.
                 ).encode(
                     x=alt.X('left:Q', scale=alt.Scale(domain=[common_m_values[0]-max(.6, bar_width/2),
                                                              common_m_values[-1]+max(.6, bar_width/2)]),
-                            axis=alt.Axis(values=list(common_m_values), labels=last, ticks=last, grid=False,
-                                          title=f"m along {result['q_axis']}" if last else None)),
+                            # Reserve identical axis space in both panels. Opacity
+                            # hides the upper labels without changing plot height.
+                            axis=alt.Axis(values=list(common_m_values), labels=True, ticks=True, grid=False,
+                                          labelOpacity=int(last), tickOpacity=int(last), titleOpacity=int(last),
+                                          title=f"m along {result['q_axis']}")),
                     x2=alt.X2('right:Q'),
                     y=alt.Y('population:Q', title=f'F={F:g}', scale=alt.Scale(domain=[0, limit]),
                             axis=alt.Axis(tickCount=3, grid=False)),
                     y2=alt.datum(0),
                     tooltip=[alt.Tooltip('m:Q'), alt.Tooltip('population:Q', format='.6g')],
                 ).properties(height=height/len(groups), description=f'Steady-state populations F={F:g}')
-                st.altair_chart(chart, width='stretch', height=int(height/len(groups)))
+                if index == 0:
+                    with st.container(key=upper_panel_key):
+                        st.altair_chart(chart, width='stretch', height=int(height/len(groups)))
+                else:
+                    st.altair_chart(chart, width='stretch', height=int(height/len(groups)))
         return
     fig, axes = plt.subplots(len(groups), 1, figsize=(figure_width, 4.5), sharex=True, sharey=True)
     axes = np.atleast_1d(axes)

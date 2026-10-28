@@ -12,7 +12,7 @@ from ..physics.spectroscopy import (
     line_center_frequency_MHz, relative_hyperfine_transition_label, transition_choice_labels,
 )
 from ..physics.system_model import resolve_alkali_densities
-from .downloads import save_button_with_immediate_download
+from .downloads import save_button_with_immediate_download, update_settings_download_snapshot
 from .page_state import register_persistent_page_settings
 from .magnetic_field import render_field_controls
 from .probe_presets import PROBE_PRESET_SOURCES, probe_preset_settings
@@ -41,6 +41,12 @@ def settings_values():
 def _prepare_settings_download():
     payload = build_settings_payload(settings_values())
     return json.dumps(payload, indent=2), payload["settings"]["condition_name"] + ".json"
+
+
+def refresh_settings_download():
+    """Keep browser-only Save current after a display-section fragment event."""
+    snapshot, _ = _prepare_settings_download()
+    update_settings_download_snapshot(key("save"), snapshot)
 
 
 def _clamp_switch_time():

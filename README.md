@@ -1,4 +1,4 @@
-# Alkali Pumping v6.21.1
+# Alkali Pumping v6.21.5
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -16,7 +16,21 @@ five workflows:
   magnetometer with dual-alkali population and Zeeman diagnostics, independent
   RF-A/RF-B drives, atomic-moment susceptibilities, and independent weak or
   physical Pump-A/Pump-B Stokes readouts. Its Zeeman tables have per-species
-  column selectors while retaining complete CSV exports.
+  column selectors while retaining complete CSV exports. Rate matrices are a
+  closed subsection at the end of each Zeeman section; the coupled A/B
+  Jacobian appears there too. The former sidebar Display controls are removed.
+  Closed result sections skip plots, tables, downloads, and their response calculations. Section-local
+  controls rerun only their section. Shared RF inputs still refresh both atomic
+  and optical responses. Weak-probe edits reuse the population equilibrium;
+  atomic observable changes reuse the shared dynamics and leave optical readout
+  cached. With all physics result sections closed, equilibrium solving is deferred;
+  sidebar pump-rate diagnostics remain available. A pinned bottom toolbar has
+  **Auto update** (initially checked) and **Apply**. Uncheck Auto update to batch
+  physical-condition edits, then press Apply. Pending results and downloads are
+  hidden, and optical models/pump-rate diagnostics also wait for Apply.
+  Readout/display edits reuse the applied physical state. Execution preferences
+  are independent of Time evolution and excluded from saved conditions.
+  Physics is unchanged; current-only ACC format 6.16 removes `show_rate_matrices`.
 - **Analysis → Time evolution** independently configures the same atoms, cell,
   pumps, and weak probes. Initially unpolarized ground-state populations evolve
   with all pumps on from zero to the turn-off slider `t₁`, then relax with the
@@ -30,6 +44,8 @@ five workflows:
   restarts that interval with BDF. The steady-state probe scan retains BDF.
   Both solvers reuse prepared constant matrices and collision maps; BDF uses
   an analytic Jacobian, including self and cross spin exchange.
+  The three magnetic-field inputs share equal sidebar columns and resize with
+  the sidebar using the same native layout as other condition fields.
   Each alkali has independent Zeeman-population and atomic-moment display axes,
   which can differ from the magnetic-field axis. The compact Zeeman **Axis**
   selector sits in its section's top row, with its label on the left. Axis
@@ -121,11 +137,16 @@ five workflows:
   optical rotation and absorption start checked. Each species' selection and
   plot order persist through navigation and saved settings. Scan CSVs include
   the selected signals; clearing all signals retains population bars and exports.
+  Each section runs in its own native fragment: opening or collapsing it
+  rebuilds only that section, reusing shared cached calculations. Physical
+  sidebar changes still refresh the open sections; shared moment choices
+  refresh dependent views. Zeeman axes are section-specific, and browser-only
+  Save stays current.
   Each section remembers its open or closed state across page navigation,
   independently for Alkali A and B.
   Scan CSVs include these populations and their quantization axis. The Zeeman
   populations title row also downloads the entire steady-state density matrix
-  as a CSV with all real/imaginary elements and lab-z basis labels.
+  as a CSV with all real/imaginary elements and selected scan basis labels.
   A two-handle detuning range slider above the signals defaults to ±7000 MHz relative to the
   zero-pressure D-line center, adjustable within ±10000 MHz. Its label appears
   on one line to the left of the slider, whose length is now doubled. Help sits immediately left of
@@ -285,8 +306,8 @@ Both analysis pages always list allowed hyperfine reference transitions;
 the former checkbox and saved `show_allowed_only` field have been removed.
 The selected reference defines detuning; calculations still include all
 relevant allowed transitions, including off-resonant contributions.
-ACC writes and loads condition schema **6.15**. Time evolution writes and
-loads its independent settings schema **2.7** and coherent-model identifier. Time evolution requires every
+ACC writes and loads condition schema **6.16**. Time evolution writes and
+loads its independent settings schema **2.8** and coherent-model identifier. Time evolution requires every
 current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
 (with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
 for previous configurations. Older analysis condition
@@ -357,3 +378,8 @@ python -m unittest discover -s tests -v
 Small ticks beneath the probe-scan detuning slider track mark all allowed
 hyperfine transition centers within its full +/-10000 MHz domain. They include
 the current pressure shift and use the same centers as the signal plots.
+
+The steady-state probe scan has an independent **Axis** selector before its
+signal checkboxes: x, y, z, B direction, probe major and probe minor. It defaults
+to z independently for each species. Changing it rotates the displayed populations
+and density-matrix download, reusing cached pumping and signal calculations.

@@ -15,7 +15,7 @@ def validate_field_conditions(values):
 
 
 def render_field_controls(prefix=''):
-    columns = st.columns([1, 1, 1], gap='xsmall', wrap=False, width='stretch')
+    columns = st.columns(3, gap='xsmall')
     with columns[0]:
         theta = st.number_input(r'$\theta_{\mathbf{B}}$ (°)', min_value=0, max_value=180, step=1, format='%d',
                                 key=prefix+'static_field_theta_deg', width='stretch', help='Polar angle from laboratory +z.')

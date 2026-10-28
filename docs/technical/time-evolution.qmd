@@ -251,6 +251,10 @@ Each scan population bar spans 1/1.3 magnetic-quantum-number units, giving gaps
 30% of the bar width, versus ACC's unchanged 0.72-unit bars;
 both renderers put F on the vertical axis and omit gridlines. Two native
 169-pixel chart viewports with no intervening gap give 338 pixels in total.
+Both reserve identical horizontal-axis space; the upper axis labels and title
+are transparent so the two plotting areas have equal heights. The upper
+panel has a -20-pixel bottom margin to halve the visible gap; this overlap
+uses only hidden axis space and reduces the stack footprint by 20 pixels.
 The CSV repeats these steady populations as `population_F*_m*` columns and
 identifies their quantization axis, alongside both field angles in degrees.
 
@@ -276,16 +280,58 @@ Independent `plotted_probe_signals_A/B` lists select time-domain probe curves
 and exported columns, defaulting to Absorption and Optical rotation. The
 frequency scan has its own independent selections and defaults.
 
-Settings format 2.7 and the v3 coherent model identifier are both required.
+Settings format 2.8 and the v3 coherent model identifier are both required.
 Earlier settings are rejected without migration, as requested by the user.
 
 The **Zeeman populations** title row in **Steady-state probe signal scanning**
 includes a density-matrix CSV download. It contains every matrix element,
 including zero entries and both real and imaginary parts. Row and column
-indices and F,m labels identify the stored lab-z basis; probabilities are
-normalized per total atom. The selected display axis does not change this
-stored-basis export. The download reuses the converged steady state.
+indices, F,m labels and the axis unit vector identify the selected scan basis; probabilities are
+normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention. The download reuses the converged steady state.
 
 Small ticks beneath the probe-scan detuning slider track mark all allowed
 hyperfine transition centers within its full +/-10000 MHz domain. They include
 the current pressure shift and use the same centers as the signal plots.
+
+## Section fragments
+
+Each A/B result section creates its expander inside its own `st.fragment`.
+Opening or collapsing it therefore reruns that fragment, including its open
+state gate, without rebuilding the sidebar or unrelated plots. A closed section
+returns before reading calculation caches or preparing charts and exports.
+Transient sections share one lazily retrieved trajectory for the current page
+conditions; a physical sidebar change starts a new page render and invalidates
+that local reference. The bounded calculation caches continue to match inputs.
+Manual Apply gates are also checked inside every section fragment.
+
+Fragment reruns preserve registered settings before any widgets can disappear,
+so closing a section retains its axis choices. They refresh the existing
+browser-only Save snapshot using the same helper as ACC pump fragments.
+Shared moment selections request a full display refresh
+because they affect other views; opening and collapsing never request one.
+Native fragment-request regression tests retain the runner's fragment storage
+and message queue, checking actual partial reruns rather than simulated full
+page reruns. They cover both species, cache reuse, navigation, Save and Apply.
+
+## Independent scan population basis
+
+The scan selector precedes its signal checkboxes and has independent A/B
+settings `probe_scan_axis_A/B`, default z. Choices are x, y, z, B direction,
+probe major and probe minor. The transient Zeeman axis never enters this view.
+B direction follows the signed physical field. At zero field, the configured
+spherical direction remains the reference. For local transverse unit vectors
+$a,b$ and input azimuth $\psi$, probe major is
+$\cos\psi\,a+\sin\psi\,b$ and probe minor is
+$-\sin\psi\,a+\cos\psi\,b$. Their cross product is the probe propagation
+direction. These input axes are independent of helicity; circular polarization
+uses the azimuth reference axes because no unique major/minor geometry exists.
+
+Only the stationary display matrix is rotated. For direction $(\theta,\phi)$,
+$U=\exp(-i\phi F_z)\exp(-i\theta F_y)$ and
+$\rho_q=U^\dagger\rho_{\rm lab}U$, using dimensionless spin matrices.
+The Euler convention fixes otherwise arbitrary coherence phases. Population
+and full-matrix CSVs record the selected axis, its laboratory unit vector,
+Euler angles and basis convention. The internal state and Jones spectra remain
+in lab-z. The four-entry display cache holds only small stationary matrices.
+Saved condition format 2.8 requires both new fields; older files are rejected
+under the current-format-only policy.

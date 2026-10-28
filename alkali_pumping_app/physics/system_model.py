@@ -287,39 +287,8 @@ def _finalize_species(
     df = add_adjacent_optical_relaxation_columns(df)
     df = add_total_relaxation_columns(df)
 
-    probe = model.get("probe", {
-        "line": "D1",
-        "detuning_MHz": 1000.0,
-        "k_axis": "x",
-        "azimuth_deg": 45.0,
-        "ellipticity_deg": 0.0,
-        "path_length_cm": 1.0,
-        "include_scalar": False,
-        "include_orientation": True,
-        "include_alignment": True,
-    })
-    probe_operators, probe_info = weak_probe_readout_operators(
-        atom=atom,
-        ground_states=states,
-        q_axis=model["q_axis"],
-        line=probe["line"],
-        detuning_MHz=probe["detuning_MHz"],
-        k_axis=probe["k_axis"],
-        azimuth_deg=probe["azimuth_deg"],
-        ellipticity_deg=probe["ellipticity_deg"],
-        path_length_cm=probe["path_length_cm"],
-        density_cm3=model["density_cm3"],
-        n2_pressure_torr=common["n2_pressure_torr"],
-        temperature_C=common["temperature_C"],
-        n2_width_MHz_per_torr=model["n2_coeffs"][probe["line"]]["width"],
-        n2_shift_MHz_per_torr=model["n2_coeffs"][probe["line"]]["shift"],
-        include_scalar=probe["include_scalar"],
-        include_orientation=probe["include_orientation"],
-        include_alignment=probe["include_alignment"],
-    )
-
     upper_F = max(float(state["F"]) for state in states)
-    frequencies = model["rf_frequencies_hz"]
+    frequencies = model.get("rf_frequencies_hz", np.array([0.0]))
 
     df_F = population_by_F(df)
     df["hyperfine_population"] = np.nan
@@ -348,8 +317,6 @@ def _finalize_species(
         "df_F": df_F,
         "rf_upper_F": upper_F,
         "rf_frequencies_hz": frequencies,
-        "probe_readout_operators": probe_operators,
-        "probe_info": probe_info,
         "rf_relaxation_reference": largest_abs_Dm_relaxation_reference(
             df, target_F="all"
         ),
@@ -359,6 +326,19 @@ def _finalize_species(
 
 def compute_alkali_system(species_A_config, species_B_config, all_beams, common):
     """Compute one active alkali or a coupled A/B system."""
+    equilibrium = compute_alkali_equilibrium(
+        species_A_config, species_B_config, all_beams, common
+    )
+    for config in (species_A_config, species_B_config):
+        if config is not None:
+            result = equilibrium[config["label"]]
+            _attach_local_response(result, dict(probe=config.get("probe", _default_probe())), common)
+    _evaluate_system_responses(equilibrium["A"], equilibrium["B"], common, equilibrium["J_coupled"])
+    return equilibrium
+
+
+def compute_alkali_equilibrium(species_A_config, species_B_config, all_beams, common):
+    """Solve populations and static diagnostics without RF or optical readouts."""
     model_A = build_species_linear_model(species_A_config, all_beams, common)
     model_B = (
         build_species_linear_model(species_B_config, all_beams, common)
@@ -366,6 +346,12 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
         else None
     )
 
+    return solve_alkali_equilibrium(model_A, model_B, common)
+
+
+def solve_alkali_equilibrium(model_A, model_B, common):
+    """Solve prepared population models; preserve them for later cached reuse."""
+    model_A, model_B = deepcopy(model_A), deepcopy(model_B)
     if model_B is None:
         R_self = model_A["R_SE_self"]
         if R_self > 0.0:
@@ -403,7 +389,6 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
             J_A,
             common,
         )
-        _evaluate_system_responses(result_A, None, common, J_A)
         return {"A": result_A, "B": None, "J_coupled": J_A, "solve": solve}
 
     cross_A_info = cross_spin_exchange_rate_info(
@@ -470,13 +455,20 @@ def compute_alkali_system(species_A_config, species_B_config, all_beams, common)
     )
     result_A["cross_rate_info"] = cross_A_info
     result_B["cross_rate_info"] = cross_B_info
-    _evaluate_system_responses(result_A, result_B, common, full_J)
     return {
         "A": result_A,
         "B": result_B,
         "J_coupled": full_J,
         "J_blocks": blocks,
         "solve": solve,
+    }
+
+
+def _default_probe():
+    return {
+        "line": "D1", "detuning_MHz": 1000.0, "k_axis": "x",
+        "azimuth_deg": 45.0, "ellipticity_deg": 0.0, "path_length_cm": 1.0,
+        "include_scalar": False, "include_orientation": True, "include_alignment": True,
     }
 
 
@@ -533,26 +525,57 @@ def _evaluate_system_responses(result_A, result_B, common, population_generator)
     contexts = (build_rf_response_contexts(result_A, result_B, population_generator)
                 if available else {})
     for label, result in results.items():
-        result.pop("probe_weak_response", None)
-        result.pop("probe_weak_manifold_response", None)
-        result["rf_manifolds"] = hyperfine_manifolds(result)
-        result["rf_available"] = available
-        _, drive_info = magnetic_rf_operator(result)
-        result["rf_drive_info"] = drive_info
+        _evaluate_species_response(result, common, contexts.get(label), atomic=True, optical=True)
+
+
+def prepare_alkali_response_contexts(equilibrium, common):
+    """Prepare shared modes once, independently of readout and RF sweep choices."""
+    results = [equilibrium[label] for label in ("A", "B") if equilibrium[label] is not None]
+    available = all(
+        result["light_shift_available"]
+        and (result["static_field_aligned"] or abs(common["static_field_nT"]) == 0.0)
+        for result in results
+    )
+    return (build_rf_response_contexts(equilibrium["A"], equilibrium["B"], equilibrium["J_coupled"])
+            if available else {})
+
+
+def compute_alkali_response(equilibrium, label, response_config, common, contexts, *, optical=False):
+    """Evaluate one section/species using the same dynamics as the combined API."""
+    result = deepcopy(equilibrium[label])
+    result.update(response_config)
+    if optical:
+        _attach_local_response(result, response_config, common)
+    _evaluate_species_response(result, common, contexts.get(label), atomic=not optical, optical=optical)
+    return result
+
+
+def _evaluate_species_response(result, common, context, *, atomic, optical):
+    available = context is not None
+    result.pop("probe_weak_response", None)
+    result.pop("probe_weak_manifold_response", None)
+    result["rf_manifolds"] = hyperfine_manifolds(result)
+    result["rf_available"] = available
+    _, drive_info = magnetic_rf_operator(result)
+    result["rf_drive_info"] = drive_info
+    readouts = {}
+    if atomic:
+        readouts.update({f"atomic:{name}": op for name, op in atomic_rf_readout_operators(result).items()})
+    if optical:
         operators = result["probe_readout_operators"]
         manifold_operators = manifold_probe_readout_operators(result["ground_states"], operators)
         result["probe_manifold_operators"] = manifold_operators
-        readouts = {f"atomic:{name}": op for name, op in atomic_rf_readout_operators(result).items()}
         readouts.update({f"probe:{name}": op for name, op in _flatten_probe_operators(operators).items()})
         for manifold, parts in manifold_operators.items():
             readouts.update({f"{manifold}:{name}": op for name, op in _flatten_probe_operators(parts).items()})
-        if available:
-            responses = weak_rf_matrix_readouts(result, readouts, context=contexts[label])
-        else:
-            nan = np.full_like(result["rf_frequencies_hz"], np.nan, dtype=float)
-            responses = {name: (nan.copy(), nan.copy(), nan.copy(), {
-                "used_transitions": 0, "available": False, **drive_info,
-            }) for name in readouts}
+    if available:
+        responses = weak_rf_matrix_readouts(result, readouts, context=context)
+    else:
+        nan = np.full_like(result["rf_frequencies_hz"], np.nan, dtype=float)
+        responses = {name: (nan.copy(), nan.copy(), nan.copy(), {
+            "used_transitions": 0, "available": False, **drive_info,
+        }) for name in readouts}
+    if atomic:
         result["rf_response"] = {
             name: _response_values(responses[f"atomic:{name}"])
             for name in result["rf_manifolds"]
@@ -561,6 +584,7 @@ def _evaluate_system_responses(result_A, result_B, common, population_generator)
         # result structure. The application displays the manifold dictionary.
         for key in ("amplitude", "in_phase", "quadrature", "info"):
             result[f"rf_{key}"] = result["rf_response"]["Fa"][key]
+    if optical:
         result["probe_response"] = _nested_probe_responses({
             name.removeprefix("probe:"): response
             for name, response in responses.items() if name.startswith("probe:")
@@ -579,4 +603,4 @@ def _evaluate_system_responses(result_A, result_B, common, population_generator)
                 "physical_pump_reason": "The coupled atomic RF response is unavailable.",
             })
         if available:
-            apply_physical_pump_readout(result, common, context=contexts[label])
+            apply_physical_pump_readout(result, common, context=context)

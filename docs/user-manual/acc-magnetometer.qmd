@@ -69,6 +69,36 @@ The results are divided into three sections:
 2. Atomic weak-RF response.
 3. Optical response of the selected probe source.
 
+A closed **Alkali A/B rate matrices** subsection is always available at the
+end of the corresponding Zeeman section. Opening it displays
+the optical generator, electron-randomization map, uniform-relaxation generator,
+self/cross exchange maps and local population Jacobian. For two active species,
+the coupled A/B population Jacobian is included at the end of this subsection.
+
+Only open sections build their plots, tables and CSV downloads. Atomic and
+optical response calculations are also deferred while their sections are closed.
+Closing all physics result sections defers the equilibrium solve; pump-rate
+captions in the sidebar still update from the optical models. Opening a section
+uses the current conditions and reuses matching cached results.
+
+Display controls update their own result section. RF axis and sweep bounds are
+shared by the atomic and optical sections for that alkali. Weak-probe changes
+reuse the equilibrium, and changing the atomic observable leaves optical
+readout cached. Section open states and hidden display choices survive navigation;
+Save includes committed choices made in individual result sections. Saved
+condition schema 6.16 removes the former `show_rate_matrices` field; the
+physics model is unchanged.
+
+The former sidebar **Display** heading and **Show rate matrices** checkbox are
+removed. A pinned bottom toolbar contains **Auto update** and **Apply**, matching
+Time evolution. Auto update starts checked, with Apply disabled. Uncheck it to
+batch atom/cell, pump or calculation-axis edits, then press Apply once. Pending
+results and downloads are hidden until applied; sidebar pump-rate diagnostics
+also wait. Applying with all physics sections closed still defers the equilibrium
+solve until one is opened. RF/probe readout and display edits continue to reuse
+the applied physical state. Auto update is an independent session preference;
+it survives navigation and is not stored in condition files.
+
 The optical panel can display fractional transmission, normalized Stokes parameters, rotation, or ellipticity. It can also display Total, Orientation induced, or Alignment induced responses. For physical-pump readout, the last two are separately closed counterfactual calculations and generally do not add to Total.
 
 **Detected manifold** selects the optical contribution from Fa, Fb, or their
@@ -82,7 +112,11 @@ former checkbox and saved `show_allowed_only` field are removed. The selected
 transition defines the detuning reference; all relevant allowed channels,
 including off-resonant channels, still enter the calculations.
 
-Condition files use schema **6.15**. Only this version is supported; older
+Condition files use schema **6.16**. Only this version is supported; older
 files are rejected without migration. The two-manifold physics remains active.
 
 See [Interpreting results](interpreting-results.qmd) for the phase convention and line-shape guidance.
+
+Open response sections contribute their full content height to page scrolling.
+The atomic and optical responses remain reachable together when the other
+result sections are collapsed.
