@@ -5,6 +5,7 @@ from datetime import datetime
 from math import isfinite
 
 import streamlit as st
+from .magnetic_field import validate_field_conditions
 
 from ..version import CONDITION_SCHEMA_VERSION, PHYSICS_MODEL_VERSION
 
@@ -89,7 +90,8 @@ CONDITION_KEYS = (
     "gamma_ER_B",
     "gamma_u_A",
     "gamma_u_B",
-    "static_field_axis",
+    "static_field_theta_deg",
+    "static_field_phi_deg",
     "static_field_nT",
     "q_axis_A",
     "q_axis_B",
@@ -119,7 +121,8 @@ DEFAULT_STARTUP_CONDITION = {
     "gamma_ER_B": 10.0,
     "gamma_u_A": 1.0,
     "gamma_u_B": 1.0,
-    "static_field_axis": "z",
+    "static_field_theta_deg": 0,
+    "static_field_phi_deg": 0,
     "static_field_nT": 0.0,
     "q_axis_A": "z",
     "q_axis_B": "z",
@@ -249,6 +252,7 @@ def sync_condition_save_name():
 
 def build_condition_payload(values):
     conditions = {key: values.get(key) for key in CONDITION_KEYS}
+    validate_field_conditions(conditions)
     conditions["condition_name"] = clean_condition_name(conditions.get("condition_name"))
     return {
         "app": "alkali_pumping",
@@ -308,6 +312,12 @@ def apply_loaded_condition_dict(payload):
     missing = [key for key in CONDITION_KEYS if key not in loaded_conditions]
     if missing:
         raise ValueError("The condition file is missing required fields: " + ", ".join(missing))
+    unknown = [key for key in loaded_conditions if key not in CONDITION_KEYS]
+    if unknown:
+        raise ValueError("The condition file contains unknown fields: " + ", ".join(unknown))
+    validate_field_conditions(loaded_conditions)
+    for field in ('static_field_theta_deg', 'static_field_phi_deg'):
+        loaded_conditions[field] = int(loaded_conditions[field])
     for label in ("A", "B"):
         uniform = loaded_conditions[f"gamma_u_{label}"]
         if (isinstance(uniform, bool) or not isinstance(uniform, (int, float))

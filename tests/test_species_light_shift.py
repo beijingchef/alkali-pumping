@@ -51,7 +51,7 @@ class SpeciesLightShiftTests(unittest.TestCase):
             "n2_pressure_torr": 0.0,
             # A stale caller flag must not disable the now-unconditional model.
             "include_spin_exchange": False,
-            "static_field_axis": "z",
+            "static_field_theta_deg": 0, "static_field_phi_deg": 0,
             "static_field_nT": 0.0,
         }
 

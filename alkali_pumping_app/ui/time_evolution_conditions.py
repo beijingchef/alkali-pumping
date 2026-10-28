@@ -4,6 +4,7 @@ from copy import deepcopy
 from math import isfinite
 
 from .conditions import DEFAULT_STARTUP_CONDITION, PUMP_CONDITION_KEYS, clean_condition_name
+from .magnetic_field import validate_field_conditions
 from .probe_presets import PROBE_PRESET_SOURCES
 from ..physics.constants import ATOMS
 from ..physics.polarization import allowed_polarizations
@@ -11,16 +12,17 @@ from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.5"
+SCHEMA_VERSION = "2.7"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
     "Q_qq", "Q_uv", "Q_uu-Q_vv",
 )
 PLOTTED_PROBE_SIGNALS = ("Absorption", "Optical rotation", "Ellipticity")
+PLOTTED_SCAN_SIGNALS = ("Optical rotation", "Ellipticity", "Absorption")
 SHARED_KEYS = (
     "condition_name", "atom_A_name", "atom_B_name", "density_mode", "density_ratio_B_to_A",
-    "gamma_ER_A", "gamma_ER_B", "static_field_axis", "static_field_nT",
+    "gamma_ER_A", "gamma_ER_B", "static_field_theta_deg", "static_field_phi_deg", "static_field_nT",
     "gamma_u_A", "gamma_u_B",
     "temperature_C_for_table", "n2_pressure_torr",
     *[f"{line}_{field}_{label}" for label in ("A", "B")
@@ -40,6 +42,7 @@ for _label in ("A", "B"):
     DEFAULTS.update({
         f"zeeman_axis_{_label}": "z", f"moment_axis_{_label}": "z",
         f"plotted_probe_signals_{_label}": ["Absorption", "Optical rotation"],
+        f"plotted_scan_signals_{_label}": ["Optical rotation", "Absorption"],
         f"probe_scan_min_MHz_{_label}": -7000.0, f"probe_scan_max_MHz_{_label}": 7000.0,
         f"transition_{_label}1": f"{_lower_F:g}→{_upper_F:g}",
         f"det_rel_{_label}1": 0.0,
@@ -80,8 +83,10 @@ def validate_settings(values):
     choices = {
         "atom_A_name": list(ATOMS), "atom_B_name": ["None", *ATOMS],
         "density_mode": ["Independent saturated-vapor curves", "Relative concentration"],
-        "static_field_axis": ["x", "y", "z"],
     }
+    validate_field_conditions(result)
+    for field in ('static_field_theta_deg', 'static_field_phi_deg'):
+        result[field] = int(result[field])
     for label in ("A", "B"):
         choices[f"zeeman_axis_{label}"] = ["x", "y", "z"]
         choices[f"moment_axis_{label}"] = ["x", "y", "z"]
@@ -114,13 +119,14 @@ def validate_settings(values):
         if not -45 <= result[f"probe_ellipticity_deg_{label}"] <= 45:
             raise ValueError("Probe ellipticity must be between -45 and 45 degrees.")
         lower, upper = result[f"probe_scan_min_MHz_{label}"], result[f"probe_scan_max_MHz_{label}"]
-        if not (-15000 <= lower <= 14990 and -14990 <= upper <= 15000 and upper - lower >= 10):
-            raise ValueError("Probe scan limits must lie within ±15000 MHz and be at least 10 MHz apart.")
+        if not (-10000 <= lower <= 9990 and -9990 <= upper <= 10000 and upper - lower >= 10):
+            raise ValueError("Probe scan limits must lie within ±10000 MHz and be at least 10 MHz apart.")
     if not 0.001 <= result["t2_s"] <= 30 or not 0 <= result["t1_s"] <= result["t2_s"]:
         raise ValueError("Times must satisfy 0 ≤ t1 ≤ t2 and 0.001 ≤ t2 ≤ 30 seconds.")
     for field, allowed in (
         ("plotted_moments", PLOTTED_MOMENTS),
         *[(f"plotted_probe_signals_{label}", PLOTTED_PROBE_SIGNALS) for label in ("A", "B")],
+        *[(f"plotted_scan_signals_{label}", PLOTTED_SCAN_SIGNALS) for label in ("A", "B")],
     ):
         selection = result[field]
         if (not isinstance(selection, list)

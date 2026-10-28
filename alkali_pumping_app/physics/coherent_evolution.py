@@ -11,6 +11,7 @@ from scipy.linalg import expm
 
 from .angular_momentum import build_excited_states, coupled_basis_amplitudes, dipole_amplitude
 from .constants import MU_B_OVER_H_HZ_PER_T, ground_hyperfine_lande_g
+from .field_geometry import static_field_vector_nT
 from .optical_pumping import optical_rate_scale_from_intensity
 from .polarization import lab_e_field, spherical_components_from_lab
 from .spectroscopy import complex_voigt_response_relative, doppler_fwhm_MHz, transition_shift_MHz
@@ -85,10 +86,9 @@ def prepare_density_model(model, common, output_axis):
     indices = np.flatnonzero(mask.ravel())
     spins = spin_matrices(states)
     field = float(common['static_field_nT'])
-    if not np.isfinite(field) or common['static_field_axis'] not in ('x', 'y', 'z'):
-        raise ValueError('Static field must be finite with axis x, y, or z.')
+    field_vector = static_field_vector_nT(common)
     g = np.array([ground_hyperfine_lande_g(model['atom_name'], model['atom'], s['F']) for s in states])
-    h_b = 2 * np.pi * MU_B_OVER_H_HZ_PER_T * 1e-9 * field * g[:, None] * spins['xyz'.index(common['static_field_axis'])]
+    h_b = 2 * np.pi * MU_B_OVER_H_HZ_PER_T * 1e-9 * g[:, None] * sum(B*F for B, F in zip(field_vector, spins))
     jumps, h_light = _optical_terms(model, common)
     identity = np.eye(n)
     def commutator(h):

@@ -12,10 +12,12 @@ from alkali_pumping_app.ui.time_evolution_cache import (
     steady_cached as _steady_cached, spectrum_cached as _spectrum_cached, probe_cached as _probe_cached,
 )
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings
+from alkali_pumping_app.ui.population_plot import render_population_plot
 from alkali_pumping_app.ui.exports import dataframe_to_csv_bytes
-from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS, PLOTTED_PROBE_SIGNALS
+from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS, PLOTTED_PROBE_SIGNALS, PLOTTED_SCAN_SIGNALS
 from alkali_pumping_app.ui.time_evolution_data import (
     probe_scan_export_dataframe, section_export_dataframe, series_frame, zeeman_plot_frame,
+    steady_density_matrix_export_dataframe,
 )
 from alkali_pumping_app.ui.time_evolution_settings import (
     key, render_sidebar,
@@ -56,8 +58,7 @@ st.html("""
 </style>
 """)
 
-with st.container(horizontal=True, vertical_alignment="center"):
-    st.title("Time evolution", width="stretch")
+def _render_page_help():
     with st.popover("❓", help="About Time evolution", key=key("page_help")):
         st.markdown(r"""
 Initially unpolarized atoms have equal probability in every ground Zeeman
@@ -71,7 +72,7 @@ turn-off; populations are continuous there, although their derivatives change.
 The density-matrix model retains all Zeeman coherences within each ground
 hyperfine level, with magnetic precession and pump AC-Stark evolution. Each
 species has independent population and moment axes. The Zeeman selector is
-in its section's third column; the moment selector is before its checkboxes.
+in its section's top row; the moment selector is before its checkboxes.
 Neither needs to align with the magnetic field.
 The Zeeman axis defines populations and exported coherences. Electron
 polarization and $Q_{qq}$ use the atomic-moment axis.
@@ -82,18 +83,21 @@ Inter-hyperfine coherences are averaged out. Magnetic-field shifts are omitted
 from optical detunings. The continuous weak probe reads the full density matrix
 without changing the evolution.
 
-Each time-domain plot section has a narrow third column with one help popup
-above one download icon. The scan has help to the left of download in its top row.
+Each section places help and download at the right end of its top control row.
+The plots below use the full section width.
 Section CSVs contain all displayed curves in the plotted units,
 with timing and species metadata.
 
-Probe signal scanning separately converges the pump-on steady state and scans
-the selected probe D line. Its detuning range slider is at the top left. The
-three frequency plots show rotation, ellipticity and absorption one per row;
-their light dashed lines mark allowed hyperfine transitions. Scan results do
+Steady-state probe signal scanning separately converges the pump-on steady state and scans
+the selected probe D line. The left 30% shows both steady-state population
+manifolds, together 30% taller than one signal graph, with wider bars.
+The right 70% contains three signal checkboxes in one row before the detuning slider.
+Optical rotation and absorption start checked; ellipticity is optional.
+Selected signals appear one per row;
+their dashed lines mark allowed hyperfine transitions. Scan results do
 not depend on the pump turn-off or total-time sliders.
 
-Zeeman populations, Atomic moments and Probe signal scanning start collapsed.
+Zeeman populations, Atomic moments and Steady-state probe signal scanning start collapsed.
 Only open sections create plots and controls or refresh them after sidebar
 changes. Closing all time-domain sections defers transient integration until
 one is opened. Turn off Auto update to edit several physical conditions, then
@@ -116,10 +120,10 @@ def _store_scan_range(label):
     # Native range handles may meet; keep a nonzero interval for the spectrum.
     if upper - lower < 10.:
         if lower != st.session_state[low]:
-            lower = max(-15000., upper - 10.)
+            lower = max(-10000., upper - 10.)
             upper = max(upper, lower + 10.)
         else:
-            upper = min(15000., lower + 10.)
+            upper = min(10000., lower + 10.)
             lower = min(lower, upper - 10.)
     st.session_state[low], st.session_state[high] = float(lower), float(upper)
     st.session_state[widget_key] = (float(lower), float(upper))
@@ -131,9 +135,38 @@ def _scan_range_slider(label):
         st.session_state[key(f"probe_scan_min_MHz_{label}")],
         st.session_state[key(f"probe_scan_max_MHz_{label}")],
     )
-    st.slider("Detuning range (MHz)", min_value=-15000., max_value=15000.,
+    st.slider("Detuning range (MHz)", min_value=-10000., max_value=10000.,
               step=10., key=widget_key, on_change=_store_scan_range, args=(label,),
               label_visibility="collapsed")
+
+
+
+def _scan_transition_ticks(label, transition_centers):
+    # Native sliders have no custom tick API. Anchor marks to the actual track
+    # so they keep its domain and horizontal padding when the layout resizes.
+    positions = [(float(center) + 10000.) / 20000. * 100.
+                 for center in transition_centers.values() if -10000. <= center <= 10000.]
+    if not positions:
+        return
+    backgrounds = ", ".join("linear-gradient(#000000, #000000)" for _ in positions)
+    offsets = ", ".join(f"{position:.8f}% 0" for position in positions)
+    st.html(f"""<style>
+.st-key-{key(f"scan_detuning_{label}")} [data-testid="stSlider"] [role="group"]
+> [data-orientation="horizontal"] > div:first-child::after {{
+    content: "";
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    width: 100%;
+    height: 5px;
+    background-image: {backgrounds};
+    background-position: {offsets};
+    background-size: 1px 5px;
+    background-repeat: no-repeat;
+    opacity: 1;
+    pointer-events: none;
+}}
+</style>""")
 
 
 def _moment_expression(name, q):
@@ -162,7 +195,8 @@ def _store_plot_choice(selection_name, name, option_key):
 
 
 def _section_controls(plots, *, species, label, section_id, title, export_frame=None,
-                      help_text=None, horizontal=False):
+                      help_text=None, horizontal=True):
+    control_width = 40 if section_id == 'probe_scan' else SECTION_CONTROL_WIDTH
     export_species = dict(species, q_axis=species["moment_axis"]) if section_id == "atomic_moments" else species
     export = export_frame if export_frame is not None else section_export_dataframe(
         plots, species=export_species, label=label, section=title, t1_s=t1, t2_s=t2,
@@ -170,7 +204,7 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
     # Streamlit permits disabling wrapping only for horizontal containers.
     with st.container(horizontal=horizontal, wrap=not horizontal, gap="xsmall",
                       horizontal_alignment="right" if horizontal else "center"):
-        with st.popover("❓", help=f"About {title}", key=key(f"help_section_{label}_{section_id}")):
+        with st.popover("❓", help=f"About {title}", key=key(f"help_section_{label}_{section_id}"), width=SECTION_CONTROL_WIDTH):
             for plot in plots:
                 st.markdown(f"${plot['math_title']}$" if plot["math_title"] else f"**{plot['title']}**")
                 st.markdown(plot["explanation"])
@@ -187,7 +221,8 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
             ":material/download:", dataframe_to_csv_bytes(export),
             file_name=f"time_evolution_{label}_{species['atom_name']}_{section_id}.csv",
             mime="text/csv; charset=utf-8", key=key(f"download_section_{label}_{section_id}"),
-            help=f"Download {title} CSV", disabled=not plots, on_click="ignore", width=SECTION_CONTROL_WIDTH,
+            help=f"Download {title} CSV", disabled=not plots and (export_frame is None or export_frame.empty),
+            on_click="ignore", width=control_width,
         )
 
 
@@ -237,7 +272,7 @@ def _plot(frame, y_label, title, *, species, label, plot_id, value_unit, explana
             chart += switch
         if reference_lines:
             markers = alt.Chart({"values": reference_lines}).mark_rule(
-                color="#777777", opacity=.3, strokeDash=[2, 3],
+                color="#555555", opacity=.7, strokeWidth=1, strokeDash=[2, 3],
             ).encode(x=alt.X("center:Q", title=x_label),
                      tooltip=["transition:N", alt.Tooltip("center:Q", format=".6g", title="Detuning (MHz)")])
             chart += markers
@@ -258,6 +293,10 @@ def _plot(frame, y_label, title, *, species, label, plot_id, value_unit, explana
 # Execution controls are session UI preferences, independent of saved conditions.
 st.session_state.setdefault(key("auto_update"), True)
 register_persistent_page_settings([key("auto_update")])
+register_persistent_page_settings([
+    key(f"{section}_open_{label}") for label in ("A", "B")
+    for section in ("zeeman_populations", "atomic_moments", "probe_signal", "probe_scan")
+])
 physical_beams = [beam for beam in beams if beam["intensity"] > 0]
 physical_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
 transient_signature = sha256(pickle.dumps((physical_signature, t1, t2))).hexdigest()
@@ -265,6 +304,7 @@ with st.bottom:
     with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
         auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
         apply_changes = st.button("Apply", key=key("apply_conditions"), disabled=auto_update, width="content")
+        _render_page_help()
 if auto_update or apply_changes:
     st.session_state[key("applied_transient")] = transient_signature
     st.session_state[key("applied_steady")] = physical_signature
@@ -300,7 +340,7 @@ for label, tab in zip(labels, tabs):
             "Probe signal", expanded=True, key=key(f"probe_signal_open_{label}"), on_change="rerun",
         )
         scan_section = st.expander(
-            "Probe signal scanning", expanded=False, key=key(f"probe_scan_open_{label}"), on_change="rerun",
+            "Steady-state probe signal scanning", expanded=False, key=key(f"probe_scan_open_{label}"), on_change="rerun",
         )
         if time_ready and any(section.open for section in (zeeman_section, moment_section, probe_section)):
             if evolution is None:
@@ -327,7 +367,12 @@ for label, tab in zip(labels, tabs):
                 st.info("Press Apply to calculate the scan for the current conditions.")
         if zeeman_section.open and time_ready:
             with zeeman_section:
-                zeeman_columns = st.columns([1, 1, 0.15], gap="small")
+                with st.container(horizontal=True, wrap=False, gap="small", vertical_alignment="center"):
+                    st.markdown("Axis", width="content")
+                    st.selectbox("Axis", ["z", "x", "y"], width=SECTION_CONTROL_WIDTH,
+                                 label_visibility="collapsed", key=key(f"zeeman_axis_{label}"))
+                    zeeman_controls = st.container(width="stretch", horizontal_alignment="right")
+                zeeman_columns = st.columns(2, gap="small")
                 zeeman_plots = []
                 for name, F, column in zip(("Fa", "Fb"), reversed(Fs), zeeman_columns[:2]):
                     with column:
@@ -337,13 +382,9 @@ for label, tab in zip(labels, tabs):
                               explanation=rf"Individual Zeeman populations in $F={F:g}$ along the "
                               "selected quantization axis. Values are probabilities per total atom, "
                               "without renormalizing within the manifold.")
-                with zeeman_columns[2]:
+                with zeeman_controls:
                     _section_controls(zeeman_plots, species=species, label=label,
                                       section_id="zeeman_populations", title="Zeeman populations")
-                    with st.container(horizontal_alignment="center", gap="xsmall"):
-                        st.markdown("Axis", text_alignment="center", width=SECTION_CONTROL_WIDTH)
-                        st.selectbox("Axis", ["z", "x", "y"], width=SECTION_CONTROL_WIDTH,
-                                     label_visibility="collapsed", key=key(f"zeeman_axis_{label}"))
         if moment_section.open and time_ready:
             with moment_section:
                 moments = species["moments"]
@@ -370,6 +411,7 @@ for label, tab in zip(labels, tabs):
                                     caption = rf"$\langle {expression}\rangle$"
                                 st.checkbox(caption, key=option_key, on_change=_store_plot_choice,
                                             args=("plotted_moments", name, option_key), width="content")
+                    moment_controls = st.container(width=120, horizontal_alignment="right")
                 selected_moments = st.session_state[key("plotted_moments")]
                 frame_explanation = (
                     rf"The right-handed frame is $(\hat{{\mathbf u}},\hat{{\mathbf v}},\hat{{\mathbf q}})"
@@ -396,7 +438,7 @@ for label, tab in zip(labels, tabs):
                     "Q_uu-Q_vv": ("alignment_uu_minus_vv", f"⟨Q_{u}{u} − Q_{v}{v}⟩/ℏ²", f"⟨Q_{u}{u} − Q_{v}{v}⟩",
                         rf"Transverse alignment difference is $Q_{{{u}{u}}}-Q_{{{v}{v}}}=F_{u}^2-F_{v}^2$. " + frame_explanation),
                 }
-                moment_columns = st.columns([1, 1, 0.15], gap="small")
+                moment_columns = st.columns(2, gap="small")
                 for index, choice in enumerate(selected_moments):
                     with moment_columns[index % 2]:
                         observable, y_label, title, explanation = plot_specs[choice]
@@ -413,11 +455,10 @@ for label, tab in zip(labels, tabs):
                               explanation=explanation, section_plots=moment_plots,
                               show_legend=choice not in ("Hyperfine polarization", "Electron polarization"),
                               math_title=rf"\langle {expression}\rangle" if expression else None)
-                with moment_columns[2]:
+                with moment_controls:
                     _section_controls(moment_plots, species=species, label=label,
                                       section_id="atomic_moments", title="Atomic moments")
-        # The frequency scan always uses all signals, independently of the
-        # time-domain section's open state and selected checkboxes.
+        # Frequency-scan selections are independent of time-domain choices.
         plots = (
             ("rotation_rad", 1000, "Rotation (mrad)", "Optical rotation", "mrad",
              "Rotation is relative to the input azimuth, in mrad. It is undefined for circular input "
@@ -431,12 +472,14 @@ for label, tab in zip(labels, tabs):
         )
         if probe_section.open and time_ready:
             with probe_section:
-                with st.container(horizontal=True, gap="small"):
-                    for name in PLOTTED_PROBE_SIGNALS:
-                        option_key = key(f"probe_option_{label}_{name}")
-                        st.session_state[option_key] = name in st.session_state[key(f"plotted_probe_signals_{label}")]
-                        st.checkbox(name, key=option_key, on_change=_store_plot_choice,
-                                    args=(f"plotted_probe_signals_{label}", name, option_key), width="content")
+                with st.container(horizontal=True, gap="small", wrap=False, vertical_alignment="center"):
+                    with st.container(horizontal=True, width="stretch", gap="small"):
+                        for name in PLOTTED_PROBE_SIGNALS:
+                            option_key = key(f"probe_option_{label}_{name}")
+                            st.session_state[option_key] = name in st.session_state[key(f"plotted_probe_signals_{label}")]
+                            st.checkbox(name, key=option_key, on_change=_store_plot_choice,
+                                        args=(f"plotted_probe_signals_{label}", name, option_key), width="content")
+                    probe_controls = st.container(width=120, horizontal_alignment="right")
                 probe_plot_specs = {plot[3]: plot for plot in plots}
                 selected_plots = [probe_plot_specs[name]
                                   for name in st.session_state[key(f"plotted_probe_signals_{label}")]]
@@ -447,7 +490,7 @@ for label, tab in zip(labels, tabs):
                         signals = _probe_cached(physical_species, probes[label], common, config["n2_coeffs"])
                     except (ValueError, RuntimeError) as exc:
                         st.error("Weak-probe readout failed: " + str(exc))
-                probe_columns = st.columns([1, 1, 0.15], gap="small")
+                probe_columns = st.columns(2, gap="small")
                 if signals is not None:
                     for index, (signal, scale, y_label, title, value_unit, explanation) in enumerate(selected_plots):
                         with probe_columns[index % 2]:
@@ -457,16 +500,33 @@ for label, tab in zip(labels, tabs):
                                   show_legend=False,
                                   explanation=explanation + " The continuous weak probe uses uniform-path Jones "
                                   "propagation and does not alter the atomic evolution.")
-                with probe_columns[2]:
+                with probe_controls:
                     _section_controls(probe_plots, species=species, label=label,
                                       section_id="probe_signal", title="Probe signal")
         if scan_section.open and scan_ready:
             with scan_section:
-                scan_columns = st.columns([.35, 1, .8], gap="small", vertical_alignment="center")
+                # Give the controls the full section width so a longer slider
+                # and the help label fit without squeezing the 30/70 plot split.
+                with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center"):
+                    signal_menu = st.container(width="content")
+                    detuning_label = st.container(width="content")
+                    detuning_slider = st.container(width=338, key=key(f"scan_detuning_{label}"))
+                    scan_controls = st.container(width="stretch", horizontal_alignment="right")
+                scan_columns = [signal_menu, detuning_slider, detuning_label, scan_controls]
+                population_column, signals_column = st.columns([3, 7], gap="medium")
                 with scan_columns[0]:
-                    st.markdown("Detuning range (MHz)")
+                    with st.container(horizontal=True, wrap=False, gap="small"):
+                        for name in PLOTTED_SCAN_SIGNALS:
+                            option_key = key(f"scan_option_{label}_{name}")
+                            st.session_state[option_key] = name in st.session_state[key(f"plotted_scan_signals_{label}")]
+                            st.checkbox(name, key=option_key, on_change=_store_plot_choice,
+                                        args=(f"plotted_scan_signals_{label}", name, option_key))
                 with scan_columns[1]:
                     _scan_range_slider(label)
+                with scan_columns[2]:
+                    st.caption("Detuning\u00a0range\u00a0(MHz)")
+                scan_plot_specs = {plot[3]: plot for plot in plots}
+                selected_scan_signals = st.session_state[key(f"plotted_scan_signals_{label}")]
                 lower = st.session_state[key(f"probe_scan_min_MHz_{label}")]
                 upper = st.session_state[key(f"probe_scan_max_MHz_{label}")]
                 scan_plots, scan_export = [], None
@@ -475,27 +535,46 @@ for label, tab in zip(labels, tabs):
                         steady = _steady_cached(species_A, species_B, physical_beams, common)
                         spectrum = _spectrum_cached(steady[label], probes[label], common,
                                                     config["n2_coeffs"], lower, upper)
+                    with scan_columns[1]:
+                        _scan_transition_ticks(label, spectrum["transition_centers_MHz"])
+                    steady_view = _display_cached(steady[label], species['zeeman_axis'], species['moment_axis'])
+                    with population_column:
+                        with st.container(horizontal=True, wrap=False, gap="xsmall", vertical_alignment="center"):
+                            st.markdown('**Zeeman populations**', width="stretch")
+                            st.download_button(
+                                ":material/download:",
+                                dataframe_to_csv_bytes(steady_density_matrix_export_dataframe(steady[label], label=label)),
+                                file_name=f"steady_state_{label}_{species['atom_name']}_density_matrix.csv",
+                                mime="text/csv; charset=utf-8", key=key(f"download_density_matrix_{label}"),
+                                help="Download the entire steady-state density matrix in the lab-z basis, with real and imaginary parts.",
+                                on_click="ignore", width=40,
+                            )
+                        render_population_plot(dict(steady_view, population=steady_view['population'][0]),
+                                               height=338, bar_width=1/1.3)
                     scan_export = probe_scan_export_dataframe(
-                        spectrum, species=steady[label], label=label, probe=probes[label],
+                        spectrum, species=steady_view, label=label, probe=probes[label],
                         config=config, common=common, beams=beams, steady=steady,
+                        selected_signals=selected_scan_signals,
                     )
                     references = [dict(center=float(center), transition=f"F={Fg:g} → F′={Fe:g}")
                                   for (Fg, Fe), center in spectrum["transition_centers_MHz"].items()
                                   if lower <= center <= upper]
-                    for signal, scale, y_label, title, value_unit, explanation in plots:
+                    for choice in selected_scan_signals:
+                        signal, scale, y_label, title, value_unit, explanation = scan_plot_specs[choice]
                         frame = series_frame(spectrum["detuning_MHz"], {title: scale * spectrum[signal]}, y_label)
                         frame = frame.rename(columns={"Time (s)": "Detuning (MHz)"})
-                        _plot(frame, y_label, title, species=species, label=label,
-                              plot_id=f"probe_scan_{signal}", value_unit=value_unit,
-                              explanation=explanation, section_plots=scan_plots, show_legend=False,
-                              x_label="Detuning (MHz)", x_domain=[lower, upper], show_switch=False,
-                              reference_lines=references)
+                        with signals_column:
+                            _plot(frame, y_label, title, species=species, label=label,
+                                  plot_id=f"probe_scan_{signal}", value_unit=value_unit,
+                                  explanation=explanation, section_plots=scan_plots, show_legend=False,
+                                  x_label="Detuning (MHz)", x_domain=[lower, upper], show_switch=False,
+                                  reference_lines=references)
                 except (ValueError, RuntimeError) as exc:
                     st.error("Probe scan failed: " + str(exc))
-                with scan_columns[2]:
+                with scan_columns[3]:
                     _section_controls(
                         scan_plots, species=species, label=label, section_id="probe_scan",
-                        title="Probe signal scanning", export_frame=scan_export, horizontal=True,
+                        title="Steady-state probe signal scanning", export_frame=scan_export, horizontal=True,
                         help_text=rf"""
 The atoms are independently converged to a **pump-on steady state** using the
 same coherent master equation, including all configured pumps, magnetic
@@ -507,18 +586,22 @@ using its direction, input polarization and path length. All allowed ground
 and excited hyperfine transitions contribute. The fixed sidebar detuning and
 its F→F′ reference do not limit this scan. Detuning is relative to the
 **zero-pressure fine-structure D-line center**; Doppler/pressure broadening and
-pressure shifts remain included. Light dashed lines identify allowed transition
+pressure shifts remain included. Dashed lines identify allowed transition
 centers; hover for their F→F′ labels. The probe does not change the steady state.
 
-The shorter range slider at the top left has its label on the left and two handles
+The range slider beside the signal checkboxes has its label on the left and two handles
 for minimum and maximum detuning within
-$\pm 15000\,\mathrm{{MHz}}$. They default to $-7000$ and $+7000\,\mathrm{{MHz}}$,
+$\pm 10000\,\mathrm{{MHz}}$. They default to $-7000$ and $+7000\,\mathrm{{MHz}}$,
 and must remain at least $10\,\mathrm{{MHz}}$ apart. There are 2001 scan samples.
 Rotation is relative to the input azimuth, ellipticity is the output angle,
 and absorption is $1-I_{{\mathrm{{out}}}}/I_{{\mathrm{{in}}}}$.
 
-The CSV contains all three signals in plotted units, the detuning origin,
-probe/cell/pump configuration and steady-state convergence information.
+The signal checkboxes select optical rotation, ellipticity and absorption;
+optical rotation and absorption start checked. The CSV contains the selected
+signals in plotted units, the detuning origin,
+probe/cell/pump configuration, steady-state convergence information and the
+population bars in the left column. Populations use the selected Zeeman display
+axis and are probabilities per total atom, with a common scale for both manifolds.
 Undefined optical angles remain empty. Scan limits are independent per species.
 """,
                     )

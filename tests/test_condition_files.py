@@ -40,15 +40,15 @@ class ConditionFileTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "static_field_nT"):
                 conditions.apply_loaded_condition_dict(payload)
 
-    def test_condition_schema_is_v614(self):
-        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.14")
-        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.14")
+    def test_condition_schema_is_v615(self):
+        self.assertEqual(CONDITION_SCHEMA_VERSION, "6.15")
+        self.assertEqual(conditions.CONDITION_SCHEMA_VERSION, "6.15")
 
     def test_payload_has_current_shape(self):
         payload = conditions.build_condition_payload(conditions.DEFAULT_STARTUP_CONDITION)
         self.assertEqual(payload["app"], "alkali_pumping")
         self.assertEqual(payload["format"], "alkali_pumping_conditions")
-        self.assertEqual(payload["version"], "6.14")
+        self.assertEqual(payload["version"], "6.15")
         self.assertEqual(set(payload["conditions"]), set(conditions.CONDITION_KEYS))
         self.assertNotIn("include_spin_exchange", payload["conditions"])
         self.assertNotIn("show_allowed_only", payload["conditions"])
@@ -94,7 +94,7 @@ class ConditionFileTests(unittest.TestCase):
         }
         with patch.object(conditions.st, "session_state", {}):
             with self.assertRaisesRegex(
-                ValueError, "expected 6.14"
+                ValueError, "expected 6.15"
             ):
                 conditions.apply_loaded_condition_dict(payload)
 

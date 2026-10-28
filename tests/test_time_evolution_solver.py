@@ -40,7 +40,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
         no_field = prepared(config, None, [], common)
         self.assertEqual(te._density_integration_method(no_field, True, 1.), 'BDF')
         self.assertEqual(te._density_integration_method(no_field, False, 3.), 'BDF')
-        common.update(static_field_nT=5., static_field_axis='x')
+        common.update(static_field_nT=5., static_field_theta_deg=90, static_field_phi_deg=0)
         oscillatory = prepared(config, None, beams, common)
         self.assertEqual(te._density_integration_method(oscillatory, True, 1.), 'DOP853')
         self.assertEqual(te._density_integration_method(oscillatory, False, 3.), 'DOP853')
@@ -65,7 +65,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
 
     def test_short_intervals_and_fast_spin_exchange_retain_bdf(self):
         config, beams, common = inputs()
-        common.update(static_field_nT=5., static_field_axis='y')
+        common.update(static_field_nT=5., static_field_theta_deg=90, static_field_phi_deg=90)
         short = prepared(config, None, beams, common)
         self.assertEqual(te._density_integration_method(short, True, 1e-6), 'BDF')
         config['density_cm3'] = 1e15
@@ -89,7 +89,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
     def test_oscillatory_linear_solution_matches_exact_propagation(self):
         config, beams, common = inputs()
         config.update(density_cm3=0., R_ER=2., R_u=1.)
-        common.update(static_field_axis='x', static_field_nT=5.)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=5.)
         with patch.object(te, 'solve_ivp', wraps=solve_ivp) as integrate:
             result = te.compute_density_evolution(config, None, beams, common, .02, .06, 21)
         self.assertEqual([call.kwargs['method'] for call in integrate.call_args_list], ['DOP853', 'DOP853'])
@@ -118,7 +118,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
                 config.update(atom_name=atom_name, density_cm3=1e10, R_ER=2., R_u=1.,
                               n2_coeffs=deepcopy(DEFAULT_N2_COEFFS[atom_name]))
                 beams[0].update(intensity=2., absolute_frequency_MHz=line_center_frequency_MHz(atom, 'D1') + 500.)
-                common.update(static_field_axis='x', static_field_nT=5.)
+                common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=5.)
                 with patch.object(te, 'solve_ivp', wraps=solve_ivp) as integrate:
                     actual = te.compute_density_evolution(config, None, beams, common, .012, .04, 31)
                 self.assertEqual([c.kwargs['method'] for c in integrate.call_args_list], ['DOP853', 'DOP853'])
@@ -141,7 +141,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
         other = deepcopy(config)
         other.update(label='B', atom_name='Rb85', density_cm3=2e10,
                      n2_coeffs=deepcopy(DEFAULT_N2_COEFFS['Rb85']))
-        common.update(static_field_axis='y', static_field_nT=5.)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=5.)
         actual = te.compute_density_evolution(config, other, beams, common, .012, .04, 31)
         def reference_solve(*args, **kwargs):
             kwargs.update(method='BDF', rtol=2e-12, atol=1e-14)
@@ -155,7 +155,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
 
     def test_failed_or_nonfinite_explicit_solve_retries_original_interval(self):
         config, beams, common = inputs()
-        common.update(static_field_axis='x', static_field_nT=5.)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=5.)
         for success in (False, True):
             calls = []
             def fail_first(*args, **kwargs):
@@ -175,7 +175,7 @@ class TimeEvolutionSolverTests(unittest.TestCase):
 
     def test_failure_of_both_solvers_is_reported(self):
         config, beams, common = inputs()
-        common.update(static_field_axis='x', static_field_nT=5.)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=5.)
         failure = SimpleNamespace(success=False, y=np.zeros((34, 1)), message='integration failed')
         with patch.object(te, 'solve_ivp', return_value=failure) as integrate:
             with self.assertRaisesRegex(RuntimeError, 'integration failed'):

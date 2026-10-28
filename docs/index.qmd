@@ -1,6 +1,6 @@
 # Documentation home {.unnumbered #documentation-home}
 
-This is the documentation for **Alkali Pumping v6.20.14**, a Streamlit application for modeling optical pumping, coherent transients, stationary probe spectra, and weak-RF magnetometry in alkali-vapor cells. The **ACC Magnetometer** models weak-RF response, while **Time evolution** models pumping buildup, precession, dark relaxation and pump-on probe scans. ACC means *antirelaxation coated cell*.
+This is the documentation for **Alkali Pumping v6.21.1**, a Streamlit application for modeling optical pumping, coherent transients, stationary probe spectra, and weak-RF magnetometry in alkali-vapor cells. The **ACC Magnetometer** models weak-RF response, while **Time evolution** models pumping buildup, precession, dark relaxation and pump-on probe scans. ACC means *antirelaxation coated cell*.
 
 The documentation is organized by audience. It deliberately uses descriptive internal links rather than numbered chapters and equations.
 

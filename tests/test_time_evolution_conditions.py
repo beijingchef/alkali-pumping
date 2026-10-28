@@ -16,7 +16,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         settings.update(t1_s=30., t2_s=30.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
         payload = build_settings_payload(DEFAULTS)
-        self.assertEqual(payload["version"], "2.5")
+        self.assertEqual(payload["version"], "2.7")
         self.assertNotIn("q_axis_A", payload["settings"])
         self.assertNotIn("q_axis_B", payload["settings"])
         self.assertNotIn("moment_types", payload["settings"])
@@ -43,10 +43,10 @@ class TimeEvolutionConditionTests(unittest.TestCase):
                 parse_settings_payload(payload)
 
     def test_probe_scan_limits_round_trip_and_validate_per_species(self):
-        settings = dict(DEFAULTS, probe_scan_min_MHz_A=-15000., probe_scan_max_MHz_A=15000.,
+        settings = dict(DEFAULTS, probe_scan_min_MHz_A=-10000., probe_scan_max_MHz_A=10000.,
                         probe_scan_min_MHz_B=-100., probe_scan_max_MHz_B=100.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
-        for updates in ({"probe_scan_min_MHz_A": 15000.}, {"probe_scan_max_MHz_A": -15001.},
+        for updates in ({"probe_scan_min_MHz_A": 10000.}, {"probe_scan_max_MHz_A": -10001.},
                         {"probe_scan_min_MHz_B": 100.}, {"probe_scan_max_MHz_B": -95.}):
             with self.subTest(updates=updates), self.assertRaisesRegex(ValueError, "scan limits"):
                 build_settings_payload(dict(settings, **updates))
@@ -97,6 +97,21 @@ class TimeEvolutionConditionTests(unittest.TestCase):
             settings[key] = value
             with self.subTest(key=key), self.assertRaises(ValueError):
                 build_settings_payload(settings)
+
+    def test_scan_signal_selections_are_saved_and_validated_independently(self):
+        for label in ('A', 'B'):
+            field = f'plotted_scan_signals_{label}'
+            self.assertEqual(DEFAULTS[field], ['Optical rotation', 'Absorption'])
+            for selected in ([], ['Ellipticity'], ['Absorption', 'Ellipticity', 'Optical rotation']):
+                settings = dict(DEFAULTS, **{field: selected})
+                self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
+            for invalid in (None, 'Absorption', ['Transmission'], ['Absorption', 'Absorption']):
+                with self.subTest(label=label, invalid=invalid), self.assertRaisesRegex(ValueError, field):
+                    build_settings_payload(dict(DEFAULTS, **{field: invalid}))
+        old = build_settings_payload(DEFAULTS)
+        old['version'] = '2.6'
+        with self.assertRaisesRegex(ValueError, 'version'):
+            parse_settings_payload(old)
 
 
 if __name__ == "__main__":

@@ -4,6 +4,9 @@ Open **Analysis → Time evolution** to simulate pump buildup followed by dark
 relaxation. Its atom/cell, pump, probe, and quantization-axis settings are
 independent of ACC Magnetometer and persist across navigation.
 
+The page starts with species tabs, without a page title. Its question-mark
+help is in the pinned bottom toolbar beside Auto update and Apply.
+
 ## Sequence and controls {#time-evolution-sequence}
 
 Each species starts with equal probability in every ground Zeeman state,
@@ -16,6 +19,13 @@ Independent $R_{u,A}$ and $R_{u,B}$ inputs appear below $R_{\mathrm{ER}}$ in
 the sidebar. Each defaults to $1\,\mathrm{s}^{-1}$ for new settings and
 relaxes the entire ground-state density matrix toward $I/N_g$. Uniform
 relaxation remains active during both pumping and the dark interval.
+
+The magnetic-field row contains $\theta$, $\phi$ and strength in nT. Both
+angles have 1° precision and steps. Polar angle $\theta$ runs from 0° to 180°
+from laboratory +z; azimuth $\phi$ runs from 0° to 360° from +x toward +y.
+The full vector $\mathbf B=B(\sin\theta\cos\phi,\sin\theta\sin\phi,\cos\theta)$
+enters coherent precession. Negative strength reverses this direction.
+Density matrices remain stored in the lab-z basis, independently of display axes.
 
 - Both sliders share one row under **Event Sequence** in the sidebar below the probe configuration.
 - **Total time (s):** sets t₂, the endpoint of every plot, from 0.001 to 30 seconds.
@@ -54,8 +64,8 @@ settings or change the unpolarized atomic initial state.
 
 ## Result plots {#time-evolution-plots}
 
-Each time-domain plot section has two plot columns and a narrow third column
-with a question-mark help popup above its download icon. Its CSV combines all displayed
+Each section places help and download at the right end of its top control row.
+Time-domain plots use two equal columns across the full width. Its CSV combines all displayed
 curves, and its help popup contains the explanations for all of its plots.
 Individual graphs retain their bordered panels and titles. Mathematical panel
 headings, y-axis labels and help equations render as LaTeX, with proper
@@ -70,11 +80,14 @@ y-axis ticks and hover values use scientific notation with three significant
 figures, such as `1.23e-5`; a zero tick is shown as `0`. Other graphs retain
 their usual formatting. Calculations and CSVs retain full precision.
 Page-level model and sequence
-descriptions are in the question-mark popup at the right of the page title.
+descriptions are in the question-mark popup in the bottom toolbar.
 The four collapsible result sections use native outlines, header dividers,
 and expand/collapse controls. **Zeeman populations**, **Atomic moments** and
-**Probe signal scanning** start collapsed; **Probe signal** starts open.
+**Steady-state probe signal scanning** start collapsed; **Probe signal** starts open.
 All sections create and refresh their plots, widgets and downloads only while
+open. Each species remembers all four sections' open/closed states across
+navigation to other pages and back. These session preferences are independent
+of saved physical conditions. Sections create their contents only while
 open, including after sidebar changes; the scan's steady-state calculation is
 deferred until opening. Native Streamlit state tracking reruns the script when
 sections are toggled, reusing cached calculations. Moment and probe selections,
@@ -83,7 +96,7 @@ Individual graph borders remain.
 
 Closing all three time-domain sections defers transient integration, including
 after physical-condition edits. Opening one calculates the current conditions
-or reuses a matching cached trajectory. Opening only **Probe signal scanning**
+or reuses a matching cached trajectory. Opening only **Steady-state probe signal scanning**
 performs its separate steady-state calculation without a transient solve.
 
 **Auto update** and **Apply** sit together in a toolbar pinned to the bottom of
@@ -144,17 +157,27 @@ shared by both species; each species has its own probe order.
   dimensionless lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$,
   including scalar absorption. It ranges from zero for no loss to one for
   complete attenuation; it is not optical depth or logarithmic absorbance.
-- **Probe signal scanning:** independently converge the atoms to the steady
+- **Steady-state probe signal scanning:** independently converge the atoms to the steady
   state with all configured pumps continuously on. Scan optical rotation,
-  output ellipticity and absorption, with one plot per row. The detuning range
-  slider at the **top left** is half its former width, with its label on the
-  left. Its two handles set the minimum and maximum, defaulting to
-  −7000 and +7000 MHz, adjustable within ±15000 MHz in 10 MHz steps.
+  output ellipticity and absorption, with one plot per row in the right 70%
+  of the section. The left 30% shows the steady pump-on Zeeman populations
+  using the same bars as ACC, in the chosen Zeeman display basis. Both population
+  manifolds together are 338 pixels tall, 30% taller than one signal graph.
+  Population bars use F as the vertical-axis label, gaps about 30% of each bar's
+  width and no gridlines. A row of three signal checkboxes to the left of detuning provides selections
+  for Optical rotation, Ellipticity and Absorption. Optical rotation and
+  absorption start checked. Selections persist independently for each species
+  through navigation and saved settings; newly checked plots append at the end.
+  The scan CSV includes selected signals, population probabilities per total
+  atom and their quantization axis. With no signals selected, population bars
+  and their download remain available. The detuning slider has its label on
+  the left on one line and its length is doubled. Its two handles set the minimum and maximum, defaulting to
+  −7000 and +7000 MHz, adjustable within ±10000 MHz in 10 MHz steps.
   The limits are independent for each species and remain at least 10 MHz apart.
   Frequency is relative to the **zero-pressure fine-structure center** of the
   D1/D2 reference line selected in the probe sidebar. All allowed hyperfine
   transitions contribute, including Doppler and pressure broadening and
-  pressure shifts. Light dashed lines show allowed transition centers; hover
+  pressure shifts. Dashed lines show allowed transition centers; hover
   to read their F→F′ labels. The probe direction, input polarization and path
   length come from the sidebar. Its fixed detuning and F→F′ reference do not
   constrain the scan. The section's help control sits immediately left of the
@@ -247,11 +270,11 @@ Save does not apply conditions waiting for Apply. Open validates a selected file
 before applying its settings.
 
 Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
-version **2.5**, with the coherent model identifier. Only this version is supported; older files are rejected
+version **2.7**, with the coherent model identifier. Only this version is supported; older files are rejected
 without migration. Every current field is required, and unknown fields are
 rejected. No omitted settings are filled from defaults. Times must satisfy
 $0\le t_1\le t_2\le30$ s with $t_2\ge0.001$ s. Invalid values and ACC condition files are rejected
-before state changes. The ACC condition schema is **6.14**.
+before state changes. The ACC condition schema is **6.15**.
 
 Pump and probe F→F′ menus always show only allowed hyperfine transitions.
 The former checkbox and saved `show_allowed_only` field are removed. Selecting
@@ -275,8 +298,7 @@ button formerly below the plots is removed.
 
 Each species has two independent quantization-axis selectors, replacing the
 former sidebar axis. The compact **Zeeman populations** selector is labeled
-**Axis** and sits in the third column below help/download, with its caption
-centered above it. Both Axis selectors match the download buttons' 56-pixel
+**Axis** and sits in the top row with its label to the left. Both Axis selectors match the download buttons' 56-pixel
 width. In **Atomic moments**,
 the **Axis** label is to the left of a compact selector; both are before the
 checkboxes, separated from them by a gap.
@@ -293,3 +315,14 @@ inter-F coherences, excited-hyperfine interference, explicit excited-state
 dynamics, optical saturation, and finite-beam transport are omitted. Magnetic
 and pump light shifts are not included in optical pumping or probe detunings.
 Magnetic dynamics uses the linear Zeeman Hamiltonian rather than Breit–Rabi mixing.
+
+The **Zeeman populations** title row in **Steady-state probe signal scanning**
+includes a density-matrix CSV download. It contains every matrix element,
+including zero entries and both real and imaginary parts. Row and column
+indices and F,m labels identify the stored lab-z basis; probabilities are
+normalized per total atom. The selected display axis does not change this
+stored-basis export. The download reuses the converged steady state.
+
+Small ticks beneath the probe-scan detuning slider track mark all allowed
+hyperfine transition centers within its full +/-10000 MHz domain. They include
+the current pressure shift and use the same centers as the signal plots.

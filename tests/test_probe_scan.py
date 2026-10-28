@@ -21,7 +21,7 @@ class ProbeScanTests(unittest.TestCase):
     def test_stationary_state_matches_linear_master_equation_without_spin_exchange(self):
         config, beams, common = inputs()
         config.update(density_cm3=0., R_ER=2., R_u=1.)
-        common.update(static_field_axis="x", static_field_nT=.05)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=.05)
         model = prepare_density_model(build_population_dynamics(config, None, beams, common)[0], common, "z")
         size, indices = model["size"], model["density_indices"]
         identity = np.eye(len(indices), dtype=complex)
@@ -53,7 +53,7 @@ class ProbeScanTests(unittest.TestCase):
     def test_easy_stationary_solve_keeps_default_integration_accuracy(self):
         config, beams, common = inputs()
         config.update(density_cm3=0., R_ER=2., R_u=1.)
-        common.update(static_field_axis="z", static_field_nT=.05)
+        common.update(static_field_theta_deg=0, static_field_phi_deg=0, static_field_nT=.05)
         with patch("alkali_pumping_app.physics.probe_scan.solve_ivp", wraps=solve_ivp) as integrate:
             steady = pump_on_steady_state(config, None, beams, common)
         self.assertGreater(integrate.call_count, 0)
@@ -87,7 +87,7 @@ class ProbeScanTests(unittest.TestCase):
         config.update(density_cm3=1e10, R_u=1.)
         other = deepcopy(config)
         other.update(label="B", atom_name="Rb85")
-        common.update(static_field_axis="y", static_field_nT=.1)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=.1)
         with patch("alkali_pumping_app.physics.probe_scan.solve_ivp",
                    side_effect=AssertionError("An exactly stationary state needs no integration")):
             steady = pump_on_steady_state(config, other, [], common)
@@ -101,7 +101,7 @@ class ProbeScanTests(unittest.TestCase):
         config.update(density_cm3=1e10, R_ER=2., R_u=1.)
         other = deepcopy(config)
         other.update(label="B", atom_name="Rb85")
-        common.update(static_field_axis="x", static_field_nT=.05)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=.05)
         calls = []
 
         def bounded_solve(*args, **kwargs):
@@ -169,6 +169,13 @@ class ProbeScanTests(unittest.TestCase):
         np.testing.assert_array_equal(table["ellipticity_mrad"], 1000 * spectrum["ellipticity_rad"])
         np.testing.assert_array_equal(table["absorption_1_minus_Iout_over_Iin"], spectrum["absorption"])
         self.assertTrue(table["pumps_on"].all())
+        self.assertIn('static_field_theta_deg',table)
+        self.assertIn('static_field_phi_deg',table)
+        self.assertNotIn('static_field_axis',table)
+        population_columns=[name for name in table if name.startswith('population_F')]
+        self.assertEqual(len(population_columns),len(steady['A']['ground_states']))
+        np.testing.assert_allclose(table[population_columns].sum(axis=1),1.,atol=1e-12)
+        self.assertTrue((table['population_quantization_axis']=='z').all())
         self.assertNotIn("time_s", table)
         self.assertNotIn("pump_off_time_s", table)
 

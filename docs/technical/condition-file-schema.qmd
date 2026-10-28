@@ -4,24 +4,29 @@
 
 Saved condition files are versioned public interfaces. A file contains application identification, a format name, a schema version, a timestamp, and a `conditions` object containing every persistent user setting for that page.
 
-The ACC Magnetometer currently writes schema **6.14**, including the active
+The ACC Magnetometer currently writes schema **6.15**, including the active
 physics-model identifier and independent `gamma_u_A/B` uniform-relaxation
-rates. Time evolution uses its own schema **2.5**, with the same physical
+rates. Time evolution uses its own schema **2.7**, with the same physical
 fields under an independent state namespace. Light shift and Atomic
 polarizability use their own independently versioned formats.
+
+Both analysis formats replace `static_field_axis` with required
+`static_field_theta_deg` and `static_field_phi_deg`: integer degrees in
+0–180 and 0–360 respectively. `static_field_nT` remains signed. Fractional
+angles, missing angles and the obsolete axis field are rejected without migration.
 
 ## Loading {#condition-loading}
 
 The loader validates application, format, and version identifiers before
-applying values. ACC accepts only schema 6.14; Time evolution accepts only
-schema 2.5 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
+applying values. ACC accepts only schema 6.15; Time evolution accepts only
+schema 2.7 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
 the user's explicit compatibility choice for this release. Required fields
 are validated before their settings enter session state.
 
-Verification covers saving the current widget values, current-format round
-trips, and validation of the current schema and fields. Historical-format
-fixtures, migration tests, and per-release rejection tests are no longer
-maintained. The current-version check remains in every loader.
+Verification covers current-format round trips, required and unknown fields,
+integer-degree bounds and rejection of obsolete axis fields and schema
+versions. Historical files are not migrated. The current-version check remains
+in every loader.
 
 Time evolution requires exactly the current setting names. Missing fields
 are rejected instead of being filled from defaults, and unknown fields are
@@ -37,7 +42,10 @@ New sessions select Hyperfine polarization and F_z. The independent
 `plotted_probe_signals_A/B` lists accept Absorption, Optical rotation and
 Ellipticity without duplicates, initially selecting the first two. Empty
 selection hides time-domain probe graphs and disables their section download.
-Probe frequency scans always show and export all three signals.
+Independent `plotted_scan_signals_A/B` lists accept Optical rotation,
+Ellipticity and Absorption without duplicates. They default to Optical rotation
+and Absorption, control scan charts and CSV columns, and preserve check order.
+Empty scan selections retain population bars and their CSV download.
 The existing selection lists retain plot order. Checkbox callbacks remove only
 the unchecked item or append the newly checked item; rendering and section CSVs
 iterate those lists directly. Saved order is restored without sorting.
@@ -48,8 +56,8 @@ The display selectors do not enter the physical integration or probe settings.
 
 `probe_scan_min_MHz_A/B` and `probe_scan_max_MHz_A/B` store independent scan
 limits, default −7000 and +7000 MHz relative to the selected zero-pressure
-D-line center. Limits lie within ±15000 MHz, at least 10 MHz apart; the lower
-bound is at most 14990 MHz and the upper bound at least −14990 MHz.
+D-line center. Limits lie within ±10000 MHz, at least 10 MHz apart; the lower
+bound is at most 9990 MHz and the upper bound at least −9990 MHz.
 
 ## Compatibility principles {#condition-compatibility-principles}
 
@@ -61,7 +69,7 @@ bound is at most 14990 MHz and the upper bound at least −14990 MHz.
 
 ## Probe-source settings {#probe-source-migration}
 
-Time evolution schema 2.5 includes the source values
+Time evolution schema 2.7 includes the source values
 `Preset D1a`, `Preset D1b`, `Preset D2a`, and `Preset D2b`. These are weak,
 nonperturbing probes available only on Time evolution. Selecting one fills
 editable fields once using the current isotope: z, 1 cm, zero azimuth and ellipticity;

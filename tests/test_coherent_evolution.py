@@ -34,7 +34,7 @@ def read(species, config, common):
 class CoherentEvolutionTests(unittest.TestCase):
     def test_independent_display_axes_preserve_state_and_probe(self):
         config, beams, common = inputs()
-        common.update(static_field_axis='y', static_field_nT=.1)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=.1)
         physical = compute_density_evolution(config, None, beams, common, .02, .04, 11)['A']
         original_density = physical['density_matrix'].copy()
         original_signal = read(physical, config, common)
@@ -87,7 +87,7 @@ class CoherentEvolutionTests(unittest.TestCase):
     def test_signed_larmor_rotation_and_uniform_coherence_decay(self):
         config, beams, common = inputs()
         config.update(density_cm3=0., R_ER=0., R_u=2.3)
-        common.update(static_field_axis='x', static_field_nT=1.)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=1.)
         model = models_for(config, None, [], common)[0]
         n, states = model['size'], model['ground_states']
         Fx, Fy, Fz = spin_matrices(states)
@@ -117,7 +117,7 @@ class CoherentEvolutionTests(unittest.TestCase):
     def test_pumping_creates_coherences_transverse_field_precesses_after_switch(self):
         config, beams, common = inputs()
         config.update(density_cm3=0., R_ER=0., R_u=0.)
-        common.update(static_field_axis='x', static_field_nT=.2)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=.2)
         result = compute_density_evolution(config, None, beams, common, .03, .3, 101)
         rho, times = result['A']['density_matrix'], result['time_s']
         model = models_for(config, None, [], common)[0]
@@ -136,7 +136,7 @@ class CoherentEvolutionTests(unittest.TestCase):
         config, beams, common = inputs()
         other = deepcopy(config)
         other.update(label='B', atom_name='Rb85', density_cm3=2e10)
-        common.update(static_field_axis='y', static_field_nT=.1)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=.1)
         beams[0].update(k_axis='x', pol='sigma+')
         reference = compute_density_evolution(config, other, beams, common, .02, .05, 21)
         original_signal = read(reference['A'], config, common)
@@ -232,7 +232,7 @@ class CoherentEvolutionTests(unittest.TestCase):
         for atom_name in ATOMS:
             config, beams, common = inputs()
             config.update(atom_name=atom_name, density_cm3=0., R_ER=2., R_u=1., q_axis='y')
-            common.update(static_field_axis='x', static_field_nT=.1)
+            common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=.1)
             beams[0].update(absolute_frequency_MHz=line_center_frequency_MHz(ATOMS[atom_name], 'D2'),
                             k_axis='z', pol='linear x')
             result = compute_density_evolution(config, None, beams, common, .004, .01, 11)
@@ -245,7 +245,7 @@ class CoherentEvolutionTests(unittest.TestCase):
     def test_complete_export_contains_independent_complex_coherences(self):
         from alkali_pumping_app.ui.time_evolution_data import evolution_export_dataframe
         config, beams, common = inputs()
-        common.update(static_field_axis='x', static_field_nT=.1)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=0, static_field_nT=.1)
         result = compute_density_evolution(config, None, beams, common, .02, .04, 11)
         table = evolution_export_dataframe(result, 'A', read(result['A'], config, common),
                                            config, config['probe'], common, beams)

@@ -249,7 +249,7 @@ class PhysicalPumpReadoutIntegrationTests(unittest.TestCase):
         common = {
             "temperature_C": 23.0,
             "n2_pressure_torr": 0.0,
-            "static_field_axis": "z",
+            "static_field_theta_deg": 0, "static_field_phi_deg": 0,
             "static_field_nT": 0.0,
         }
 

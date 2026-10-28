@@ -11,6 +11,25 @@ from alkali_pumping_app.ui.exports import (
 
 
 class DataExportTests(unittest.TestCase):
+    def test_steady_density_csv_preserves_all_complex_elements_and_basis(self):
+        from io import BytesIO
+        from alkali_pumping_app.ui.time_evolution_data import steady_density_matrix_export_dataframe
+        rho = np.array([[.5, .1j, 0], [-.1j, .3, 0], [0, 0, .2]])
+        states = [dict(F=1, m=-1), dict(F=1, m=0), dict(F=0, m=0)]
+        species = dict(density_matrix=rho[None], ground_states=states, q_axis='z', atom_name='test')
+        frame = steady_density_matrix_export_dataframe(species, label='B')
+        restored = pd.read_csv(BytesIO(dataframe_to_csv_bytes(frame)))
+        self.assertEqual(len(restored), rho.size)
+        rebuilt = np.zeros_like(rho)
+        rebuilt[restored.row_index, restored.column_index] = restored.rho_real + 1j * restored.rho_imag
+        np.testing.assert_array_equal(rebuilt, rho)
+        for row in restored.itertuples():
+            self.assertEqual((row.row_F, row.row_m), (states[row.row_index]['F'], states[row.row_index]['m']))
+            self.assertEqual((row.column_F, row.column_m), (states[row.column_index]['F'], states[row.column_index]['m']))
+        self.assertEqual(set(restored.quantization_axis), {'z'})
+        self.assertEqual(set(restored.alkali), {'B'})
+        self.assertEqual(set(restored.normalization), {'per total atom'})
+
     def test_atomic_polarizability_export_has_one_curve_per_column_and_units_row(self):
         plotted = pd.DataFrame(
             {

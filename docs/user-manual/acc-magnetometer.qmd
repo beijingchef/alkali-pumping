@@ -13,7 +13,16 @@ probabilities and damp every coherence, including nuclear polarization.
 They affect the steady state, RF and optical response, physical-pump feedback,
 and all total relaxation diagnostics. Use zero to disable this channel.
 
-The population model is diagonal in the selected quantization basis. For the supported secular RF calculation, choose the static-field direction parallel to the quantization axis. A transverse static field would mix states in a way that the current population model does not retain.
+The field row contains polar angle $\theta$, azimuth $\phi$, and strength in nT.
+Angles use integer degrees with 1° steps: $0\le\theta\le180$ measured from +z,
+and $0\le\phi\le360$ from +x toward +y. A negative strength reverses the direction.
+Thus $\mathbf B=B(\sin\theta\cos\phi,\sin\theta\sin\phi,\cos\theta)$.
+
+The population model remains diagonal in the selected quantization basis.
+Its Zeeman energies use the field component along that axis. For supported
+secular RF response, choose parallel or antiparallel field and quantization
+axes. Any nonzero transverse component disables the RF curve and shows a
+warning, because coherent transverse mixing is outside this population model.
 
 ## Pump configuration {#pump-configuration}
 
@@ -73,7 +82,7 @@ former checkbox and saved `show_allowed_only` field are removed. The selected
 transition defines the detuning reference; all relevant allowed channels,
 including off-resonant channels, still enter the calculations.
 
-Condition files use schema **6.14**. Only this version is supported; older
+Condition files use schema **6.15**. Only this version is supported; older
 files are rejected without migration. The two-manifold physics remains active.
 
 See [Interpreting results](interpreting-results.qmd) for the phase convention and line-shape guidance.

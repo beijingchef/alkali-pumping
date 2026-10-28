@@ -5,6 +5,7 @@ import pandas as pd
 from copy import deepcopy
 
 from .angular_momentum import build_ground_states
+from .field_geometry import static_field_direction, static_field_vector_nT
 from .constants import (
     ATOMS,
     alkali_vapor_density_cm3,
@@ -222,8 +223,11 @@ def _finalize_species(
         model["light_shift_diagnostics"],
     )
     components = decompose_nu_LS_components(states, nu_LS)
-    static_field_aligned = model["q_axis"] == common["static_field_axis"]
-    field_parallel_nT = common["static_field_nT"] if static_field_aligned else 0.0
+    component = 'xyz'.index(model['q_axis'])
+    direction = static_field_direction(common)
+    static_field_aligned = bool(np.isclose(abs(direction[component]), 1., rtol=0., atol=1e-12))
+    # Retain the secular model's diagonal projection; transverse RF remains unsupported.
+    field_parallel_nT = float(static_field_vector_nT(common)[component])
     bias_hz = upper_larmor_frequency_from_field_nT(
         model["atom_name"], field_parallel_nT
     )

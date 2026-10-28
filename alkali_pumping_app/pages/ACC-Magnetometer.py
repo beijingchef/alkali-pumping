@@ -15,7 +15,8 @@ from alkali_pumping_app.ui.exports import (
     weak_probe_export_dataframe,
     manifold_rf_export_dataframe,
 )
-from alkali_pumping_app.ui.plot_data import aligned_population_bar_data
+from alkali_pumping_app.ui.population_plot import render_population_plot as _render_population_plot
+from alkali_pumping_app.ui.magnetic_field import render_field_controls
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings
 from alkali_pumping_app.ui.rf_display import (
     add_probe_decomposition_legend,
@@ -780,11 +781,13 @@ with st.sidebar:
     er_col_A, er_col_B = st.columns(2, gap="xsmall")
     with er_col_A:
         R_ER_A = st.number_input(
-            r"$R_{\mathrm{ER},A}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_ER_A"
+            r"$R_{\mathrm{ER},A}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_ER_A",
+            help="Electron spin randomization rate: relaxes the electron spin toward an unpolarized state while preserving nuclear polarization."
         )
     with er_col_B:
         R_ER_B = st.number_input(
-            r"$R_{\mathrm{ER},B}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_ER_B"
+            r"$R_{\mathrm{ER},B}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_ER_B",
+            help="Electron spin randomization rate: relaxes the electron spin toward an unpolarized state while preserving nuclear polarization."
         )
     uniform_col_A, uniform_col_B = st.columns(2, gap="xsmall")
     with uniform_col_A:
@@ -797,19 +800,7 @@ with st.sidebar:
             r"$R_{u,B}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key="gamma_u_B",
             help="Uniform ground-state relaxation for Alkali B, including nuclear polarization.",
         )
-    field_col_1, field_col_2 = st.columns(2, gap="xsmall")
-    with field_col_1:
-        static_field_axis = st.selectbox(
-            "Static field direction", ["z", "x", "y"], key="static_field_axis"
-        )
-    with field_col_2:
-        static_field_nT = st.number_input(
-            "Strength (nT)",
-            step=1.0,
-            format="%g",
-            key="static_field_nT",
-            help="A negative value reverses the selected field direction.",
-        )
+    static_field_theta_deg, static_field_phi_deg, static_field_nT = render_field_controls()
 
     q_axis_A = st.session_state["q_axis_A"]
     q_axis_B = st.session_state["q_axis_B"]
@@ -832,12 +823,12 @@ with st.sidebar:
     show_rate_matrices = st.checkbox("Show rate matrices", key="show_rate_matrices")
 
     with condition_controls_placeholder.container():
-        load_col, save_col, name_col = st.columns([0.20, 0.20, 0.60], gap="xsmall")
+        load_col, save_col, name_col = st.columns([0.20, 0.20, 0.60], gap="xsmall", vertical_alignment="bottom")
         with load_col:
             open_file_button(
                 type=["json"],
                 key="condition_file_uploader",
-                help="Load ACC condition files in the current v6.14 format. Older formats are unsupported.",
+                help="Load ACC condition files in the current v6.15 format. Older formats are unsupported.",
                 on_change=load_condition_callback,
             )
         with save_col:
@@ -962,7 +953,8 @@ if active_B:
 common = {
     "temperature_C": temperature_C,
     "n2_pressure_torr": n2_pressure_torr,
-    "static_field_axis": static_field_axis,
+    "static_field_theta_deg": static_field_theta_deg,
+    "static_field_phi_deg": static_field_phi_deg,
     "static_field_nT": static_field_nT,
 }
 physical_beams = [
@@ -1055,30 +1047,6 @@ def _compact_title(text):
     )
 
 
-def _render_population_plot(result):
-    states = result["ground_states"]
-    population = result["population"]
-    common_m_values, groups = aligned_population_bar_data(states, population)
-    fig, axes = plt.subplots(
-        len(groups), 1, figsize=(4.6, 4.5), sharex=True, sharey=True
-    )
-    axes = np.atleast_1d(axes)
-    for axis, (F, m_values, manifold_population) in zip(axes, groups):
-        axis.bar(m_values, manifold_population, width=0.72)
-        axis.set_title(f"F={F:g}", fontsize=11, pad=3)
-        axis.set_ylabel("Population")
-        axis.grid(axis="x", linestyle=":", linewidth=0.6, alpha=0.22)
-    axes[-1].set_xticks(common_m_values)
-    axes[-1].set_xticklabels([f"{m:g}" for m in common_m_values])
-    axes[-1].set_xlabel(f"m along {result['q_axis']}")
-    if len(common_m_values):
-        axes[-1].set_xlim(common_m_values[0] - 0.6, common_m_values[-1] + 0.6)
-    axis_max = max(0.01, 1.08 * float(np.max(population)))
-    for axis in axes:
-        axis.set_ylim(0.0, axis_max)
-    fig.tight_layout()
-    st.pyplot(fig, width="stretch")
-    plt.close(fig)
 
 
 def _compact_scientific_notation(formatted):
@@ -1358,7 +1326,7 @@ frequencies; coupling can move the response peaks away from those markers.
             st.caption(f"Common Γ = {gamma:.4g} s⁻¹, F={reference['F']:g}, m={reference['m']:g}.")
     with plot_col:
         if not result["static_field_aligned"] and abs(static_field_nT) > 0.0:
-            st.warning("The static field is transverse to the quantization axis; this secular response is unavailable.")
+            st.warning("The static field has a transverse component relative to the quantization axis; this secular response is unavailable.")
         elif not result["rf_available"]:
             st.warning("RF response is unavailable because an active species has a non-diagonal light shift or unsupported static-field direction.")
         else:
@@ -1704,7 +1672,7 @@ def _render_species_result(result, label):
     with q_caption:
         st.caption(
             accent_caption(
-                f"Shared static field: {static_field_nT:g} nT along {static_field_axis}; "
+                f"Shared static field: {static_field_nT:g} nT, θ={static_field_theta_deg:d}°, φ={static_field_phi_deg:d}°; "
                 f"Alkali {label} upper-manifold Larmor frequency: "
                 f"{result['bias_larmor_hz']:.6g} Hz."
             )

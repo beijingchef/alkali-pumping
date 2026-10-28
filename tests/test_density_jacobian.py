@@ -14,7 +14,7 @@ class DensityJacobianTests(unittest.TestCase):
     def models(self, atom='Rb87', dual=False):
         config, beams, common = inputs()
         config.update(atom_name=atom, R_u=3., density_cm3=1e10)
-        common.update(static_field_axis='y', static_field_nT=.4)
+        common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=.4)
         other = deepcopy(config) if dual else None
         if other is not None:
             other.update(label='B', atom_name='Rb85', density_cm3=2e10, R_ER=17., R_u=7.)

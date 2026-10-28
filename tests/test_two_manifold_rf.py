@@ -66,7 +66,7 @@ def system_inputs(physical=False):
         "selected_transition": None, "transition_label": "D1 test pump",
     }
     common = {"temperature_C": 23.0, "n2_pressure_torr": 0.0,
-              "static_field_axis": "z", "static_field_nT": 3.0}
+              "static_field_theta_deg": 0, "static_field_phi_deg": 0, "static_field_nT": 3.0}
     return species, [beam], common
 
 

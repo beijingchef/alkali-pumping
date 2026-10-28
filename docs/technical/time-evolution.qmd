@@ -26,8 +26,11 @@ Both species are evolved in a common lab-z basis, so electron spin transfer
 does not depend on their independently selected display bases.
 
 The static Hamiltonian is
-$H_B/\hbar=2\pi(\mu_B/h)10^{-9}B_{\mathrm{nT}}\sum_F g_F P_F F_b P_F$,
-with dimensionless spin operators, the field's laboratory axis $b$, and the
+$H_B/\hbar=2\pi(\mu_B/h)10^{-9}B_{\mathrm{nT}}\sum_F g_F P_F (\hat n_B\cdot\mathbf F) P_F$,
+where $\hat n_B=(\sin\theta\cos\phi,\sin\theta\sin\phi,\cos\theta)$.
+Both sidebar angles use integer degrees: $\theta$ is measured from +z and
+$\phi$ from +x toward +y. The density matrix remains stored in lab-z.
+The Hamiltonian uses dimensionless spin operators and the
 existing signed hyperfine $g_F$, including the nuclear contribution. Thus
 $\dot{\langle F_y\rangle}=-\omega_F\langle F_z\rangle$ for a field along x.
 The linear Zeeman approximation is retained; Breit–Rabi mixing is excluded.
@@ -82,7 +85,7 @@ The page offers section CSV downloads. The complete export helper described
 below remains available programmatically; its former bottom-page button is removed.
 
 All result expanders use native `on_change="rerun"` tracking with independent
-per-species keys. Zeeman populations, Atomic moments and Probe signal scanning
+per-species keys. Zeeman populations, Atomic moments and Steady-state probe signal scanning
 default to closed. Content is guarded by the container's `.open` state: chart creation,
 section CSV preparation and widgets run only while open. Steady-state convergence
 and spectral readout are inside the scan guard, so they do not run on initial
@@ -229,7 +232,7 @@ Time and frequency readout share exact Jones propagation and Stokes conversion.
 The continuous weak probe does not enter the stationary master equation.
 
 Each species scans 2001 equally spaced points over its saved bounds. Defaults
-are ±7000 MHz; a native two-handle range slider allows ±15000 MHz with a
+are ±7000 MHz; a native two-handle range slider allows ±10000 MHz with a
 minimum 10 MHz span, enforced when the handles meet. It writes the existing
 independent minimum/maximum settings without changing the saved format. Changing
 the limits reuses the cached steady state. Probe line, direction, polarization
@@ -237,18 +240,52 @@ and path length are inherited; its fixed detuning/reference transition and the
 display quantization axes do not constrain the frequency scan. CSVs contain
 plotted signals and frequency-origin, probe/cell/pump and convergence metadata.
 
-The scan header uses native columns for a left-side label, a half-width slider
-and right-aligned section controls. Its help and download share one horizontal
-row, in that order; time-domain section controls retain their vertical layout.
-The slider's native label is collapsed while its accessible label is retained.
+The scan section uses native 30%/70% columns. On the left, the shared ACC
+population renderer shows the converged pump-on populations in the selected
+Zeeman display basis, with aligned numerical m positions and a common y scale
+for both manifolds. The responsive population chart has a combined 338-pixel
+height, 30% taller than one signal chart. ACC retains its existing
+Matplotlib renderer; the fixed-height scan uses native Vega-Lite bars from the
+same aligned population data. On the right are the signal plots.
+Each scan population bar spans 1/1.3 magnetic-quantum-number units, giving gaps
+30% of the bar width, versus ACC's unchanged 0.72-unit bars;
+both renderers put F on the vertical axis and omit gridlines. Two native
+169-pixel chart viewports with no intervening gap give 338 pixels in total.
+The CSV repeats these steady populations as `population_F*_m*` columns and
+identifies their quantization axis, alongside both field angles in degrees.
+
+The scan header uses native containers for three signal checkboxes in one horizontal row, a range slider
+and right-aligned section controls. Every section places help and download at
+the right end of its top control row. Time-domain plots use two equal columns.
+The slider's visible label stays on one line on its left; its 338-pixel container is twice as long
+as the previous 169-pixel layout. Controls wrap when space is limited. The help button retains its full 56-pixel width.
+Each species has an independent
+`plotted_scan_signals_A/B` list. Its default order is Optical rotation then
+Absorption; Ellipticity starts unchecked. Toggled plots append in check order.
+The CSV includes selected signal columns and all steady population bars.
+An empty signal selection still displays populations and permits their download.
 
 All four result sections use native open-state gating: closed sections build
 no charts, section controls or exports on sidebar reruns. Zeeman populations,
-Atomic moments and Probe signal scanning default closed; Probe signal defaults
+Atomic moments and Steady-state probe signal scanning default closed; Probe signal defaults
 open. Saved atomic-moment defaults select hyperfine polarization and F_z.
+All eight section-state keys (four per species) use the existing persistent
+page-setting registry so Streamlit's hidden-widget cleanup does not reset them
+when navigating away. Open/closed states remain session UI preferences.
 Independent `plotted_probe_signals_A/B` lists select time-domain probe curves
 and exported columns, defaulting to Absorption and Optical rotation. The
-frequency scan remains independent and always includes all three signals.
+frequency scan has its own independent selections and defaults.
 
-Settings format 2.5 and the v3 coherent model identifier are both required.
+Settings format 2.7 and the v3 coherent model identifier are both required.
 Earlier settings are rejected without migration, as requested by the user.
+
+The **Zeeman populations** title row in **Steady-state probe signal scanning**
+includes a density-matrix CSV download. It contains every matrix element,
+including zero entries and both real and imaginary parts. Row and column
+indices and F,m labels identify the stored lab-z basis; probabilities are
+normalized per total atom. The selected display axis does not change this
+stored-basis export. The download reuses the converged steady state.
+
+Small ticks beneath the probe-scan detuning slider track mark all allowed
+hyperfine transition centers within its full +/-10000 MHz domain. They include
+the current pressure shift and use the same centers as the signal plots.

@@ -60,7 +60,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
 
     def test_page_renders_required_plots_and_two_sliders(self):
         app = self.app(open_moments=False, open_zeeman=False)
-        for title in ("Zeeman populations", "Atomic moments", "Probe signal scanning"):
+        self.assertNotIn("Time evolution", [heading.value for heading in app.main.title])
+        for title in ("Zeeman populations", "Atomic moments", "Steady-state probe signal scanning"):
             section = next(item for item in app.expander if item.label == title)
             self.assertFalse(section.proto.expanded)
             self.assertFalse(section.get("vega_lite_chart"))
@@ -83,7 +84,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertEqual(len(app.slider), 2)
         self.assertEqual(len(app.sidebar.slider), 2)
         self.assertEqual(len(app.main.slider), 0)
-        self.assertIn("Probe signal scanning", [expander.label for expander in app.expander])
+        self.assertIn("Steady-state probe signal scanning", [expander.label for expander in app.expander])
         self.assertEqual(app.sidebar.header[-1].value, "Event Sequence")
         self.assertNotIn("Display", [header.value for header in app.sidebar.header])
         self.assertFalse(any(widget.label == "Only show allowed hyperfine transitions" for widget in app.checkbox))
@@ -98,7 +99,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertEqual(len(section_downloads), 3)
         self.assertTrue(all(button.proto.ignore_rerun for button in section_downloads))
         self.assertTrue(all(button.proto.label == ":material/download:" for button in section_downloads))
-        self.assertEqual(len(app.main.get("popover")), 4)
+        self.assertEqual(len(app.main.get("popover")), 3)
+        self.assertEqual(len(app.get("popover")), 4)
         self.assertEqual(len(app.main.caption), 0)
         for chart in app.get("vega_lite_chart"):
             spec = json.loads(chart.proto.spec)
@@ -132,7 +134,21 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.session_state["te_probe_scan_open_A"] = True
         app.run()
         self.assertFalse(app.exception)
-        self.assertEqual(len(app.get("vega_lite_chart")), 9)
+        self.assertEqual(len(app.get("vega_lite_chart")), 10)
+        scan = next(section for section in app.expander if section.label == 'Steady-state probe signal scanning')
+        scan_columns = scan.get('column')
+        self.assertAlmostEqual(scan_columns[0].proto.weight, .3)
+        self.assertAlmostEqual(scan_columns[1].proto.weight, .7)
+        self.assertTrue(any('**Zeeman populations**' == item.value for item in scan.markdown))
+        self.assertEqual(len(scan_columns[0].get('vega_lite_chart')), 2)
+        for chart in scan_columns[0].get('vega_lite_chart'):
+            spec = json.loads(chart.proto.spec)
+            self.assertEqual(spec['height'], 169)
+            self.assertEqual(spec['mark']['orient'], 'vertical')
+            self.assertEqual(spec['encoding']['y2']['datum'], 0)
+            self.assertTrue(spec['encoding']['y']['title'].startswith('F='))
+            self.assertFalse(spec['encoding']['x']['axis']['grid'])
+            self.assertFalse(spec['encoding']['y']['axis']['grid'])
         self.assertEqual(len(app.main.slider), 1)
         self.assertEqual(app.slider(key="_scan_widget_te_probe_scan_range_MHz_A").value,
                          (-7000., 7000.))
@@ -149,26 +165,109 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertEqual(app.slider(key="_scan_widget_te_probe_scan_range_MHz_A").value,
                          (-5000., 7000.))
 
+    def test_spherical_field_controls_share_a_row_and_persist_independently(self):
+        app=AppTest.from_file(str(ROOT/'alkali_pumping.py'),default_timeout=60).run()
+        for prefix in ('','te_'):
+            if prefix:
+                app.switch_page(PAGE).run()
+            keys=[prefix+name for name in ('static_field_theta_deg','static_field_phi_deg','static_field_nT')]
+            field_columns=[column for column in app.sidebar.get('column')
+                           if any(widget.key in keys for widget in column.number_input)]
+            self.assertEqual(len(field_columns),3)
+            self.assertEqual([[widget.key for widget in column.number_input] for column in field_columns],[[k] for k in keys])
+            self.assertTrue(all(abs(column.proto.weight-1/3)<1e-6 for column in field_columns))
+            for name in keys[:2]:
+                self.assertEqual(app.number_input(key=name).proto.step,1.)
+            app.number_input(key=keys[0]).set_value(37 if prefix else 53).run()
+            app.number_input(key=keys[1]).set_value(123 if prefix else 127).run()
+            self.assertFalse(app.exception)
+        app.switch_page('alkali_pumping_app/pages/ACC-Magnetometer.py').run()
+        self.assertEqual(app.number_input(key='static_field_theta_deg').value,53)
+        app.switch_page(PAGE).run()
+        self.assertEqual(app.number_input(key='te_static_field_theta_deg').value,37)
+        self.assertEqual(app.number_input(key='te_static_field_phi_deg').value,123)
+        self.assertFalse(app.exception)
+
+    def test_scan_checkboxes_filter_plots_and_csv_without_resolving_the_atoms(self):
+        from alkali_pumping_app.ui import exports
+        app = self.app(open_moments=False, open_zeeman=False)
+        app.session_state['te_probe_signal_open_A'] = False
+        app.session_state['te_probe_scan_open_A'] = True
+        with patch.object(exports, 'dataframe_to_csv_bytes', wraps=exports.dataframe_to_csv_bytes) as export:
+            app.run()
+        self.assertFalse(app.exception)
+        frame = export.call_args.args[0]
+        self.assertEqual(list(frame)[:3], ['detuning_MHz', 'rotation_mrad', 'absorption_1_minus_Iout_over_Iin'])
+        self.assertNotIn('ellipticity_mrad', frame)
+        self.assertTrue(app.checkbox(key='te_scan_option_A_Optical rotation').value)
+        self.assertTrue(app.checkbox(key='te_scan_option_A_Absorption').value)
+        self.assertFalse(app.checkbox(key='te_scan_option_A_Ellipticity').value)
+        with patch('alkali_pumping_app.physics.probe_scan.pump_on_steady_state',
+                   side_effect=AssertionError('Display changes must reuse the steady state')):
+            app.checkbox(key='te_scan_option_A_Optical rotation').uncheck().run()
+            app.checkbox(key='te_scan_option_A_Ellipticity').check().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.session_state['te_plotted_scan_signals_A'], ['Absorption', 'Ellipticity'])
+        self.assertEqual(app.session_state['te_plotted_scan_signals_B'], ['Optical rotation', 'Absorption'])
+        scan = next(section for section in app.expander if section.label == 'Steady-state probe signal scanning')
+        self.assertEqual([json.loads(chart.proto.spec)['description'] for chart in scan.get('column')[1].get('vega_lite_chart')],
+                         ['Absorption', 'Ellipticity'])
+        app.checkbox(key='te_scan_option_A_Absorption').uncheck().run()
+        with patch.object(exports, 'dataframe_to_csv_bytes', wraps=exports.dataframe_to_csv_bytes) as export:
+            app.checkbox(key='te_scan_option_A_Ellipticity').uncheck().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(len(app.get('vega_lite_chart')), 2)
+        self.assertFalse(app.main.get('download_button')[0].proto.disabled)
+        frame = export.call_args.args[0]
+        self.assertTrue(any(name.startswith('population_F') for name in frame))
+        self.assertFalse({'rotation_mrad', 'ellipticity_mrad', 'absorption_1_minus_Iout_over_Iin'} & set(frame))
+        app.switch_page('alkali_pumping_app/pages/atomic_properties.py').run()
+        app.switch_page(PAGE).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.session_state['te_plotted_scan_signals_A'], [])
+        self.assertFalse(app.checkbox(key='te_scan_option_A_Optical rotation').value)
+
+    def test_section_open_states_survive_navigation_for_both_species(self):
+        app = self.app(open_moments=False, open_zeeman=False)
+        app.selectbox(key='te_atom_B_name').select('Rb85').run()
+        sections = ('zeeman_populations', 'atomic_moments', 'probe_signal', 'probe_scan')
+        expected = {}
+        for label, states in (('A', (True, False, False, True)), ('B', (False, True, True, False))):
+            for section, opened in zip(sections, states):
+                state_key = f'te_{section}_open_{label}'
+                expected[state_key] = opened
+                app.session_state[state_key] = opened
+        app.run()
+        self.assertFalse(app.exception)
+        app.switch_page('alkali_pumping_app/pages/atomic_properties.py').run()
+        self.assertFalse(app.exception)
+        app.switch_page(PAGE).run()
+        self.assertFalse(app.exception)
+        for label, tab in zip(('A', 'B'), app.main.tabs):
+            self.assertEqual([section.proto.expanded for section in tab.expander],
+                             [expected[f'te_{section}_open_{label}'] for section in sections])
+        self.assertEqual(app.selectbox(key='te_atom_B_name').value, 'Rb85')
+
     def test_sidebar_changes_only_render_open_sections(self):
         app = self.app(open_moments=False, open_zeeman=False)
         sections = {
             "Zeeman populations": ("zeeman_populations", 2),
             "Atomic moments": ("atomic_moments", 2),
             "Probe signal": ("probe_signal", 2),
-            "Probe signal scanning": ("probe_scan", 3),
+            "Steady-state probe signal scanning": ("probe_scan", 4),
         }
         for index, opened in enumerate([None, *sections]):
             for title, (state_key, _) in sections.items():
                 app.session_state[f"te_{state_key}_open_A"] = title == opened
             # A changed physical condition must not render or read out closed sections.
             with ExitStack() as stack:
-                if opened in (None, "Probe signal scanning"):
+                if opened in (None, "Steady-state probe signal scanning"):
                     stack.enter_context(patch("alkali_pumping_app.physics.time_evolution.compute_density_evolution",
                                               side_effect=AssertionError("Closed transient sections integrated")))
                 for title, target in (
                     ("Zeeman populations", "alkali_pumping_app.ui.time_evolution_data.zeeman_plot_frame"),
                     ("Probe signal", "alkali_pumping_app.physics.optical_readout.density_probe_signals"),
-                    ("Probe signal scanning", "alkali_pumping_app.physics.probe_scan.pump_on_steady_state"),
+                    ("Steady-state probe signal scanning", "alkali_pumping_app.physics.probe_scan.pump_on_steady_state"),
                 ):
                     if title != opened:
                         stack.enter_context(patch(target, side_effect=AssertionError(f"Closed {title} ran")))
@@ -179,7 +278,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
             for title, (_, count) in sections.items():
                 section = next(item for item in app.expander if item.label == title)
                 self.assertEqual(len(section.get("vega_lite_chart")), count if title == opened else 0)
-                self.assertEqual(len(section.get("download_button")), int(title == opened))
+                self.assertEqual(len(section.get("download_button")),
+                                 (2 if title == "Steady-state probe signal scanning" else 1) if title == opened else 0)
 
     def test_probe_checkboxes_filter_exports_persist_and_leave_scan_independent(self):
         from alkali_pumping_app.ui import exports
@@ -213,7 +313,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.run()
         self.assertFalse(app.exception)
         self.assertFalse(app.error)
-        self.assertEqual(len(app.get("vega_lite_chart")), 3)
+        self.assertEqual(len(app.get("vega_lite_chart")), 4)
 
         app.session_state["te_probe_scan_open_A"] = False
         app.selectbox(key="te_atom_B_name").select("Rb85").run()
@@ -522,7 +622,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertEqual(app.selectbox(key="te_probe_transition_B").value, "3→2")
         self.assertEqual(len(app.get("vega_lite_chart")), 12)
         self.assertEqual(len(app.main.get("download_button")), 6)
-        self.assertEqual(len(app.main.get("popover")), 7)
+        self.assertEqual(len(app.main.get("popover")), 6)
+        self.assertEqual(len(app.get("popover")), 7)
         app.selectbox(key="te_probe_source_A").select("Custom").run()
         app.selectbox(key="te_probe_k_A").select("z").run()
         app.number_input(key="te_probe_ellipticity_deg_A").set_value(45.).run()

@@ -14,6 +14,7 @@ from ..physics.spectroscopy import (
 from ..physics.system_model import resolve_alkali_densities
 from .downloads import save_button_with_immediate_download
 from .page_state import register_persistent_page_settings
+from .magnetic_field import render_field_controls
 from .probe_presets import PROBE_PRESET_SOURCES, probe_preset_settings
 from .text import line_center_detuning_caption
 from .time_evolution_conditions import (
@@ -270,20 +271,17 @@ def render_sidebar():
         cols = st.columns(2, gap="xsmall")
         for label, column in zip(("A", "B"), cols):
             with column:
-                st.number_input(rf"$R_{{\mathrm{{ER}},{label}}}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key=key(f"gamma_ER_{label}"))
+                st.number_input(rf"$R_{{\mathrm{{ER}},{label}}}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f", key=key(f"gamma_ER_{label}"),
+                                help="Electron spin randomization rate: relaxes the electron spin toward an unpolarized state while preserving nuclear polarization. Remains active after pump turn-off.")
         cols = st.columns(2, gap="xsmall")
         for label, column in zip(("A", "B"), cols):
             with column:
                 st.number_input(rf"$R_{{u,{label}}}$ (s⁻¹)", min_value=0.0, step=1.0, format="%.1f",
                                 key=key(f"gamma_u_{label}"),
                                 help="Uniform relaxation toward equal ground-state populations; remains active after pump turn-off.")
-        cols = st.columns(2, gap="xsmall")
-        with cols[0]:
-            field_axis = st.selectbox("Static field direction", ["z", "x", "y"], key=key("static_field_axis"))
-        with cols[1]:
-            field = st.number_input("Strength (nT)", step=1.0, format="%g", key=key("static_field_nT"))
+        theta, phi, field = render_field_controls(PREFIX)
         common = {"temperature_C": temperature, "n2_pressure_torr": pressure,
-                  "static_field_axis": field_axis, "static_field_nT": field}
+                  "static_field_theta_deg": theta, "static_field_phi_deg": phi, "static_field_nT": field}
         atoms = {"A": atom_A, "B": atom_B if active_B else atom_A}
         coefficients = {label: _coefficients(label if label == "A" or active_B else "A") for label in ("A", "B")}
         st.header("Pump configuration")

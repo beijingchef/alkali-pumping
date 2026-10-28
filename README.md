@@ -1,4 +1,4 @@
-# Alkali Pumping v6.20.14
+# Alkali Pumping v6.21.1
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -32,7 +32,7 @@ five workflows:
   an analytic Jacobian, including self and cross spin exchange.
   Each alkali has independent Zeeman-population and atomic-moment display axes,
   which can differ from the magnetic-field axis. The compact Zeeman **Axis**
-  selector sits in the third column with its label centered above it. Axis
+  selector sits in its section's top row, with its label on the left. Axis
   selectors share the download buttons' width. The moment **Axis** label sits to the left
   of its selector; both precede the checkboxes with a gap before the group.
   Both replace the former sidebar axis. Changing either re-expresses the cached
@@ -51,10 +51,10 @@ five workflows:
   a maximum total time of 30 s and turn-off bounded by total time. Their labels
   are Total time (s) and Pump turn-off time (s). Absorption is the fraction
   $1-I_{\mathrm{out}}/I_{\mathrm{in}}$ and is included in CSV exports.
-  Each time-domain plot section has two plot columns and a narrow third column
-  with a question-mark help popup above its download icon. The CSV contains all displayed curves in that
+  Each section places help and download at the right end of its top control row.
+  Time-domain plots use two equal columns across the full width. The CSV contains all displayed curves in that
   section, with plot/curve names and units in the column labels. The four section
-  downloads are the page's CSV controls. Individual graph panels retain their
+  downloads export plotted curves; the population title row separately exports the full steady density matrix. Individual graph panels retain their
   titles. Plot regions are 260 pixels tall
   with compact bottom margins; the electron plot is titled Electron polarization
   with y-axis label 2⟨S_q⟩/ℏ. Native moment checkboxes have no group caption;
@@ -77,7 +77,7 @@ five workflows:
   where applicable. The right-handed (u,v,q) frames are (y,z,x), (z,x,y),
   (x,y,z) for q=x,y,z. Defaults show hyperfine polarization and Fz.
   Collapsible result sections use their native outlines. Zeeman populations,
-  Atomic moments and Probe signal scanning start collapsed; Probe signal starts
+  Atomic moments and Steady-state probe signal scanning start collapsed; Probe signal starts
   open. All sections create and refresh plots and controls only while open,
   including after sidebar edits, using native Streamlit open-state tracking.
   Closing all time-domain sections defers transient integration until one is
@@ -95,26 +95,40 @@ five workflows:
   graph panels retain borders.
   Legends are inside the top right. Single-curve probe, hyperfine-polarization
   and electron-polarization plots omit legends. Manifold legends show F values;
-  Zeeman titles show only F.
+  Time-domain Zeeman titles show only F. Steady-state population bars place F
+  on their vertical axes and omit gridlines.
   Graphs whose entire vertical data extent lies between -0.01 and +0.01 use
   scientific notation with three significant figures for y-axis ticks and
   hover values, with zero ticks shown as 0; other graphs retain their usual formatting.
   Calculations and CSV exports retain full precision.
-  Page-level descriptions are in the question-mark popup beside the page title.
+  Page-level descriptions are in question-mark popups. Time evolution omits
+  its page title and keeps its help beside Auto update and Apply in the bottom toolbar.
   New sessions use sigma+ D1 pumping along z: Pump1 on the lower-to-upper
   hyperfine branch at zero detuning, and Pump2 on the upper-to-upper branch
   with zero intensity. The Custom Weak probe is along z with a 1 cm path,
   the Rb87 2→1 reference transition, −2000 MHz detuning, and zero input
   ellipticity. Total time defaults to 4 s and turn-off to 1 s.
-  **Probe signal scanning**, when opened, independently converges the pump-on steady state
+  **Steady-state probe signal scanning**, when opened, independently converges the pump-on steady state
   and scans all allowed hyperfine transitions of the probe's selected D line.
   If numerical error stalls stationary convergence, the solver tightens its
   integration accuracy with bounded retries rather than extending settled
   trajectories indefinitely. Normally converging cases retain their tolerances.
-  Rotation, ellipticity and absorption have one plot per row. A two-handle
-  detuning range slider at the top left defaults to ±7000 MHz relative to the
-  zero-pressure D-line center, adjustable within ±15000 MHz. The slider is half
-  its former width, with its label on the left. Help sits immediately left of
+  The left 30% shows steady-state Zeeman populations using the same bars as
+  ACC; the right 70% shows the selected probe signals, one plot per row.
+  The two population manifolds are 338 pixels tall in total, 30% taller than
+  one signal graph, with gaps about 30% of each bar's width. Three signal checkboxes in one row
+  to the left of detuning selects optical rotation, ellipticity and absorption;
+  optical rotation and absorption start checked. Each species' selection and
+  plot order persist through navigation and saved settings. Scan CSVs include
+  the selected signals; clearing all signals retains population bars and exports.
+  Each section remembers its open or closed state across page navigation,
+  independently for Alkali A and B.
+  Scan CSVs include these populations and their quantization axis. The Zeeman
+  populations title row also downloads the entire steady-state density matrix
+  as a CSV with all real/imaginary elements and lab-z basis labels.
+  A two-handle detuning range slider above the signals defaults to ±7000 MHz relative to the
+  zero-pressure D-line center, adjustable within ±10000 MHz. Its label appears
+  on one line to the left of the slider, whose length is now doubled. Help sits immediately left of
   the download icon on the same row at the top right. Transient timing and fixed
   probe detuning do not set the scan.
   The Time evolution sidebar starts at a native width of 420 pixels.
@@ -191,7 +205,9 @@ streamlit run alkali_pumping.py
   Every active laser frequency is evaluated against both species.
 - The optional rate-matrix display includes each local map and the full block
   population Jacobian `[[J_AA, J_AB], [J_BA, J_BB]]`.
-- The sidebar contains the shared static-field direction and strength in nT.
+- Both analysis sidebars place magnetic-field polar angle θ, azimuth φ and
+  strength in nT in one row. Angles use integer degrees: θ from +z (0–180°),
+  φ from +x toward +y (0–360°). Negative strength reverses this direction.
 - Each result tab has its own quantization axis, RF axis, and frequency range.
   Within that tab, the RF axis and lower/upper frequency bounds are shared by
   the atomic-moment and probe-readout plots; all other plot controls are
@@ -269,8 +285,8 @@ Both analysis pages always list allowed hyperfine reference transitions;
 the former checkbox and saved `show_allowed_only` field have been removed.
 The selected reference defines detuning; calculations still include all
 relevant allowed transitions, including off-resonant contributions.
-ACC writes and loads condition schema **6.14**. Time evolution writes and
-loads its independent settings schema **2.5** and coherent-model identifier. Time evolution requires every
+ACC writes and loads condition schema **6.15**. Time evolution writes and
+loads its independent settings schema **2.7** and coherent-model identifier. Time evolution requires every
 current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
 (with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
 for previous configurations. Older analysis condition
@@ -281,9 +297,9 @@ version is backed up in `../archive/alkali_pumping_v6.9.9/` with a SHA-256
 manifest for reproducing previous calculations.
 
 The ACC steady population model is diagonal in each selected quantization basis. When a
-nonzero static-field direction is transverse to a tab's quantization axis, the
+nonzero static field has any transverse component relative to a tab's quantization axis, the
 app warns that transverse static-field mixing is omitted and does not present
-that RF curve. Choose the static-field direction as the quantization axis for
+that RF curve. Choose parallel or antiparallel field and quantization axes for
 the supported secular weak-response calculation.
 
 Time evolution instead evolves complete density blocks within Fa and Fb, with
@@ -337,3 +353,7 @@ Run the tests with:
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+Small ticks beneath the probe-scan detuning slider track mark all allowed
+hyperfine transition centers within its full +/-10000 MHz domain. They include
+the current pressure shift and use the same centers as the signal plots.

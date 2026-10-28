@@ -1,5 +1,64 @@
 # Changelog
 
+## 6.21.1 - 2026-10-28
+
+- Add pump-on Zeeman population bars in the left 30% of the steady-state
+  probe scan, with selected signal plots in the right 70%. The two population
+  panels total 338 pixels in height; gaps are 30% of each bar's width.
+- Rename the section to Steady-state probe signal scanning. Add a download
+  beside the Zeeman populations title containing every density-matrix element,
+  real and imaginary parts, and lab-z basis labels, normalized per total atom.
+- Show optical rotation, ellipticity and absorption checkboxes in one row,
+  defaulting to optical rotation and absorption. Preserve check order and
+  independent A/B selections; scan CSVs follow the selected signal order.
+- Use a 338-pixel detuning slider with its label on one line to the left.
+  Bound it to -10000 through +10000 MHz, with solid black transition ticks
+  below the track. Darken the dashed transition lines in the signal plots.
+  Both marker sets include pressure shifts.
+- Move the Zeeman axis selector to the top row. Put every section's help and
+  download at the right end of its top control row, freeing the full plot width.
+  Retain section open/closed states independently for A/B across navigation.
+- Give magnetic-field controls equal thirds on both analysis pages, with
+  bold-B angle subscripts and a field-magnitude label. Add electron
+  randomization hover help and align magnetometry Open/Save with the name input.
+- Save scan selections in Time evolution format 2.7, following the existing
+  current-format-only policy. ACC retains format 6.15. Empty signal selections
+  keep population plots and both population exports available.
+- Validation: all 255 tests pass (176.259 seconds), covering spherical fields,
+  independent axes, navigation, cached reuse, signal exports and complete
+  complex density-matrix CSV reconstruction. Slider ticks were also checked
+  in the browser.
+
+## 6.21.0 - 2026-10-28
+
+- Replace the Cartesian magnetic-field selector on both analysis pages with
+  polar angle θ, azimuth φ and strength in one row. Angles use integer degrees,
+  measured from +z and from +x toward +y respectively. Time evolution uses the
+  complete Cartesian field vector; ACC retains its secular longitudinal
+  projection and rejects RF curves with a transverse field component.
+- Add pump-on steady-state Zeeman populations to the left 30% of Time
+  evolution's probe scanning section; put the spectra in the right 70%.
+  Match the combined population graphs to one signal graph's 260-pixel height,
+  use ACC's bar width, remove population gridlines and place F on the vertical
+  axes. Include the plotted steady populations and field angles in scan CSVs.
+- Remove the Time evolution page title and move page help into the pinned
+  Auto update / Apply toolbar. Preserve all four sections' open/closed states
+  independently for both species across navigation, without changing saved
+  physical conditions.
+- Require ACC condition schema 6.15 and Time evolution settings 2.6, replacing
+  the old axis field with both angle fields. Reject older formats, missing or
+  obsolete fields and fractional/out-of-range angles without migration, per
+  the current-format-only project policy. Keep the independent Light shift
+  reference format and the density-matrix storage basis unchanged.
+- Validation: all 252 tests pass (205.657 seconds); final focused population
+  geometry and navigation checks pass (24.178 seconds). Verify spherical
+  Hamiltonians for every isotope, exact oblique-field dark precession, current
+  schema round trips and invalid-input rejection. Browser checks confirm the
+  30%/70% layout, 130+130 versus 260-pixel graph heights, wider vertical bars
+  without grids, axis labels, ACC's oblique-field warning, independent page
+  settings and restored section states after navigating away and back.
+  Git diff whitespace checks pass.
+
 ## 6.20.14 - 2026-10-28
 
 - Restore Time evolution's separate Open and Save buttons beside Setting name,
