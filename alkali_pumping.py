@@ -19,7 +19,6 @@ navigation = st.navigation(
                 title="ACC Magnetometer",
                 icon=":material/explore:",
                 url_path="acc-magnetometer",
-                default=True,
             ),
             st.Page(
                 "alkali_pumping_app/pages/time_evolution.py",
@@ -46,6 +45,7 @@ navigation = st.navigation(
                 title="Atomic properties",
                 icon=":material/science:",
                 url_path="atomic-properties",
+                default=True,
             )
         ],
     },

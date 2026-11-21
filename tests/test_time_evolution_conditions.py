@@ -16,7 +16,9 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         settings.update(t1_s=30., t2_s=30.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
         payload = build_settings_payload(DEFAULTS)
-        self.assertEqual(payload["version"], "2.8")
+        self.assertEqual(payload["version"], "2.10")
+        self.assertTrue(payload["settings"]["probe_weak_A"])
+        self.assertEqual(payload["settings"]["probe_intensity_A"], 1.0)
         self.assertNotIn("q_axis_A", payload["settings"])
         self.assertNotIn("q_axis_B", payload["settings"])
         self.assertNotIn("moment_types", payload["settings"])
@@ -36,7 +38,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
             parse_settings_payload(payload)
 
     def test_wrong_format_and_future_version_rejected(self):
-        for field, value in (("format", "alkali_pumping_conditions"), ("version", "2.4"), ("version", "3.0")):
+        for field, value in (("format", "alkali_pumping_conditions"), ("version", "2.9"), ("version", "3.0")):
             payload = build_settings_payload(DEFAULTS)
             payload[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
@@ -91,7 +93,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
     def test_probe_signal_selections_round_trip_and_validate_independently(self):
         for label in ("A", "B"):
             field = f"plotted_probe_signals_{label}"
-            self.assertEqual(DEFAULTS[field], ["Absorption", "Optical rotation"])
+            self.assertEqual(DEFAULTS[field], ["Optical rotation"])
             for selection in ([], list(PLOTTED_PROBE_SIGNALS), ["Ellipticity"],
                               ["Optical rotation", "Ellipticity", "Absorption"]):
                 settings = dict(DEFAULTS, **{field: selection})
@@ -100,9 +102,10 @@ class TimeEvolutionConditionTests(unittest.TestCase):
                 with self.subTest(label=label, selection=selection), self.assertRaisesRegex(ValueError, field):
                     build_settings_payload(dict(DEFAULTS, **{field: selection}))
 
-    def test_invalid_fields_and_physical_probe_sources_rejected(self):
+    def test_invalid_fields_and_obsolete_probe_sources_rejected(self):
         for key, value in (("t1_s", 5.), ("t2_s", 0.), ("t2_s", 30.001), ("intensity_A1", -1.),
-                           ("probe_source_A", "PumpA1"), ("probe_path_length_cm_A", -1.),
+                           ("probe_source_A", "PumpA1 weak"), ("probe_path_length_cm_A", -1.),
+                           ("probe_intensity_A", -1.), ("probe_weak_A", "yes"),
                            ("gamma_ER_A", float("nan")), ("gamma_u_A", -1.),
                            ("gamma_u_B", float("inf")), ("atom_A_name", "invalid"),
                            ("pol_A1", "linear z"), ("plotted_moments", ["RF amplitude"])):
@@ -111,10 +114,14 @@ class TimeEvolutionConditionTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 build_settings_payload(settings)
 
+        settings = dict(DEFAULTS, probe_source_A="PumpA1", probe_weak_A=False,
+                        probe_intensity_A=2.5)
+        self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
+
     def test_scan_signal_selections_are_saved_and_validated_independently(self):
         for label in ('A', 'B'):
             field = f'plotted_scan_signals_{label}'
-            self.assertEqual(DEFAULTS[field], ['Optical rotation', 'Absorption'])
+            self.assertEqual(DEFAULTS[field], ['Optical rotation'])
             for selected in ([], ['Ellipticity'], ['Absorption', 'Ellipticity', 'Optical rotation']):
                 settings = dict(DEFAULTS, **{field: selected})
                 self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)

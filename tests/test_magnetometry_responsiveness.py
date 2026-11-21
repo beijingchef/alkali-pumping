@@ -99,6 +99,8 @@ class MagnetometryUiTests(unittest.TestCase):
     def app(self):
         app = AppTest.from_file(str(ROOT / "alkali_pumping.py"), default_timeout=60).run()
         self.assertFalse(app.exception)
+        app.switch_page(PAGE).run()
+        self.assertFalse(app.exception)
         return app
 
     def test_matrices_are_nested_closed_and_defer_dataframe_work(self):

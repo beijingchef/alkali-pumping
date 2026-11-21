@@ -13,7 +13,7 @@ from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.8"
+SCHEMA_VERSION = "2.10"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
@@ -30,9 +30,11 @@ SHARED_KEYS = (
       for line in ("D1", "D2") for field in ("width", "shift")],
     *PUMP_CONDITION_KEYS,
     *[f"probe_{field}_{label}" for label in ("A", "B") for field in (
-        "source", "line", "transition", "det_rel", "k", "azimuth_deg", "ellipticity_deg", "path_length_cm")],
+        "source", "line", "transition", "det_rel", "k", "azimuth_deg", "ellipticity_deg",
+        "path_length_cm", "weak", "intensity")],
 )
-DEFAULTS = {key: deepcopy(DEFAULT_STARTUP_CONDITION[key]) for key in SHARED_KEYS}
+DEFAULTS = {key: deepcopy(DEFAULT_STARTUP_CONDITION[key]) for key in SHARED_KEYS
+            if key in DEFAULT_STARTUP_CONDITION}
 DEFAULTS.update(condition_name="time-evolution", t1_s=1.0, t2_s=4.0,
                 plotted_moments=["Hyperfine polarization", "F_z"])
 for _label in ("A", "B"):
@@ -42,8 +44,8 @@ for _label in ("A", "B"):
     _lower_F = _upper_F - 1
     DEFAULTS.update({
         f"zeeman_axis_{_label}": "z", f"moment_axis_{_label}": "z", f"probe_scan_axis_{_label}": "z",
-        f"plotted_probe_signals_{_label}": ["Absorption", "Optical rotation"],
-        f"plotted_scan_signals_{_label}": ["Optical rotation", "Absorption"],
+        f"plotted_probe_signals_{_label}": ["Optical rotation"],
+        f"plotted_scan_signals_{_label}": ["Optical rotation"],
         f"probe_scan_min_MHz_{_label}": -7000.0, f"probe_scan_max_MHz_{_label}": 7000.0,
         f"transition_{_label}1": f"{_lower_F:g}→{_upper_F:g}",
         f"det_rel_{_label}1": 0.0,
@@ -56,6 +58,8 @@ for _label in ("A", "B"):
         f"probe_transition_{_label}": f"{_upper_F:g}→{_lower_F:g}",
         f"probe_det_rel_{_label}": -2000.0,
         f"probe_ellipticity_deg_{_label}": 0.0,
+        f"probe_weak_{_label}": True,
+        f"probe_intensity_{_label}": 1.0,
     })
 
 
@@ -98,7 +102,7 @@ def validate_settings(values):
             choices[f"k_{prefix}"] = ["x", "y", "z"]
         choices[f"probe_line_{label}"] = ["D1", "D2"]
         choices[f"probe_k_{label}"] = ["x", "y", "z"]
-        choices[f"probe_source_{label}"] = ["Custom", *PROBE_PRESET_SOURCES, *[f"Pump{label}{n} weak" for n in (1, 2, 3)]]
+        choices[f"probe_source_{label}"] = ["Custom", *PROBE_PRESET_SOURCES, *[f"Pump{label}{n}" for n in (1, 2, 3)]]
     for key, allowed in choices.items():
         if result[key] not in allowed:
             raise ValueError(f"Invalid {key}.")
@@ -108,7 +112,8 @@ def validate_settings(values):
             if result[f"pol_{prefix}"] not in allowed_polarizations(result[f"k_{prefix}"]):
                 raise ValueError(f"Invalid pump polarization for {prefix}.")
     for key, value in result.items():
-        if (key.startswith(("intensity_", "gamma_ER_", "gamma_u_", "probe_path_length"))
+        if (key.startswith(("intensity_", "gamma_ER_", "gamma_u_", "probe_path_length",
+                           "probe_intensity_"))
                 or key in ("n2_pressure_torr", "density_ratio_B_to_A")
                 or "_width_" in key):
             if value < 0:

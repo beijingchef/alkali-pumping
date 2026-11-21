@@ -1,5 +1,48 @@
 # Changelog
 
+## 6.21.7 - 2026-11-21
+
+- Add an independent **Weak** checkbox (checked by default) and probe intensity
+  to each Time evolution probe. A non-weak fixed probe contributes absorption,
+  repopulation and light shift continuously from the initial state through the
+  full pump-on and pump-off evolution; a weak probe remains nonperturbing.
+- Place fixed-probe detuning immediately to the right of its F→F′ selector and
+  remove `weak` from Time evolution probe-source choices. Linked pump sources
+  now use `PumpN`; weak versus physical behavior comes only from the checkbox.
+- Rename the collapsible section to **Steady-state weak probe signal scanning**.
+  Its probe is nonperturbing from the start of the independent atomic steady-state
+  solve: only pumps and relaxation determine that state, and absorption is
+  evaluated afterward without feedback, regardless of the fixed-probe checkbox.
+- Update Time evolution settings to schema 2.10 and the continuous-probe coherent
+  model identifier. Older settings remain unsupported under the current-only policy.
+- Render plot-axis labels, ticks, domains and legends in black throughout the app,
+  and keep the Time evolution scan-range label black as well.
+- Keep active control labels black while leaving disabled labels gray. Widen the
+  scan Population selector to 130 px and make its two population panels taller,
+  with reduced outer padding and a 7 px gap that leaves the upper zero line visible.
+- Add explicit vertical-axis ticks to the scan population panels, tighten the
+  horizontal-axis label spacing, and reduce each framed plotting area by 5 px
+  to 111 px so the pair ends 10 px higher.
+- Increase the scan population y axes to about five ticks, move their tick labels
+  and titles closer to the axis, and restore a small x tick-label gap.
+- Remove the caption opacity from the active scan Axis, Population and Scan range
+  labels so their effective rendered color is black rather than translucent black.
+- Use compact download icons, with descriptive hover help, for every CSV export
+  button throughout the app.
+- Validation: all 276 project tests pass, including continuous probe action on
+  both sides of pump turn-off, pump-only steady-state scan convergence, source
+  labels, sidebar layout, settings validation, caches and full Streamlit UI flows.
+
+## 6.21.6 - 2026-11-14
+
+- Default Time evolution Probe signal to Optical rotation only for both alkalis.
+  Absorption and Ellipticity remain selectable; steady-state scan defaults are unchanged.
+- Update Time evolution settings schema to 2.9 under the existing current-format-only
+  policy for saved defaults. Explicit selections in current-format files are retained.
+- Add a Population snapshot selector below each steady-state scan's Zeeman bars.
+  Keep the pump-on steady state as the default, or show and export the exact
+  pump turn-off density while leaving the probe spectrum at steady state.
+
 ## 6.21.5 - 2026-10-28
 
 - Remove the ACC sidebar Display heading and Show rate matrices checkbox.

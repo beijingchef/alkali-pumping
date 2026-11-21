@@ -41,6 +41,7 @@ from alkali_pumping_app.ui.light_shift_conditions import (
     state_key,
 )
 from alkali_pumping_app.ui.text import accent_caption
+from alkali_pumping_app.ui.plot_style import style_altair_text
 
 
 COMPONENT_LABELS = {
@@ -531,7 +532,7 @@ def _scalar_chart_with_difference_legend(
 def _render_framed_chart(chart):
     """Render a Light shift chart in the same bordered frame as polarizability plots."""
     with st.container(border=True):
-        st.altair_chart(chart, width="stretch")
+        st.altair_chart(style_altair_text(chart), width="stretch")
 
 
 def _render_component_plot_title(title):
@@ -977,12 +978,12 @@ def render_light_shift_explorer(
             _render_framed_chart(chart)
 
         st.download_button(
-            "Download light-shift CSV",
+            ":material/download:",
             dataframe_to_csv_bytes(plotted),
             file_name=f"{condition_name}_alkali-{label}-light-shifts.csv",
             mime="text/csv; charset=utf-8",
             key=f"{prefix}_download",
-            width="stretch",
+            help="Download light-shift CSV", width=40,
         )
 
 
@@ -1667,12 +1668,12 @@ def render_light_shift_page():
         with download_column:
             with st.container(horizontal_alignment="right"):
                 st.download_button(
-                    "Download CSV",
+                    ":material/download:",
                     dataframe_to_csv_bytes(export),
                     file_name=f"{condition_name}_{atom_name}_{line}_light-shifts.csv",
                     mime="text/csv; charset=utf-8",
                     key="download_light_shift_page_csv",
-                    width="content",
+                    help="Download light-shift CSV", width=40,
                 )
         with help_column:
             with st.popover("❓"):

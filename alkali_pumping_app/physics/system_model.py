@@ -37,6 +37,7 @@ from .optical_pumping import (
     total_nu_LS_from_diagnostics,
 )
 from .optical_readout import manifold_probe_readout_operators, weak_probe_readout_operators
+from .polarization import polarization_ellipse_vector
 from .rf_response import (
     atomic_rf_readout_operators,
     build_rf_response_contexts,
@@ -118,6 +119,8 @@ def build_species_linear_model(config, all_beams, common):
     ground_states = build_ground_states(atom)
     size = len(ground_states)
     optical = np.zeros((size, size), dtype=float)
+    continuous_optical = np.zeros((size, size), dtype=float)
+    switched_optical = np.zeros((size, size), dtype=float)
     diagnostics = []
     species_beams = []
     light_shift_diagnostics = []
@@ -145,6 +148,11 @@ def build_species_linear_model(config, all_beams, common):
             temperature_C=common["temperature_C"],
             n2_width_MHz_per_torr=config["n2_coeffs"][line]["width"],
         )
+        ellipse_field = None
+        if "azimuth_deg" in beam and "ellipticity_deg" in beam:
+            ellipse_field = polarization_ellipse_vector(
+                beam["k_axis"], beam["azimuth_deg"], beam["ellipticity_deg"]
+            )
         generator, info = build_optical_L(
             atom=atom,
             line=line,
@@ -153,7 +161,8 @@ def build_species_linear_model(config, all_beams, common):
             pump_rate_s=rate_scale,
             selected_transition=beam.get("selected_transition"),
             k_axis=beam["k_axis"],
-            pol=beam["pol"],
+            pol=beam.get("pol"),
+            E_lab=ellipse_field,
             q_axis=config["q_axis"],
             n2_pressure_torr=common["n2_pressure_torr"],
             temperature_C=common["temperature_C"],
@@ -162,6 +171,10 @@ def build_species_linear_model(config, all_beams, common):
             normalize_to_selected_total=False,
         )
         optical += generator
+        if beam.get("continuous", False):
+            continuous_optical += generator
+        else:
+            switched_optical += generator
         diagnostics.append((beam, info))
         # A pump remains in the optical-pumping generator for any physically
         # possible off-resonant absorption, but its AC-Stark shift is reported
@@ -192,6 +205,8 @@ def build_species_linear_model(config, all_beams, common):
         "diagnostics": diagnostics,
         "light_shift_diagnostics": light_shift_diagnostics,
         "L_optical": optical,
+        "L_continuous_optical": continuous_optical,
+        "L_switched_optical": switched_optical,
         "M_ER": er_map,
         "R_u": R_u,
         "L_uniform": uniform,

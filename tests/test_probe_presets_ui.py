@@ -25,6 +25,8 @@ class ProbePresetUiTests(unittest.TestCase):
     def test_acc_source_menus_do_not_include_time_evolution_presets(self):
         app = AppTest.from_file(str(ROOT / "alkali_pumping.py"), default_timeout=60).run()
         self.assertFalse(app.exception)
+        app.switch_page(ACC).run()
+        self.assertFalse(app.exception)
         for label in ("A", "B"):
             if label == "B":
                 app.session_state["probe_configuration_tab"] = "Probe-B"
@@ -38,9 +40,19 @@ class ProbePresetUiTests(unittest.TestCase):
 
     def test_time_evolution_presets_populate_once_and_keep_edits(self):
         app = AppTest.from_file(str(ROOT / "alkali_pumping.py"), default_timeout=60).run()
+        app.switch_page(ACC).run()
+        self.assertFalse(app.exception)
         acc_source = app.session_state["probe_source_A"]
         app.switch_page(TIME).run()
         self.assertFalse(app.exception)
+        self.assertEqual(
+            app.selectbox(key="te_probe_source_A").options,
+            ["Custom", *PRESETS, "PumpA1", "PumpA2", "PumpA3"],
+        )
+        self.assertFalse(any("weak" in option.lower()
+                             for option in app.selectbox(key="te_probe_source_A").options))
+        self.assertTrue(app.checkbox(key="te_probe_weak_A").value)
+        self.assertEqual(app.number_input(key="te_probe_intensity_A").value, 1.0)
         original_B_source = app.session_state["te_probe_source_B"]
         pump_values = {field: app.session_state["te_" + field] for field in (
             "intensity_A1", "intensity_A2", "line_A1", "transition_A1", "pol_A1", "k_A1")}

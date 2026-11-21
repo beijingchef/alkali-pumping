@@ -83,7 +83,10 @@ def probe_cached(species, probe, cell, coefficients,
     line = probe['line']
     return optical_readout.density_probe_signals(
         atom=ATOMS[species['atom_name']], ground_states=species['ground_states'],
-        density_matrix=species['density_matrix'], q_axis=species['q_axis'], **probe,
+        density_matrix=species['density_matrix'], q_axis=species['q_axis'],
+        **{name: probe[name] for name in (
+            'line', 'detuning_MHz', 'k_axis', 'azimuth_deg', 'ellipticity_deg', 'path_length_cm'
+        )},
         density_cm3=species['density_cm3'], n2_pressure_torr=cell['n2_pressure_torr'],
         temperature_C=cell['temperature_C'], n2_width_MHz_per_torr=coefficients[line]['width'],
         n2_shift_MHz_per_torr=coefficients[line]['shift'],

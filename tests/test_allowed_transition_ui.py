@@ -12,6 +12,8 @@ class AllowedTransitionUiTests(unittest.TestCase):
             str(Path(__file__).resolve().parents[1] / "alkali_pumping.py"), default_timeout=60,
         ).run()
         self.assertFalse(app.exception)
+        app.switch_page("alkali_pumping_app/pages/ACC-Magnetometer.py").run()
+        self.assertFalse(app.exception)
         # Stale in-memory values from a previous running release cannot disable filtering.
         app.session_state["show_allowed_only"] = False
         app.selectbox(key="_pump_widget_line_A1").select("D2").run()

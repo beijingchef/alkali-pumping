@@ -32,6 +32,32 @@ def read(species, config, common):
 
 
 class CoherentEvolutionTests(unittest.TestCase):
+    def test_physical_probe_remains_active_before_and_after_pump_switch(self):
+        config, beams, common = inputs()
+        config.update(density_cm3=0., R_ER=0., R_u=0.)
+        common['static_field_nT'] = 0.
+        probe = dict(beams[0], name='ProbeA', continuous=True, intensity=50.,
+                     azimuth_deg=17., ellipticity_deg=12.)
+        probe.pop('pol')
+
+        model = models_for(config, None, [probe], common)[0]
+        self.assertGreater(np.linalg.norm(model['density_continuous_optical']), 0.)
+        np.testing.assert_allclose(model['density_optical'], 0., atol=0.)
+        self.assertGreater(np.linalg.norm(model['L_dark']), 0.)
+        np.testing.assert_allclose(model['L_optical'], 0., atol=0.)
+
+        switched = compute_density_evolution(config, None, [probe], common, .01, .03, 31)
+        from_start = compute_density_evolution(config, None, [probe], common, 0., .03, 31)
+        dark = compute_density_evolution(config, None, [], common, 0., .03, 31)
+        np.testing.assert_allclose(switched['time_s'], from_start['time_s'], atol=0.)
+        np.testing.assert_allclose(
+            switched['A']['density_matrix'], from_start['A']['density_matrix'], atol=2e-9,
+        )
+        self.assertGreater(
+            np.max(np.abs(switched['A']['density_matrix'][-1] - dark['A']['density_matrix'][-1])),
+            1e-5,
+        )
+
     def test_independent_display_axes_preserve_state_and_probe(self):
         config, beams, common = inputs()
         common.update(static_field_theta_deg=90, static_field_phi_deg=90, static_field_nT=.1)

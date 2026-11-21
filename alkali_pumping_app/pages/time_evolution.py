@@ -15,6 +15,7 @@ from alkali_pumping_app.ui.time_evolution_cache import (
 )
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings, preserve_persistent_page_settings
 from alkali_pumping_app.ui.population_plot import render_population_plot
+from alkali_pumping_app.ui.plot_style import style_altair_text
 from alkali_pumping_app.ui.exports import dataframe_to_csv_bytes
 from alkali_pumping_app.ui.time_evolution_conditions import PLOTTED_MOMENTS, PLOTTED_PROBE_SIGNALS, PLOTTED_SCAN_SIGNALS
 from alkali_pumping_app.ui.time_evolution_data import (
@@ -22,7 +23,7 @@ from alkali_pumping_app.ui.time_evolution_data import (
     steady_density_matrix_export_dataframe,
 )
 from alkali_pumping_app.ui.time_evolution_settings import (
-    key, render_sidebar, refresh_settings_download,
+    key, perturbing_probe_beam, render_sidebar, refresh_settings_download,
 )
 
 
@@ -31,6 +32,9 @@ species_A, species_B, beams, common, probes = render_sidebar()
 t1 = st.session_state[key("t1_s")]
 t2 = st.session_state[key("t2_s")]
 SECTION_CONTROL_WIDTH = 56
+SCAN_AXIS_WIDTH = 125
+POPULATION_SELECTOR_WIDTH = 130
+POPULATION_SNAPSHOTS = ("Steady state", "End of pump")
 
 # Native bordered containers have symmetric padding. Limit this exception to
 # plot panels so their lower margin can be reduced independently.
@@ -57,6 +61,17 @@ st.html("""
     font-size: 12px;
 }
 [class*="st-key-te_axis_label_"] p { margin: 0; }
+[class*="st-key-te_axis_label_"],
+[class*="st-key-te_axis_label_"] .katex { color: #000000 !important; }
+[class*="st-key-te_scan_axis_control_label_"] [data-testid="stMarkdownContainer"],
+[class*="st-key-te_scan_axis_control_label_"] [data-testid="stMarkdownContainer"] *,
+[class*="st-key-te_scan_population_control_label_"] [data-testid="stMarkdownContainer"],
+[class*="st-key-te_scan_population_control_label_"] [data-testid="stMarkdownContainer"] *,
+[class*="st-key-te_scan_range_label_"] [data-testid="stMarkdownContainer"],
+[class*="st-key-te_scan_range_label_"] [data-testid="stMarkdownContainer"] * {
+    color: #000000 !important;
+    opacity: 1 !important;
+}
 </style>
 """)
 
@@ -83,32 +98,35 @@ $F_x,F_y,F_z$ use laboratory axes. The alignment frame
 $(\hat{\mathbf u},\hat{\mathbf v},\hat{\mathbf q})$ is right-handed:
 $(y,z,x)$ for $q=x$, $(z,x,y)$ for $q=y$, and $(x,y,z)$ for $q=z$.
 Inter-hyperfine coherences are averaged out. Magnetic-field shifts are omitted
-from optical detunings. The continuous weak probe reads the full density matrix
-without changing the evolution.
+from optical detunings. A **Weak** fixed probe reads the full density matrix
+without changing the evolution. With **Weak** unchecked, its absorption,
+repopulation and light shift act continuously from the initial time through
+the end of the calculation, including after pump turn-off.
 
 Each section places help and download at the right end of its top control row.
 The plots below use the full section width.
 Section CSVs contain all displayed curves in the plotted units,
 with timing and species metadata.
 
-Steady-state probe signal scanning separately converges the pump-on steady state and scans
-the selected probe D line. The left 30% shows both steady-state population
-manifolds, together 30% taller than one signal graph, with wider bars.
+Steady-state weak probe signal scanning separately converges the pump-on steady state and scans
+the selected probe D line. The left 30% shows both Zeeman-population manifolds
+for either that steady state or the exact pump turn-off sample as two taller,
+framed panels with a compact gap and wider bars.
 The right 70% contains three signal checkboxes in one row before the detuning slider.
-Optical rotation and absorption start checked; ellipticity is optional.
+Only optical rotation starts checked; ellipticity and absorption are optional.
 Selected signals appear one per row;
 their dashed lines mark allowed hyperfine transitions. Scan results do
 not depend on the pump turn-off or total-time sliders.
 
-Zeeman populations, Atomic moments and Steady-state probe signal scanning start collapsed.
+Zeeman populations, Atomic moments and Steady-state weak probe signal scanning start collapsed.
 Only open sections create plots and controls or refresh them after sidebar
 changes. Closing all time-domain sections defers transient integration until
 one is opened. Turn off Auto update to edit several physical conditions, then
 press Apply once. Pending curves and downloads are hidden until applied.
 Atomic moments default to hyperfine polarization and $\langle F_z\rangle$.
 Probe signal checkboxes select absorption, optical rotation and ellipticity;
-absorption and optical rotation start checked. Each species has its own probe
-selection. The scan always shows all three signals and calculates its steady
+only optical rotation starts checked. Each species has its own probe
+selection. The scan offers the same three signals and calculates its steady
 state only while open.
 Selected plots start in default checkbox order. Newly checked plots append at
 the end; unchecking removes a plot, and checking it again appends it at the end.
@@ -138,7 +156,7 @@ def _scan_range_slider(label):
         st.session_state[key(f"probe_scan_min_MHz_{label}")],
         st.session_state[key(f"probe_scan_max_MHz_{label}")],
     )
-    st.slider("Detuning range (MHz)", min_value=-10000., max_value=10000.,
+    st.slider("Scan range (MHz)", min_value=-10000., max_value=10000.,
               step=10., key=widget_key, on_change=_store_scan_range, args=(label,),
               label_visibility="collapsed")
 
@@ -201,6 +219,17 @@ def _store_plot_choice(selection_name, name, option_key):
     st.session_state[key(selection_name)] = selected
     if selection_name == "plotted_moments":
         _request_display_refresh()
+
+
+def _population_snapshot_control(label, *, label_visibility="collapsed"):
+    return st.selectbox(
+        "Population", POPULATION_SNAPSHOTS,
+        key=key(f"probe_scan_population_snapshot_{label}"),
+        width=POPULATION_SELECTOR_WIDTH, label_visibility=label_visibility,
+        format_func=str.lower,
+        help="Switches the Zeeman bars and their population/density-matrix exports. "
+             "The probe spectrum remains a pump-on steady-state scan.",
+    )
 
 
 def _section_controls(plots, *, species, label, section_id, title, export_frame=None,
@@ -285,10 +314,10 @@ def _plot(frame, y_label, title, *, species, label, plot_id, value_unit, explana
             ).encode(x=alt.X("center:Q", title=x_label),
                      tooltip=["transition:N", alt.Tooltip("center:Q", format=".6g", title="Detuning (MHz)")])
             chart += markers
-        chart = chart.properties(
+        chart = style_altair_text(chart.properties(
             description=title, height=260,
             padding={"left": 5, "right": 5, "top": 5, "bottom": 5},
-        )
+        ))
         if axis_math:
             with st.container(horizontal=True, vertical_alignment="top", gap=None, wrap=False):
                 with st.container(width=36, border=False,
@@ -306,9 +335,26 @@ register_persistent_page_settings([
     key(f"{section}_open_{label}") for label in ("A", "B")
     for section in ("zeeman_populations", "atomic_moments", "probe_signal", "probe_scan")
 ])
+for label in ("A", "B"):
+    st.session_state.setdefault(key(f"probe_scan_population_snapshot_{label}"), POPULATION_SNAPSHOTS[0])
+register_persistent_page_settings([
+    key(f"probe_scan_population_snapshot_{label}") for label in ("A", "B")
+])
 physical_beams = [beam for beam in beams if beam["intensity"] > 0]
-physical_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
-transient_signature = sha256(pickle.dumps((physical_signature, t1, t2))).hexdigest()
+active_labels = ("A", "B") if species_B is not None else ("A",)
+continuous_probe_beams = [beam for label in active_labels
+                          if (beam := perturbing_probe_beam(label, probes[label])) is not None]
+evolution_beams = [*physical_beams, *continuous_probe_beams]
+scan_probes = {
+    label: {name: probes[label][name] for name in (
+        "line", "k_axis", "azimuth_deg", "ellipticity_deg", "path_length_cm"
+    )}
+    for label in active_labels
+}
+pump_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
+scan_signature = sha256(pickle.dumps((pump_signature, scan_probes))).hexdigest()
+transient_signature = sha256(pickle.dumps((species_A, species_B, evolution_beams, common,
+                                            probes, t1, t2))).hexdigest()
 with st.bottom:
     with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
         auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
@@ -316,9 +362,9 @@ with st.bottom:
         _render_page_help()
 if auto_update or apply_changes:
     st.session_state[key("applied_transient")] = transient_signature
-    st.session_state[key("applied_steady")] = physical_signature
+    st.session_state[key("applied_steady")] = scan_signature
 time_ready = st.session_state.get(key("applied_transient")) == transient_signature
-scan_ready = st.session_state.get(key("applied_steady")) == physical_signature
+scan_ready = st.session_state.get(key("applied_steady")) == scan_signature
 if not time_ready or not scan_ready:
     st.info("Pending condition changes. Press Apply to update the opened sections.")
 
@@ -348,7 +394,7 @@ def _transient_result():
     if evolution is None:
         with st.spinner("Calculating pumping and relaxation…"):
             try:
-                evolution = _evolution_cached(species_A, species_B, physical_beams, common, t1, t2)
+                evolution = _evolution_cached(species_A, species_B, evolution_beams, common, t1, t2)
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
                 st.stop()
@@ -356,6 +402,18 @@ def _transient_result():
             st.warning("The output is limited to 20,001 samples. Fast Larmor oscillations may be "
                        "undersampled; reduce total time or magnetic field to resolve them.")
     return evolution
+
+
+def _pump_turn_off_species(transient, label):
+    """Return one compact density sample at the exact pump turn-off time."""
+    indices = np.flatnonzero(np.asarray(transient["time_s"]) == transient["t1_s"])
+    if len(indices) != 1:
+        raise RuntimeError("The transient trajectory has no unique pump turn-off sample.")
+    physical_species = transient[label]
+    snapshot = {name: value for name, value in physical_species.items()
+                if name not in ("density_matrix", "population", "moments")}
+    snapshot["density_matrix"] = physical_species["density_matrix"][indices[0]:indices[0] + 1]
+    return snapshot
 
 
 @st.fragment
@@ -377,16 +435,23 @@ def _render_section(label, section_id):
     Fs = [upper_F - 1, upper_F]
     manifold_labels = {"Fa": f"F = {Fs[-1]:g}", "Fb": f"F = {Fs[0]:g}"}
     titles = {"zeeman_populations": "Zeeman populations", "atomic_moments": "Atomic moments",
-              "probe_signal": "Probe signal", "probe_scan": "Steady-state probe signal scanning"}
+              "probe_signal": "Probe signal", "probe_scan": "Steady-state weak probe signal scanning"}
     section = st.expander(titles[section_id], expanded=section_id == "probe_signal",
                           key=key(f"{section_id}_open_{label}"), on_change="rerun")
     if not section.open:
         return
     with section:
+        population_snapshot = st.session_state[key(f"probe_scan_population_snapshot_{label}")]
         ready = scan_ready if section_id == "probe_scan" else time_ready
+        if section_id == "probe_scan" and population_snapshot == "End of pump":
+            ready = ready and time_ready
         if not ready:
-            st.info("Press Apply to calculate the scan for the current conditions." if section_id == "probe_scan"
-                    else "Press Apply to calculate these curves for the current conditions.")
+            if section_id == "probe_scan" and scan_ready:
+                st.info("Press Apply to calculate the end-of-pump population snapshot for the current timing conditions.")
+                _population_snapshot_control(label, label_visibility="visible")
+            else:
+                st.info("Press Apply to calculate the scan for the current conditions." if section_id == "probe_scan"
+                        else "Press Apply to calculate these curves for the current conditions.")
             return
         plots = PROBE_PLOTS
         if section_id != "probe_scan":
@@ -512,28 +577,44 @@ def _render_section(label, section_id):
                               species=species, label=label, plot_id=f"probe_{signal}", value_unit=value_unit,
                               section_plots=probe_plots,
                               show_legend=False,
-                              explanation=explanation + " The continuous weak probe uses uniform-path Jones "
-                              "propagation and does not alter the atomic evolution.")
+                              explanation=explanation + (
+                                  " The fixed probe uses uniform-path Jones propagation. With Weak checked, "
+                                  "it does not alter the atomic evolution." if probes[label]["weak"] else
+                                  " The fixed probe uses uniform-path Jones propagation, while its configured "
+                                  "intensity also contributes continuously to the atomic evolution."
+                              ))
             with probe_controls:
                 _section_controls(probe_plots, species=species, label=label,
                                   section_id="probe_signal", title="Probe signal")
         elif section_id == "probe_scan":
             # Give the controls the full section width so a longer slider
             # and the help label fit without squeezing the 30/70 plot split.
-            with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center"):
-                st.markdown("Axis", width="content")
+            with st.container(horizontal=True, wrap=False, gap="xsmall", vertical_alignment="center"):
+                axis_control_label = st.container(
+                    width="content", key=key(f"scan_axis_control_label_{label}")
+                )
                 scan_axis = st.selectbox(
                     "Scan Zeeman axis", SCAN_POPULATION_AXES, key=key(f"probe_scan_axis_{label}"),
-                    width=140, label_visibility="collapsed",
+                    width=SCAN_AXIS_WIDTH, label_visibility="collapsed",
                     help="Independent population basis. B direction follows the signed field (configured direction at zero). "
                          "Probe major/minor follow the input ellipse azimuth in a right-handed major/minor/k frame; "
                          "for circular input they are the azimuth reference axes.",
                 )
+                population_control_label = st.container(
+                    width="content", key=key(f"scan_population_control_label_{label}")
+                )
+                population_snapshot = _population_snapshot_control(label)
                 signal_menu = st.container(width="content")
-                detuning_label = st.container(width="content")
-                detuning_slider = st.container(width=338, key=key(f"scan_detuning_{label}"))
+                detuning_label = st.container(
+                    width="content", key=key(f"scan_range_label_{label}")
+                )
+                detuning_slider = st.container(width=304, key=key(f"scan_detuning_{label}"))
                 scan_controls = st.container(width="stretch", horizontal_alignment="right")
             scan_columns = [signal_menu, detuning_slider, detuning_label, scan_controls]
+            with axis_control_label:
+                st.caption("Axis", width="content")
+            with population_control_label:
+                st.caption("Population", width="content")
             population_column, signals_column = st.columns([3, 7], gap="medium")
             with scan_columns[0]:
                 with st.container(horizontal=True, wrap=False, gap="small"):
@@ -545,7 +626,7 @@ def _render_section(label, section_id):
             with scan_columns[1]:
                 _scan_range_slider(label)
             with scan_columns[2]:
-                st.caption("Detuning\u00a0range\u00a0(MHz)")
+                st.caption("Scan\u00a0range\u00a0(MHz)")
             scan_plot_specs = {plot[3]: plot for plot in plots}
             selected_scan_signals = st.session_state[key(f"plotted_scan_signals_{label}")]
             lower = st.session_state[key(f"probe_scan_min_MHz_{label}")]
@@ -554,29 +635,50 @@ def _render_section(label, section_id):
             try:
                 with st.spinner("Converging the pump-on steady state and scanning the weak probe…"):
                     steady = _steady_cached(species_A, species_B, physical_beams, common)
-                    spectrum = _spectrum_cached(steady[label], probes[label], common,
+                    spectrum = _spectrum_cached(steady[label], scan_probes[label], common,
                                                 config["n2_coeffs"], lower, upper)
                 with scan_columns[1]:
                     _scan_transition_ticks(label, spectrum["transition_centers_MHz"])
-                direction = tuple(scan_axis_direction(scan_axis, common, probes[label]))
+                direction = tuple(scan_axis_direction(scan_axis, common, scan_probes[label]))
                 steady_view = _scan_display_cached(steady[label], scan_axis, direction)
+                if population_snapshot == "End of pump":
+                    population_view = _scan_display_cached(
+                        _pump_turn_off_species(_transient_result(), label), scan_axis, direction,
+                    )
+                    population_state = "pump turn-off"
+                    population_time_s = t1
+                    population_file_prefix = "pump_turn_off"
+                else:
+                    population_view = steady_view
+                    population_state = "pump-on steady state"
+                    population_time_s = None
+                    population_file_prefix = "steady_state"
                 with population_column:
                     with st.container(horizontal=True, wrap=False, gap="xsmall", vertical_alignment="center"):
                         st.markdown('**Zeeman populations**', width="stretch")
                         st.download_button(
                             ":material/download:",
-                            dataframe_to_csv_bytes(steady_density_matrix_export_dataframe(steady_view, label=label)),
-                            file_name=f"steady_state_{label}_{species['atom_name']}_density_matrix.csv",
+                            dataframe_to_csv_bytes(steady_density_matrix_export_dataframe(
+                                population_view, label=label, population_state=population_state,
+                                population_time_s=population_time_s,
+                            )),
+                            file_name=f"{population_file_prefix}_{label}_{species['atom_name']}_density_matrix.csv",
                             mime="text/csv; charset=utf-8", key=key(f"download_density_matrix_{label}"),
-                            help="Download the entire steady-state density matrix in the selected scan basis, with real/imaginary parts and basis metadata.",
+                            help="Download the entire displayed density matrix in the selected scan basis, "
+                                 "with real/imaginary parts and basis metadata.",
                             on_click="ignore", width=40,
                         )
-                    render_population_plot(dict(steady_view, population=steady_view['population'][0]),
-                                           height=338, bar_width=1/1.3)
+                    render_population_plot(
+                        dict(population_view, population=population_view['population'][0]),
+                        height=294, bar_width=1/1.3, framed=True,
+                        compact_gap_px=29, key_prefix=key(f"scan_population_{label}"),
+                        description_prefix="Pump turn-off" if population_snapshot == "End of pump" else "Steady-state",
+                    )
                 scan_export = probe_scan_export_dataframe(
-                    spectrum, species=steady_view, label=label, probe=probes[label],
+                    spectrum, species=population_view, label=label, probe=scan_probes[label],
                     config=config, common=common, beams=beams, steady=steady,
                     selected_signals=selected_scan_signals,
+                    population_state=population_state, population_time_s=population_time_s,
                 )
                 references = [dict(center=float(center), transition=f"F={Fg:g} → F′={Fe:g}")
                               for (Fg, Fe), center in spectrum["transition_centers_MHz"].items()
@@ -596,20 +698,28 @@ def _render_section(label, section_id):
             with scan_columns[3]:
                 _section_controls(
                     scan_plots, species=species, label=label, section_id="probe_scan",
-                    title="Steady-state probe signal scanning", export_frame=scan_export, horizontal=True,
+                    title="Steady-state weak probe signal scanning", export_frame=scan_export, horizontal=True,
                     help_text=rf"""
 The atoms are independently converged to a **pump-on steady state** using the
 same coherent master equation, including all configured pumps, magnetic
 precession, light shifts, electron randomization, uniform relaxation and spin
 exchange. The total-time and pump turn-off sliders do not set this state.
+The **Population** selector beside the population axis can instead display
+the transient density matrix at the exact pump turn-off time. This choice changes
+the bars and their population/density-matrix exports, not the steady-state spectrum.
 
-The weak probe scans the sidebar's **{probes[label]['line']}** reference line,
+The probe is treated as weak and nonperturbing from the start of this independent
+steady-state calculation, regardless of the sidebar's **Weak** checkbox or intensity.
+Only the pumps and relaxation processes determine the atomic steady state; probe
+absorption is evaluated afterward and never feeds back onto the atoms.
+
+The weak probe scans the sidebar's **{scan_probes[label]['line']}** reference line,
 using its direction, input polarization and path length. All allowed ground
 and excited hyperfine transitions contribute. The fixed sidebar detuning and
 its F→F′ reference do not limit this scan. Detuning is relative to the
 **zero-pressure fine-structure D-line center**; Doppler/pressure broadening and
 pressure shifts remain included. Dashed lines identify allowed transition
-centers; hover for their F→F′ labels. The probe does not change the steady state.
+centers; hover for their F→F′ labels.
 
 The range slider beside the signal checkboxes has its label on the left and two handles
 for minimum and maximum detuning within
@@ -619,11 +729,12 @@ Rotation is relative to the input azimuth, ellipticity is the output angle,
 and absorption is $1-I_{{\mathrm{{out}}}}/I_{{\mathrm{{in}}}}$.
 
 The signal checkboxes select optical rotation, ellipticity and absorption;
-optical rotation and absorption start checked. The CSV contains the selected
+only optical rotation starts checked. The CSV contains the selected
 signals in plotted units, the detuning origin,
 probe/cell/pump configuration, steady-state convergence information and the
-population bars in the left column. Populations use the independent scan
-axis and are probabilities per total atom, with a common scale for both manifolds.
+population bars in the left column. The population metadata identifies whether
+those bars use the pump-on steady state or pump turn-off sample. Populations use
+the independent scan axis and are probabilities per total atom, with a common scale for both manifolds.
 Undefined optical angles remain empty. Scan limits are independent per species.
 """,
                 )
@@ -632,7 +743,7 @@ Undefined optical angles remain empty. Scan limits are independent per species.
 tabs = st.tabs([f"Alkali {label} · {configs[label]['atom_name']}" for label in labels])
 for label, tab in zip(labels, tabs):
     with tab:
-        for section_id in ("zeeman_populations", "atomic_moments", "probe_signal", "probe_scan"):
+        for section_id in ("probe_scan", "probe_signal", "zeeman_populations", "atomic_moments"):
             _render_section(label, section_id)
 _page_rendering = False
 st.session_state.pop(key("refresh_shared_display"), None)

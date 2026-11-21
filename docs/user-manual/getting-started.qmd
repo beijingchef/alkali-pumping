@@ -2,7 +2,7 @@
 
 ## Purpose {#getting-started-purpose}
 
-Alkali Pumping calculates steady ground-state populations, light shifts, relaxation rates, weak-RF responses, and optical readout signals for one or two alkali species. Its main page is the [ACC Magnetometer](acc-magnetometer.qmd).
+Alkali Pumping calculates steady ground-state populations, light shifts, relaxation rates, weak-RF responses, and optical readout signals for one or two alkali species. Its primary analysis page is the [ACC Magnetometer](acc-magnetometer.qmd).
 
 ## Install and run {#install-and-run}
 
@@ -12,7 +12,7 @@ From the repository root, install the packages listed in `requirements.txt`, the
 streamlit run alkali_pumping.py
 ```
 
-The browser opens on **Analysis → ACC Magnetometer**.
+The browser opens on **Reference → Atomic properties → Transition strengths**.
 
 ## Navigation {#application-navigation}
 
@@ -35,6 +35,8 @@ sidebar's upper space and the pinned bottom toolbar's lower padding are half
 the native defaults. The header and sidebar collapse control remain accessible.
 At the default font size, the desktop gaps are 34 px below navigation, 38 px
 above sidebar content, and 28 px below the bottom toolbar controls.
+Plot-axis labels, tick labels, axis lines, and legend text are black on every page.
+Active control labels are black; gray labels identify disabled controls.
 
 ## Recommended first calculation {#recommended-first-calculation}
 

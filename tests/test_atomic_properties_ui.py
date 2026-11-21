@@ -31,7 +31,11 @@ class AtomicPropertiesUiTests(unittest.TestCase):
             str(Path(__file__).resolve().parents[1] / "alkali_pumping.py"),
             default_timeout=60,
         ).run()
+        self.assertEqual(app.session_state["atomic_properties_tab"], "Transition strengths")
         app.switch_page("alkali_pumping_app/pages/atomic_properties.py").run()
+        self.assertFalse(app.exception)
+        app.session_state["atomic_properties_tab"] = "Thermal & spin exchange"
+        app.run()
         self.assertFalse(app.exception)
         self.assertEqual(len(app.main.slider), 0)
         app.sidebar.slider(key="atomic_properties_temperature_C").set_value(25.0).run()

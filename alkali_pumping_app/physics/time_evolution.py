@@ -4,8 +4,9 @@ The initial state is unpolarized: equal probability per ground Zeeman state.
 The density solver retains all within-F coherences and signed Larmor dynamics.
 The population helpers below provide diagonal reference limits. Collision
 targets recombine instantaneous nuclear/electron marginals rather than using
-an equilibrium Jacobian. Optical terms switch off exactly at t1; the complete
-atomic state is continuous across that switch.
+an equilibrium Jacobian. Pump optical terms switch off exactly at t1;
+continuous physical-probe terms remain active. The complete atomic state is
+continuous across that switch.
 """
 
 import numpy as np
@@ -16,7 +17,7 @@ from .spin_exchange import hyperfine_uncoupled_probabilities
 from .system_model import build_species_linear_model
 
 
-TIME_EVOLUTION_MODEL_VERSION = "v3-coherent-ground-hfs-secular-master-equation"
+TIME_EVOLUTION_MODEL_VERSION = "v4-continuous-physical-probe-master-equation"
 TIME_EVOLUTION_SOLVER_VERSION = "v2-prepared-rhs-analytic-jacobian-and-rate-selection"
 
 
@@ -29,7 +30,7 @@ def build_population_dynamics(species_A, species_B, beams, common):
     for beam in active_beams:
         intensity = float(beam["intensity"])
         if not np.isfinite(intensity) or intensity < 0:
-            raise ValueError("Pump intensities must be finite and nonnegative.")
+            raise ValueError("Optical-beam intensities must be finite and nonnegative.")
     models = []
     for config in (species_A, species_B):
         if config is None:
@@ -45,7 +46,8 @@ def build_population_dynamics(species_A, species_B, beams, common):
             collision_probabilities=probabilities,
             nuclear_by_state=probabilities.sum(axis=2),
             electron_by_state=probabilities.sum(axis=1),
-            L_dark=model["L_relaxation"],
+            L_dark=model["L_relaxation"] + model["L_continuous_optical"],
+            L_optical=model["L_switched_optical"],
             R_SE_cross=0.0,
         )
         models.append(model)
@@ -180,9 +182,12 @@ def _density_integration_method(models, pumps_on, duration):
     """
     coherent_rate, damping_rate = 0., 0.
     for model in models:
-        hamiltonian = model["density_dark"]
+        continuous_light_shift = model["density_continuous_light_shift"]
+        hamiltonian = model["density_dark"] + continuous_light_shift
         damping = (model["R_u"] + 2 * (model["R_ER"] + model["R_SE_self"]
-                                      + model["R_SE_cross"]))
+                                      + model["R_SE_cross"])
+                   + np.linalg.norm(model["density_continuous_optical"]
+                                    - continuous_light_shift, ord=np.inf))
         if pumps_on:
             light_shift = model["density_light_shift"]
             hamiltonian = hamiltonian + light_shift
@@ -200,7 +205,9 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
 
     The laboratory field drives signed-g_F Larmor precession. Pumps contribute
     coherent absorption/repopulation and AC-Stark evolution until the switch.
-    Optical detunings omit magnetic shifts. No RF or probe enters this equation.
+    A non-weak probe contributes the same optical effects throughout the full
+    evolution, including after the pump switch. Optical detunings omit magnetic
+    shifts. No RF enters this equation.
     """
     from .coherent_evolution import prepare_density_model, DensityDynamics
     t1_s, t2_s = float(t1_s), float(t2_s)

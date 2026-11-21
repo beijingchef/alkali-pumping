@@ -12,8 +12,10 @@ help is in the pinned bottom toolbar beside Auto update and Apply.
 Each species starts with equal probability in every ground Zeeman state,
 $p_{F,m}(0)=1/N_g$. Fa and Fb therefore start with populations proportional to
 their degeneracies, not one half each. Configured pumps are on for
-$0\le t<t_1$, and all pump intensities are zero for $t\ge t_1$. The weak probe
-remains on and does not enter the density-matrix equations. RF is absent.
+$0\le t<t_1$, and all pump intensities are zero for $t\ge t_1$. The fixed probe
+remains on. With **Weak** checked it does not enter the density-matrix equations;
+unchecked, its configured intensity contributes optical pumping and light shift
+from $t=0$ through $t_2$. RF is absent.
 
 Independent $R_{u,A}$ and $R_{u,B}$ inputs appear below $R_{\mathrm{ER}}$ in
 the sidebar. Each defaults to $1\,\mathrm{s}^{-1}$ for new settings and
@@ -56,9 +58,10 @@ their nuclear spin $I$:
 | Beam direction | z | z |
 
 Pump3 retains its previous zero-intensity settings. Probe-A and Probe-B start
-as Custom Weak probes along z, with path length 1 cm, D1 upper-to-lower
+as Custom probes along z, with path length 1 cm, D1 upper-to-lower
 hyperfine reference (2→1 for the default Rb87), relative detuning −2000 MHz,
-azimuth 45°, and input ellipticity zero. Isotope changes preserve the relative
+azimuth 45°, input ellipticity zero, **Weak** checked, and intensity 1 µW/cm².
+Isotope changes preserve the relative
 hyperfine branches. These startup controls do not replace values from saved
 settings or change the unpolarized atomic initial state.
 
@@ -82,8 +85,9 @@ their usual formatting. Calculations and CSVs retain full precision.
 Page-level model and sequence
 descriptions are in the question-mark popup in the bottom toolbar.
 The four collapsible result sections use native outlines, header dividers,
-and expand/collapse controls. **Zeeman populations**, **Atomic moments** and
-**Steady-state probe signal scanning** start collapsed; **Probe signal** starts open.
+and expand/collapse controls. They appear as **Steady-state weak probe signal scanning**,
+**Probe signal**, **Zeeman populations**, then **Atomic moments**. The scan,
+Zeeman populations and Atomic moments start collapsed; Probe signal starts open.
 All sections create and refresh their plots, widgets and downloads only while
 open. Each species remembers all four sections' open/closed states across
 navigation to other pages and back. These session preferences are independent
@@ -96,7 +100,7 @@ Individual graph borders remain.
 
 Closing all three time-domain sections defers transient integration, including
 after physical-condition edits. Opening one calculates the current conditions
-or reuses a matching cached trajectory. Opening only **Steady-state probe signal scanning**
+or reuses a matching cached trajectory. Opening only **Steady-state weak probe signal scanning**
 performs its separate steady-state calculation without a transient solve.
 
 **Auto update** and **Apply** sit together in a toolbar pinned to the bottom of
@@ -148,8 +152,8 @@ shared by both species; each species has its own probe order.
   $=(I/2)P(F_a)-[(I+1)/2]P(F_b)$, with no manifold normalization. It is zero
   initially and is independent of quantization axis.
 - **Probe signal:** a row of checkboxes selects Absorption, Optical rotation
-  and Ellipticity independently for each species. Absorption and Optical
-  rotation start checked. Selected plots fill two columns, and their CSV
+  and Ellipticity independently for each species. Only Optical
+  rotation starts checked. Selected plots fill two columns, and their CSV
   contains only selected curves. An empty selection hides the graphs and
   disables the download. Probe selections do not affect the frequency scan.
   Rotation is relative to the input azimuth, and ellipticity is the
@@ -157,21 +161,27 @@ shared by both species; each species has its own probe order.
   dimensionless lost intensity fraction $1-I_{\mathrm{out}}/I_{\mathrm{in}}$,
   including scalar absorption. It ranges from zero for no loss to one for
   complete attenuation; it is not optical depth or logarithmic absorbance.
-- **Steady-state probe signal scanning:** independently converge the atoms to the steady
-  state with all configured pumps continuously on. Scan optical rotation,
+- **Steady-state weak probe signal scanning:** independently converge the atoms to the steady
+  state with all configured pumps continuously on. The scanned probe is
+  nonperturbing from the start of this solve, regardless of the fixed-probe
+  **Weak** checkbox or intensity; absorption is evaluated only after the atomic
+  state converges and never feeds back onto it. Scan optical rotation,
   output ellipticity and absorption, with one plot per row in the right 70%
-  of the section. The left 30% shows the steady pump-on Zeeman populations
-  using the same bars as ACC, in the chosen Zeeman display basis. Both population
-  manifolds together are 338 pixels tall, 30% taller than one signal graph.
+  of the section. The left 30% shows Zeeman populations using the same bars as
+  ACC, in the chosen Zeeman display basis. The **Population** dropdown
+  beside the axis selector chooses the pump-on steady state (default) or the exact
+  pump turn-off sample. It changes the bars and their exports, while the probe
+  spectrum remains the pump-on steady-state result. The two framed population
+  manifolds have 111-pixel framed plotting areas with a 7-pixel gap between them.
   Population bars use F as the vertical-axis label, gaps about 30% of each bar's
   width and no gridlines. A row of three signal checkboxes to the left of detuning provides selections
-  for Optical rotation, Ellipticity and Absorption. Optical rotation and
-  absorption start checked. Selections persist independently for each species
+  for Optical rotation, Ellipticity and Absorption. Only Optical rotation
+  starts checked. Selections persist independently for each species
   through navigation and saved settings; newly checked plots append at the end.
   The scan CSV includes selected signals, population probabilities per total
-  atom and their quantization axis. With no signals selected, population bars
-  and their download remain available. The detuning slider has its label on
-  the left on one line and its length is doubled. Its two handles set the minimum and maximum, defaulting to
+  atom, their snapshot/time metadata and their quantization axis. With no signals selected, population bars
+  and their download remain available. The **Scan range** slider has its label on
+  the left on one line and uses a 304-pixel control. Its two handles set the minimum and maximum, defaulting to
   −7000 and +7000 MHz, adjustable within ±10000 MHz in 10 MHz steps.
   The limits are independent for each species and remain at least 10 MHz apart.
   Frequency is relative to the **zero-pressure fine-structure center** of the
@@ -187,7 +197,7 @@ shared by both species; each species has its own probe order.
 
 The Time evolution sidebar starts at 420 pixels using native Streamlit sizing.
 
-Four weak-probe presets are available independently for A and B, only on
+Four probe presets are available independently for A and B, only on
 Time evolution:
 
 | Probe source | Reference line | F→F′ | Relative detuning (MHz) |
@@ -199,19 +209,24 @@ Time evolution:
 
 Selecting a preset fills direction z, path length 1 cm, azimuth 0°, and
 ellipticity angle 0°, with the transition calculated for the selected isotope.
-Detuning is measured from the selected pressure-shifted transition. All probe
+Reference line, F→F′ and Detuning share one row, with detuning immediately to
+the right of the transition selector. Detuning is measured from the selected
+pressure-shifted transition. All probe
 fields remain editable while the preset is selected. Edits persist across
 reruns, navigation, and save/load; choosing a different preset fills its values
-again. Pump-linked weak sources retain their existing linked-field behavior.
+again. Time evolution source names contain no `weak` suffix: `PumpN` copies
+that pump's spectrum, direction and polarization.
 
-The weak probe can copy the optical settings of a pump while remaining an
-independent detector after that pump is off. Only weak source modes are
-available. Circular input polarization has no defined azimuth, so rotation
+Below the azimuth/ellipticity row, **Weak** is checked by default beside
+**I (µW/cm²)**. Checked means the fixed probe is a nonperturbing detector and
+its intensity is ignored by the atomic equations. Unchecked makes its absorption,
+repopulation and light shift act continuously throughout the complete evolution,
+including after the linked pump is off. Circular input polarization has no defined azimuth, so rotation
 is unavailable. At effectively extinguished output, polarization angles are
 undefined. A geometry with no sensitivity to the generated atomic moment can
 produce a flat optical trace. The default circular pump and collinear linear
 probe read longitudinal orientation. For an alignment-sensitive configuration,
-use linearly polarized pumps and a Custom Weak probe along x at azimuth 45°.
+use linearly polarized pumps and a Custom probe along x at azimuth 45°.
 
 ## Density-matrix equation and numerical method {#time-evolution-equation}
 
@@ -231,6 +246,8 @@ are fixed by density and temperature, while the maps follow the evolving state.
 Both Zeeman coherences and populations evolve within each hyperfine level.
 The field drives signed-g-factor Larmor precession throughout; pumping includes
 coherent optical repopulation and AC-Stark evolution until turn-off.
+A non-weak fixed probe contributes the same terms continuously before and after
+turn-off, using its configured intensity.
 See the [master equation and conventions](../technical/time-evolution.qmd).
 
 The transient solver selects BDF or DOP853 independently on the two sides of
@@ -270,7 +287,7 @@ Save does not apply conditions waiting for Apply. Open validates a selected file
 before applying its settings.
 
 Open/Save uses the independent `alkali_pumping_time_evolution` JSON format,
-version **2.8**, with the coherent model identifier. Only this version is supported; older files are rejected
+version **2.10**, with the coherent model identifier. Only this version is supported; older files are rejected
 without migration. Every current field is required, and unknown fields are
 rejected. No omitted settings are filled from defaults. Times must satisfy
 $0\le t_1\le t_2\le30$ s with $t_2\ge0.001$ s. Invalid values and ACC condition files are rejected
@@ -316,11 +333,13 @@ dynamics, optical saturation, and finite-beam transport are omitted. Magnetic
 and pump light shifts are not included in optical pumping or probe detunings.
 Magnetic dynamics uses the linear Zeeman Hamiltonian rather than Breit–Rabi mixing.
 
-The **Zeeman populations** title row in **Steady-state probe signal scanning**
+The **Zeeman populations** title row in **Steady-state weak probe signal scanning**
 includes a density-matrix CSV download. It contains every matrix element,
 including zero entries and both real and imaginary parts. Row and column
 indices, F,m labels and the axis unit vector identify the selected scan basis; probabilities are
-normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention. The download reuses the converged steady state.
+normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention.
+It contains the snapshot currently selected below the bars and records whether
+that snapshot is the steady state or the pump turn-off sample.
 
 Small ticks beneath the probe-scan detuning slider track mark all allowed
 hyperfine transition centers within its full +/-10000 MHz domain. They include

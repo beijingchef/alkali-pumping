@@ -13,6 +13,8 @@ class ManifoldUiTests(unittest.TestCase):
             default_timeout=60,
         ).run()
         self.assertFalse(app.exception)
+        app.switch_page("alkali_pumping_app/pages/ACC-Magnetometer.py").run()
+        self.assertFalse(app.exception)
         self.assertEqual(app.session_state["rf_manifold_A"], "Both")
         app.selectbox(key="_result_widget_rf_manifold_A").select("Fb").run()
         self.assertFalse(app.exception)

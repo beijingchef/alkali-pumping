@@ -2,6 +2,8 @@
 
 ## CSV downloads {#csv-downloads}
 
+CSV exports use a compact download icon; hover over it for the export description.
+
 Response panels provide CSV downloads containing the RF frequency axis and the calculated Amplitude, In phase, and Quadrature values. Optical exports also identify the signal and readout mode.
 
 Atomic RF exports contain rows for both Fa and Fb, with $F$, the observable,

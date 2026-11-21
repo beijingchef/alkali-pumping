@@ -26,6 +26,7 @@ from alkali_pumping_app.ui.exports import (
     dataframe_to_csv_bytes,
 )
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings
+from alkali_pumping_app.ui.plot_style import style_altair_text
 from alkali_pumping_app.ui.uploads import open_file_button
 
 
@@ -311,7 +312,9 @@ def _polarizability_chart(dataframe, markers, upper_F, y_axis_title):
         x="Detuning (MHz):Q",
         tooltip=["Transition:N", alt.Tooltip("Detuning (MHz):Q", format=".5g")],
     )
-    return alt.layer(zero, transition_rules, line).properties(height=390)
+    return style_altair_text(
+        alt.layer(zero, transition_rules, line).properties(height=390)
+    )
 
 
 _initialize_state()
@@ -506,13 +509,13 @@ with action_placeholder.container():
     with download_column:
         with st.container(horizontal_alignment="right"):
             st.download_button(
-                "Download CSV",
+                ":material/download:",
                 dataframe_to_csv_bytes(export),
                 file_name=f"{atom_name}_{line}_atomic-polarizability.csv",
                 mime="text/csv; charset=utf-8",
                 key="download_atomic_polarizability_csv",
                 disabled=plotted.empty,
-                width="content",
+                help="Download atomic-polarizability CSV", width=40,
             )
     with help_column:
         with st.popover("❓"):

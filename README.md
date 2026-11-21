@@ -1,4 +1,4 @@
-# Alkali Pumping v6.21.5
+# Alkali Pumping v6.21.7
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -9,7 +9,7 @@ pages. The pinned bottom toolbar's lower padding is also halved (56 to 28 px
 with the default 16 px base font). The sidebar's upper space is reduced from
 76 to 38 px, including its compact collapse-button header.
 
-The app starts on **Analysis → ACC Magnetometer**, and the top navigation separates
+The app starts on **Reference → Atomic properties → Transition strengths**, and the top navigation separates
 five workflows:
 
 - **Analysis → ACC Magnetometer** models an antirelaxation coated cell
@@ -32,7 +32,7 @@ five workflows:
   are independent of Time evolution and excluded from saved conditions.
   Physics is unchanged; current-only ACC format 6.16 removes `show_rate_matrices`.
 - **Analysis → Time evolution** independently configures the same atoms, cell,
-  pumps, and weak probes. Initially unpolarized ground-state populations evolve
+  pumps, and probes. Initially unpolarized ground-state populations evolve
   with all pumps on from zero to the turn-off slider `t₁`, then relax with the
   pumps off through the total-time slider `t₂`. Self and cross spin exchange
   follow the instantaneous density matrices, including all within-hyperfine
@@ -56,8 +56,10 @@ five workflows:
   Plots show individual Zeeman populations (one plot per manifold, without
   totals), hyperfine polarization ⟨S·I⟩/ℏ², electron polarization,
   selectable longitudinal orientation/alignment, and separate
-  weak-probe rotation, output ellipticity, and absorption signals. The probe
-  stays on throughout; RF and physical-pump feedback are absent. Settings and
+  probe rotation, output ellipticity, and absorption signals. The fixed probe
+  stays on throughout. With **Weak** checked it is a nonperturbing readout;
+  unchecked, its configured intensity drives continuous absorption,
+  repopulation and AC-Stark evolution before and after pump turn-off. RF is absent. Settings and
   CSV exports are independent of ACC Magnetometer.
   The sidebar has separate **Open** and **Save** buttons beside the setting name.
   Save downloads committed settings immediately in the browser without rerunning
@@ -78,7 +80,7 @@ five workflows:
   Mathematical checkbox labels, plot headings, y-axis labels and help equations
   use LaTeX; CSV names remain plain text. A row of probe checkboxes selects
   Absorption, Optical rotation and Ellipticity independently for each species;
-  Absorption and Optical rotation start checked. Only selected curves are
+  only Optical rotation starts checked. Only selected curves are
   plotted and exported, and an empty selection disables that section's download.
   Moment and probe plots initially follow their default checkbox order, reading
   left to right then down. Newly checked plots append at the end; unchecking
@@ -92,9 +94,10 @@ five workflows:
   Selected plots use two columns and always show both hyperfine manifolds
   where applicable. The right-handed (u,v,q) frames are (y,z,x), (z,x,y),
   (x,y,z) for q=x,y,z. Defaults show hyperfine polarization and Fz.
-  Collapsible result sections use their native outlines. Zeeman populations,
-  Atomic moments and Steady-state probe signal scanning start collapsed; Probe signal starts
-  open. All sections create and refresh plots and controls only while open,
+  Collapsible result sections use their native outlines and appear in this order:
+  Steady-state weak probe signal scanning, Probe signal, Zeeman populations,
+  then Atomic moments. The scan, Zeeman populations and Atomic moments start
+  collapsed; Probe signal starts open. All sections create and refresh plots and controls only while open,
   including after sidebar edits, using native Streamlit open-state tracking.
   Closing all time-domain sections defers transient integration until one is
   opened; opening only the scan computes its steady state independently.
@@ -113,6 +116,8 @@ five workflows:
   and electron-polarization plots omit legends. Manifold legends show F values;
   Time-domain Zeeman titles show only F. Steady-state population bars place F
   on their vertical axes and omit gridlines.
+  Plot-axis labels, tick labels, axis lines and legend text are black on every page.
+  Active control labels are black; gray labels are reserved for disabled controls.
   Graphs whose entire vertical data extent lies between -0.01 and +0.01 use
   scientific notation with three significant figures for y-axis ticks and
   hover values, with zero ticks shown as 0; other graphs retain their usual formatting.
@@ -121,20 +126,28 @@ five workflows:
   its page title and keeps its help beside Auto update and Apply in the bottom toolbar.
   New sessions use sigma+ D1 pumping along z: Pump1 on the lower-to-upper
   hyperfine branch at zero detuning, and Pump2 on the upper-to-upper branch
-  with zero intensity. The Custom Weak probe is along z with a 1 cm path,
+  with zero intensity. The Custom probe is along z with a 1 cm path,
   the Rb87 2→1 reference transition, −2000 MHz detuning, and zero input
-  ellipticity. Total time defaults to 4 s and turn-off to 1 s.
-  **Steady-state probe signal scanning**, when opened, independently converges the pump-on steady state
+  ellipticity. **Weak** starts checked and probe intensity starts at 1 µW/cm².
+  Total time defaults to 4 s and turn-off to 1 s.
+  **Steady-state weak probe signal scanning**, when opened, independently converges the pump-on steady state
   and scans all allowed hyperfine transitions of the probe's selected D line.
+  This scan always treats the probe as nonperturbing from the start: only pumps
+  and relaxation determine the atomic state, and absorption is evaluated afterward
+  without feedback, regardless of the fixed-probe **Weak** checkbox or intensity.
   If numerical error stalls stationary convergence, the solver tightens its
   integration accuracy with bounded retries rather than extending settled
   trajectories indefinitely. Normally converging cases retain their tolerances.
-  The left 30% shows steady-state Zeeman populations using the same bars as
-  ACC; the right 70% shows the selected probe signals, one plot per row.
-  The two population manifolds are 338 pixels tall in total, 30% taller than
-  one signal graph, with gaps about 30% of each bar's width. Three signal checkboxes in one row
+  The left 30% shows Zeeman populations using the same bars as ACC. A compact
+  130-pixel **Population** dropdown beside the 125-pixel population-axis selector
+  switches the bars and matching exports between the pump-on
+  steady state (default) and the exact pump turn-off sample. The right 70%
+  shows the selected probe signals, one plot per row; their spectrum remains
+  the pump-on steady-state result.
+  The two framed population plotting areas are 111 pixels tall each with a 7-pixel
+  inter-panel gap and gaps about 30% of each bar's width. Three signal checkboxes in one row
   to the left of detuning selects optical rotation, ellipticity and absorption;
-  optical rotation and absorption start checked. Each species' selection and
+  only optical rotation starts checked. Each species' selection and
   plot order persist through navigation and saved settings. Scan CSVs include
   the selected signals; clearing all signals retains population bars and exports.
   Each section runs in its own native fragment: opening or collapsing it
@@ -147,9 +160,9 @@ five workflows:
   Scan CSVs include these populations and their quantization axis. The Zeeman
   populations title row also downloads the entire steady-state density matrix
   as a CSV with all real/imaginary elements and selected scan basis labels.
-  A two-handle detuning range slider above the signals defaults to ±7000 MHz relative to the
+  A two-handle **Scan range** slider above the signals defaults to ±7000 MHz relative to the
   zero-pressure D-line center, adjustable within ±10000 MHz. Its label appears
-  on one line to the left of the slider, whose length is now doubled. Help sits immediately left of
+  in black on one line to the left of the 304-pixel slider. Help sits immediately left of
   the download icon on the same row at the top right. Transient timing and fixed
   probe detuning do not set the scan.
   The Time evolution sidebar starts at a native width of 420 pixels.
@@ -246,23 +259,28 @@ streamlit run alkali_pumping.py
   are secularly removed. Static and RF couplings use the same signed magnetic
   constants, including the corrected negative nuclear magnetic-energy term.
 - Probe-A and Probe-B have independent line, hyperfine-transition detuning,
-  propagation direction, input ellipse, and path length. A Custom Weak probe is a
-  weak detector only and does not pump, shift, or broaden the atoms.
+  propagation direction, input ellipse, and path length. On Time evolution,
+  **Weak** alone selects nonperturbing readout; unchecking it activates the
+  separate probe-intensity field for the complete transient.
 - Time evolution alone offers `Preset D1a`, `Preset D1b`, `Preset D2a`, and
-  `Preset D2b` as weak probe sources. Each uses direction z, path length 1 cm,
+  `Preset D2b` as probe source presets. Each uses direction z, path length 1 cm,
   azimuth 0°, and ellipticity angle 0°. The `a` presets use
   $F=I+1/2\rightarrow F'=I-1/2$ at −2000 MHz; the `b` presets use
   $F=I-1/2\rightarrow F'=I+1/2$ at +2000 MHz, relative to the selected
   pressure-shifted transition on D1 or D2. Selecting a preset fills these
   fields once for the chosen isotope. All fields remain editable while the
   preset is selected, and edits persist across reruns, navigation, and save/load.
-- Each probe source lists both `PumpN weak` and `PumpN`. The weak item inherits
+- ACC probe sources list both `PumpN weak` and `PumpN`. The weak item inherits
   that pump's spectrum, direction, and polarization while ignoring its
   intensity. The plain pump item represents the physical pump beam and uses
   one spatially uniform atomic density matrix driven by the path-averaged
   Stokes perturbation. The configured pump intensity is used unchanged; no
   beam-area or cell-area intensity scaling is applied. New
   sessions default Probe-A to `PumpA1 weak` and Probe-B to `PumpB1 weak`.
+- Time evolution probe sources contain no `weak` suffix: they list `Custom`,
+  the four presets, and `PumpN`. Linked sources inherit the pump's frequency,
+  direction and polarization; the independent **Weak** checkbox determines
+  whether the fixed probe perturbs the atoms.
 - Pump1 defaults to the D1 $F=I+1/2\rightarrow F'=I+1/2$ transition at
   +450 MHz and 10 µW/cm². Pump2 defaults to
   $F=I-1/2\rightarrow F'=I+1/2$ at zero detuning and 10 µW/cm². These
@@ -307,7 +325,7 @@ the former checkbox and saved `show_allowed_only` field have been removed.
 The selected reference defines detuning; calculations still include all
 relevant allowed transitions, including off-resonant contributions.
 ACC writes and loads condition schema **6.16**. Time evolution writes and
-loads its independent settings schema **2.8** and coherent-model identifier. Time evolution requires every
+loads its independent settings schema **2.10** and coherent-model identifier. Time evolution requires every
 current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
 (with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
 for previous configurations. Older analysis condition

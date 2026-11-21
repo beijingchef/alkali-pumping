@@ -9,6 +9,7 @@ from .angular_momentum import (
 )
 from .polarization import (
     spherical_components_from_lab,
+    spherical_weights_from_lab,
     spherical_weights_relative_to_quant_axis,
     transverse_basis_for_k,
 )
@@ -110,6 +111,7 @@ def build_optical_L(
     selected_transition=None,
     normalize_to_selected_total=True,
     reference_at_resonance_center=False,
+    E_lab=None,
 ):
     """
     Build optical-pumping generator L for one beam.
@@ -137,7 +139,8 @@ def build_optical_L(
     Jg = atom["ground"]["J"]
     Je = atom[line]["Jp"]
 
-    q_weights = spherical_weights_relative_to_quant_axis(k_axis, pol, q_axis)
+    q_weights = (spherical_weights_from_lab(E_lab, q_axis) if E_lab is not None
+                 else spherical_weights_relative_to_quant_axis(k_axis, pol, q_axis))
 
     gamma_nat = atom[line]["gamma_nat_MHz"]
 

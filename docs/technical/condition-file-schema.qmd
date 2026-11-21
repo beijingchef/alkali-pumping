@@ -6,7 +6,7 @@ Saved condition files are versioned public interfaces. A file contains applicati
 
 The ACC Magnetometer currently writes schema **6.16**, including the active
 physics-model identifier and independent `gamma_u_A/B` uniform-relaxation
-rates. Time evolution uses its own schema **2.8**, with the same physical
+rates. Time evolution uses its own schema **2.10**, with the same physical
 fields under an independent state namespace. ACC 6.16 removes
 `show_rate_matrices`; its closed nested subsection is always available.
 Execution preferences `acc_auto_update` and its applied-physics signature remain
@@ -23,7 +23,8 @@ angles, missing angles and the obsolete axis field are rejected without migratio
 
 The loader validates application, format, and version identifiers before
 applying values. ACC accepts only schema 6.16; Time evolution accepts only
-schema 2.8 and the v3 coherent-model identifier. Older and future versions are rejected without migration, following
+schema 2.10 and the v4 continuous-physical-probe coherent-model identifier.
+Older and future versions are rejected without migration, following
 the user's explicit compatibility choice for this release. Required fields
 are validated before their settings enter session state.
 
@@ -44,7 +45,7 @@ hides all moment graphs. The former `moment_types` and `moment_manifolds`
 fields are not part of this format. Both manifolds are always plotted.
 New sessions select Hyperfine polarization and F_z. The independent
 `plotted_probe_signals_A/B` lists accept Absorption, Optical rotation and
-Ellipticity without duplicates, initially selecting the first two. Empty
+Ellipticity without duplicates, initially selecting only Optical rotation. Empty
 selection hides time-domain probe graphs and disables their section download.
 Independent `plotted_scan_signals_A/B` lists accept Optical rotation,
 Ellipticity and Absorption without duplicates. They default to Optical rotation
@@ -76,18 +77,23 @@ bound is at most 9990 MHz and the upper bound at least −9990 MHz.
 
 ## Probe-source settings {#probe-source-migration}
 
-Time evolution schema 2.8 includes the source values
-`Preset D1a`, `Preset D1b`, `Preset D2a`, and `Preset D2b`. These are weak,
-nonperturbing probes available only on Time evolution. Selecting one fills
+Time evolution schema 2.10 includes source values `Custom`,
+`Preset D1a`, `Preset D1b`, `Preset D2a`, `Preset D2b`, and `PumpN` without a
+`weak` suffix. Selecting a preset fills
 editable fields once using the current isotope: z, 1 cm, zero azimuth and ellipticity;
 the `a` branches use $I+1/2\rightarrow I-1/2$ at −2000 MHz and the `b`
 branches use $I-1/2\rightarrow I+1/2$ at +2000 MHz relative to the selected
 pressure-shifted D1/D2 transition. Later edits are authoritative and are saved
 with the selected source. Reruns and loading do not reapply preset defaults.
-Fields use the existing units and names. ACC lists only its original Custom
-Weak and weak/physical pump sources.
-`PumpN weak` remains a nonperturbing readout, while ACC's plain `PumpN`
-selects the physical pump. All reference menus always filter allowed
+Fields use the existing units and names. Required Boolean `probe_weak_A/B`
+defaults true; finite nonnegative `probe_intensity_A/B` defaults to 1 µW/cm².
+The checkbox alone determines whether the fixed probe is nonperturbing or acts
+continuously throughout the transient. The steady-state frequency scan always
+excludes the probe from its atomic solve regardless of these fields.
+
+ACC retains its original Custom Weak and weak/physical pump sources:
+`PumpN weak` is a nonperturbing readout, while ACC's plain `PumpN` selects the
+physical pump. All reference menus always filter allowed
 hyperfine transitions. The former `show_allowed_only` field is absent from
 both current formats and does not control calculations or menus.
 

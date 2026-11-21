@@ -75,13 +75,16 @@ def evolution_export_dataframe(evolution, label, probe_signals, config, probe, c
         "probe_line": probe["line"], "probe_detuning_MHz": probe["detuning_MHz"],
         "probe_direction": probe["k_axis"], "probe_path_length_cm": probe["path_length_cm"],
         "probe_input_azimuth_deg": probe["azimuth_deg"], "probe_input_ellipticity_deg": probe["ellipticity_deg"],
+        "probe_weak": probe.get("weak", True),
+        "probe_intensity_uW_cm-2": probe.get("intensity", 0.0),
     }
     for beam in beams:
         name = beam["name"]
         columns.update({f"{name}_on_intensity_uW_cm-2": beam["intensity"],
                         f"{name}_off_intensity_uW_cm-2": 0.0,
                         f"{name}_absolute_frequency_MHz": beam["absolute_frequency_MHz"],
-                        f"{name}_direction": beam["k_axis"], f"{name}_polarization": beam["pol"]})
+                        f"{name}_direction": beam["k_axis"],
+                        f"{name}_polarization": beam.get("pol", "ellipse")})
     for index, state in enumerate(species["ground_states"]):
         columns[f"population_F{state['F']:g}_m{state['m']:g}"] = species["population"][:, index]
         for other_index, other in enumerate(species["ground_states"]):
@@ -127,7 +130,8 @@ def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s):
 
 
 def probe_scan_export_dataframe(spectrum, *, species, label, probe, config, common, beams, steady,
-                                selected_signals=None):
+                                selected_signals=None, population_state="pump-on steady state",
+                                population_time_s=None):
     """Stationary scan in plotted units; frequency is relative to bare D center."""
     columns = {
         "detuning_MHz": spectrum["detuning_MHz"],
@@ -146,6 +150,8 @@ def probe_scan_export_dataframe(spectrum, *, species, label, probe, config, comm
         "probe_width_MHz_per_Torr": config["n2_coeffs"][probe["line"]]["width"],
         "probe_shift_MHz_per_Torr": config["n2_coeffs"][probe["line"]]["shift"],
         "model": "pump-on coherent steady state; non-perturbing Jones frequency scan",
+        "population_state": population_state,
+        "population_time_s": np.nan if population_time_s is None else float(population_time_s),
     }
     signal_columns = {
         'Optical rotation': ('rotation_mrad', 1000 * spectrum['rotation_rad']),
@@ -183,7 +189,8 @@ def probe_scan_export_dataframe(spectrum, *, species, label, probe, config, comm
     return pd.DataFrame(columns)
 
 
-def steady_density_matrix_export_dataframe(species, *, label):
+def steady_density_matrix_export_dataframe(species, *, label, population_state="pump-on steady state",
+                                           population_time_s=None):
     """Export every complex matrix element in the supplied basis, per total atom."""
     rho = np.asarray(species["density_matrix"])[0]
     states = species["ground_states"]
@@ -203,4 +210,6 @@ def steady_density_matrix_export_dataframe(species, *, label):
         "alkali": label, "atom": species["atom_name"],
         "quantization_axis": species["q_axis"],
         "normalization": "per total atom", "pumps_on": True,
+        "population_state": population_state,
+        "population_time_s": np.nan if population_time_s is None else float(population_time_s),
     })

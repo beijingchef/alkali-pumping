@@ -9,15 +9,19 @@ population calculation and linear RF response.
 For species $a$, in angular-frequency units,
 
 $$
-\dot\rho_a=-i[H_{B,a}/\hbar+u(t)H_{LS,a}/\hbar,\rho_a]
-+u(t)\sum_j\mathcal D[J_{a,j}]\rho_a
+\dot\rho_a=-i[H_{B,a}/\hbar+u(t)H_{LS,a}^{pump}/\hbar+wH_{LS,a}^{probe}/\hbar,\rho_a]
++u(t)\sum_j\mathcal D[J^{pump}_{a,j}]\rho_a
++w\sum_j\mathcal D[J^{probe}_{a,j}]\rho_a
 +R_{ER,a}(\mathcal P[\rho_{I,a}\otimes I_2/2]-\rho_a)
 +R_{u,a}(I\,\mathrm{Tr}\rho_a/N_a-\rho_a)
 +R_{SE,a}(\mathcal P[\rho_{I,a}\otimes\rho_{S,a}]-\rho_a)
 +R_{a\leftarrow b}(\mathcal P[\rho_{I,a}\otimes\rho_{S,b}]-\rho_a).
 $$
 
-Here $u(t)=1$ before pump turn-off and zero afterward,
+Here $u(t)=1$ before pump turn-off and zero afterward. The fixed-probe factor
+$w$ is zero when **Weak** is checked and one when it is unchecked; in the latter
+case its rate scale is set by the probe intensity and remains active for the
+entire trajectory from $t=0$ through $t_2$.
 $\mathcal D[J]\rho=J\rho J^\dagger-\{J^\dagger J,\rho\}/2$,
 and $\mathcal P$ removes cross-hyperfine blocks. Nuclear and electron reductions
 come from the coupled-to-uncoupled Clebsch–Gordan transformation. Electron
@@ -58,7 +62,8 @@ interference and explicit excited-state precession are omitted.
 On collinear diagonal states the dissipative populations reproduce the existing
 optical rate generator. The dispersive Hamiltonian uses the same factor and
 sign as the Light shift page. All active pumps, including off-target tails,
-contribute to this dynamics. Pump-off removes both optical terms. Magnetic
+contribute to this dynamics. Pump-off removes only the switchable pump terms;
+non-weak probe terms remain. Magnetic
 shifts and light shifts are not fed back into optical detunings.
 
 The use of an excited-state-eliminated ground master equation follows the
@@ -85,8 +90,9 @@ The page offers section CSV downloads. The complete export helper described
 below remains available programmatically; its former bottom-page button is removed.
 
 All result expanders use native `on_change="rerun"` tracking with independent
-per-species keys. Zeeman populations, Atomic moments and Steady-state probe signal scanning
-default to closed. Content is guarded by the container's `.open` state: chart creation,
+per-species keys. Their display order is Steady-state weak probe signal scanning,
+Probe signal, Zeeman populations, then Atomic moments. The scan, Zeeman populations
+and Atomic moments default to closed. Content is guarded by the container's `.open` state: chart creation,
 section CSV preparation and widgets run only while open. Steady-state convergence
 and spectral readout are inside the scan guard, so they do not run on initial
 page load. Transient integration is also inside the combined guard for the three
@@ -103,7 +109,8 @@ row does not wrap. Auto update defaults on. In manual mode, fingerprints of the 
 inputs and transient timing gate the calculations. Pending physical edits hide
 the affected curves and downloads until Apply; a timing edit gates transients
 only. Applying with all sections closed records the fingerprints without a
-solve. Probe readout and display settings are excluded from these fingerprints.
+solve. Probe settings enter the relevant transient/readout and scan
+fingerprints; display-axis and plot-selection settings remain excluded.
 Auto update is a persistent page-session preference, not a saved condition field.
 
 `ui/time_evolution_cache.py` separates two transient entries below 8 MiB from
@@ -152,7 +159,8 @@ of quantization axis. The complete CSV exports it as the dimensionless
 
 Complex adaptive integration runs separately on each side of the switch,
 with relative tolerance $2\times10^{-10}$ and absolute tolerance $10^{-12}$.
-`DensityDynamics` prepares state boundaries, constant dark/pump generators,
+`DensityDynamics` prepares state boundaries, constant magnetic/relaxation,
+continuous-probe and switchable-pump generators,
 electron-randomization maps and uniform-relaxation maps once per solve. Only
 the evolving nuclear/electron marginals and nonlinear spin-exchange targets
 are evaluated in the derivative. For $T=R(n\otimes\bar e)$,
@@ -164,11 +172,11 @@ off-diagonal blocks. The normalization derivative is retained for off-trace
 trial states. The stationary probe solver uses the same prepared derivative
 and Jacobian while retaining its convergence criteria and accuracy refinements.
 The method is selected by a conservative rate heuristic. For each species,
-the coherent scale is the infinity norm of the magnetic commutator plus the
-pump AC-Stark commutator when pumps are on. The damping scale is
+the coherent scale is the infinity norm of the magnetic plus continuous-probe
+AC-Stark commutators, plus the pump AC-Stark commutator when pumps are on. The damping scale is
 $R_u+2(R_{\mathrm{ER}}+R_{\mathrm{SE,self}}+R_{\mathrm{SE,cross}})$ plus the
-infinity norm of the optical generator after subtracting its AC-Stark
-commutator. The factor two is a conservative estimate for the two marginals
+infinity norms of the active continuous-probe and switchable-pump optical
+generators after subtracting their AC-Stark commutators. The factor two is a conservative estimate for the two marginals
 in spin-exchange targets; this is a performance heuristic rather than a
 spectral stiffness proof. Taking the maximum of each scale over all active
 species, DOP853 is selected only when the coherent scale times interval
@@ -190,8 +198,11 @@ intervals can require substantial computation.
 
 The detector contracts the complete density matrix with the existing Mathur
 tensor, $\langle\alpha_{ab}\rangle=\mathrm{Tr}(\rho\alpha_{ab})$, then propagates
-the Jones vector through the uniform cell. The probe contributes no Hamiltonian
-or relaxation. The complete CSV includes real and imaginary parts of every
+the Jones vector through the uniform cell. With **Weak** checked, the probe
+contributes no Hamiltonian or relaxation. With it unchecked, the transient
+master equation already includes the probe's continuous dissipative and
+AC-Stark terms at the configured intensity; Jones propagation then reads the
+resulting state. The complete CSV includes real and imaginary parts of every
 independent upper-triangular within-F coherence; populations provide the
 diagonal and Hermiticity supplies the lower triangle. They use the selected
 Zeeman display basis and are dimensionless probabilities per total atom.
@@ -200,7 +211,10 @@ Zeeman display basis and are dimensionless probabilities per total atom.
 
 `physics/probe_scan.py` builds the same coupled coherent master equation in
 laboratory z and starts from the same unpolarized state. Pumps remain on for
-the entire convergence calculation. Autonomous BDF intervals grow until two
+the entire convergence calculation. The scanned probe is excluded from this
+master equation from the initial state onward, even if the fixed sidebar probe
+is non-weak; its absorption is evaluated only after convergence and cannot
+alter the atomic state. Autonomous BDF intervals grow until two
 consecutive intervals have a maximum state change below $10^{-9}$ and a small
 stationary residual. For each species the residual tolerance is $10^{-10}$
 times its smallest positive dissipative rate plus a floating-point allowance
@@ -229,7 +243,7 @@ For a fixed density matrix, the unit-coefficient scalar, vector and rank-2
 operators are contracted once. Their frequency-dependent coefficients are
 then combined into the transverse $2\times2$ polarizability at each detuning.
 Time and frequency readout share exact Jones propagation and Stokes conversion.
-The continuous weak probe does not enter the stationary master equation.
+The weak scanned probe does not enter the stationary master equation.
 
 Each species scans 2001 equally spaced points over its saved bounds. Defaults
 are ±7000 MHz; a native two-handle range slider allows ±10000 MHz with a
@@ -241,53 +255,66 @@ display quantization axes do not constrain the frequency scan. CSVs contain
 plotted signals and frequency-origin, probe/cell/pump and convergence metadata.
 
 The scan section uses native 30%/70% columns. On the left, the shared ACC
-population renderer shows the converged pump-on populations in the selected
-Zeeman display basis, with aligned numerical m positions and a common y scale
-for both manifolds. The responsive population chart has a combined 338-pixel
-height, 30% taller than one signal chart. ACC retains its existing
+population renderer shows the selected steady-state or pump-turn-off populations
+in the chosen Zeeman display basis, with aligned numerical m positions and a common y scale
+for both manifolds. Each responsive population chart uses a 147-pixel viewport,
+leaving a 111-pixel framed plotting area after the compact horizontal axis.
+ACC retains its existing
 Matplotlib renderer; the fixed-height scan uses native Vega-Lite bars from the
 same aligned population data. On the right are the signal plots.
 Each scan population bar spans 1/1.3 magnetic-quantum-number units, giving gaps
 30% of the bar width, versus ACC's unchanged 0.72-unit bars;
-both renderers put F on the vertical axis and omit gridlines. Two native
-169-pixel chart viewports with no intervening gap give 338 pixels in total.
+both renderers put F on the vertical axis and omit gridlines. The two native
+147-pixel chart viewports have no container gap or outer Vega padding.
 Both reserve identical horizontal-axis space; the upper axis labels and title
-are transparent so the two plotting areas have equal heights. The upper
-panel has a -20-pixel bottom margin to halve the visible gap; this overlap
-uses only hidden axis space and reduces the stack footprint by 20 pixels.
-The CSV repeats these steady populations as `population_F*_m*` columns and
-identifies their quantization axis, alongside both field angles in degrees.
+are transparent so the two plotting areas have equal heights. A 29-pixel negative
+bottom margin reclaims most of that hidden-axis space while leaving a 7-pixel visual gap
+that keeps the upper zero baseline unobstructed. Each viewport
+has a black frame; all plot-axis labels, ticks and domains on this page are black.
+The vertical axes use about five explicit black tick marks, with compact tick-label
+and title padding. The horizontal tick labels retain a small gap from their ticks,
+while their titles remain close to the axis.
+The CSV repeats the selected snapshot as `population_F*_m*` columns and
+identifies its steady/pump-turn-off source, time and quantization axis,
+alongside both field angles in degrees.
 
-The scan header uses native containers for three signal checkboxes in one horizontal row, a range slider
+The scan header uses native containers with an extra-small gap for a 125-pixel population-axis dropdown,
+a neighboring 130-pixel **Population** dropdown, three signal checkboxes in one horizontal row, a range slider
 and right-aligned section controls. Every section places help and download at
 the right end of its top control row. Time-domain plots use two equal columns.
-The slider's visible label stays on one line on its left; its 338-pixel container is twice as long
-as the previous 169-pixel layout. Controls wrap when space is limited. The help button retains its full 56-pixel width.
+The **Scan range** label stays on one line on its left; its 304-pixel container is 10% shorter than
+the previous 338-pixel layout. The toolbar stays on one row and can scroll horizontally at narrow widths.
+The help button retains its full 56-pixel width.
 Each species has an independent
-`plotted_scan_signals_A/B` list. Its default order is Optical rotation then
-Absorption; Ellipticity starts unchecked. Toggled plots append in check order.
-The CSV includes selected signal columns and all steady population bars.
+`plotted_scan_signals_A/B` list. Only Optical rotation is selected by default;
+Ellipticity and Absorption start unchecked. Toggled plots append in check order.
+The CSV includes selected signal columns and all population bars from the
+selected steady-state or pump-turn-off snapshot.
 An empty signal selection still displays populations and permits their download.
 
 All four result sections use native open-state gating: closed sections build
-no charts, section controls or exports on sidebar reruns. Zeeman populations,
-Atomic moments and Steady-state probe signal scanning default closed; Probe signal defaults
-open. Saved atomic-moment defaults select hyperfine polarization and F_z.
+no charts, section controls or exports on sidebar reruns. The scan, Zeeman populations
+and Atomic moments default closed; Probe signal defaults open. Saved atomic-moment defaults
+select hyperfine polarization and F_z.
 All eight section-state keys (four per species) use the existing persistent
 page-setting registry so Streamlit's hidden-widget cleanup does not reset them
 when navigating away. Open/closed states remain session UI preferences.
 Independent `plotted_probe_signals_A/B` lists select time-domain probe curves
-and exported columns, defaulting to Absorption and Optical rotation. The
+and exported columns, defaulting to Optical rotation only. The
 frequency scan has its own independent selections and defaults.
 
-Settings format 2.8 and the v3 coherent model identifier are both required.
+Settings format 2.10 and the v4 continuous-physical-probe coherent model identifier are both required.
 Earlier settings are rejected without migration, as requested by the user.
 
-The **Zeeman populations** title row in **Steady-state probe signal scanning**
+The **Zeeman populations** title row in **Steady-state weak probe signal scanning**
 includes a density-matrix CSV download. It contains every matrix element,
 including zero entries and both real and imaginary parts. Row and column
 indices, F,m labels and the axis unit vector identify the selected scan basis; probabilities are
-normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention. The download reuses the converged steady state.
+normalized per total atom. The matrix follows the scan population axis and records its Euler-basis convention.
+The `probe_scan_population_snapshot_A/B` session preferences select the pump-on
+steady state or exact pump turn-off density for these bars and exports; they
+persist across navigation but remain outside saved condition files. The probe
+spectrum itself always uses the converged pump-on steady state.
 
 Small ticks beneath the probe-scan detuning slider track mark all allowed
 hyperfine transition centers within its full +/-10000 MHz domain. They include
@@ -333,5 +360,5 @@ The Euler convention fixes otherwise arbitrary coherence phases. Population
 and full-matrix CSVs record the selected axis, its laboratory unit vector,
 Euler angles and basis convention. The internal state and Jones spectra remain
 in lab-z. The four-entry display cache holds only small stationary matrices.
-Saved condition format 2.8 requires both new fields; older files are rejected
+Saved condition format 2.10 requires both fields; older files are rejected
 under the current-format-only policy.

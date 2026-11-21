@@ -17,6 +17,7 @@ from alkali_pumping_app.ui.exports import (
     manifold_rf_export_dataframe,
 )
 from alkali_pumping_app.ui.population_plot import render_population_plot as _render_population_plot
+from alkali_pumping_app.ui.plot_style import style_matplotlib_axis_text
 from alkali_pumping_app.ui.magnetic_field import render_field_controls
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings, preserve_persistent_page_settings
 from alkali_pumping_app.physics.field_geometry import static_field_vector_nT
@@ -1293,9 +1294,10 @@ def _render_rf(result, label):
     with download_col:
         with st.container(horizontal_alignment="right"):
             st.download_button(
-                "Download CSV", dataframe_to_csv_bytes(export),
+                ":material/download:", dataframe_to_csv_bytes(export),
                 file_name=f"{condition_save_name}_alkali-{label}_weak-rf.csv",
-                mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_rf_{label}", width="content",
+                mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_rf_{label}",
+                help="Download weak-RF susceptibility CSV", width=40,
             )
     with help_col:
         with st.popover("❓"):
@@ -1393,6 +1395,7 @@ frequencies; coupling can move the response peaks away from those markers.
             )
             axis.grid(True, alpha=0.25)
             axis.legend(frameon=False)
+            style_matplotlib_axis_text(axis)
             fig.tight_layout()
             st.pyplot(fig, width="stretch")
             plt.close(fig)
@@ -1465,12 +1468,12 @@ def _render_probe_response(result, label):
     with download_col:
         with st.container(horizontal_alignment="right"):
             st.download_button(
-                "Download CSV",
+                ":material/download:",
                 dataframe_to_csv_bytes(export),
                 file_name=f"{condition_save_name}_probe-{label}-{signal}.csv",
                 mime="text/csv; charset=utf-8",
                 key=f"download_probe_{label}", on_click="ignore",
-                width="content",
+                help="Download probe-readout CSV", width=40,
             )
     with help_col:
         with st.popover("❓"):
@@ -1684,6 +1687,7 @@ $d\Omega_{\mathrm{rf}}/dB_{\mathrm{rf}}=2\pi\nu_L(1\,\mathrm{nT})$.
             add_probe_decomposition_legend(axis, legend_entries)
         else:
             axis.legend(frameon=False)
+        style_matplotlib_axis_text(axis)
         fig.tight_layout()
         st.pyplot(fig, width="stretch")
         plt.close(fig)
@@ -1741,9 +1745,10 @@ def _render_zeeman_section(label, atom_name):
             with download_col:
                 with st.container(horizontal_alignment="right"):
                     st.download_button(
-                        "Download CSV", dataframe_to_csv_bytes(display_df),
+                        ":material/download:", dataframe_to_csv_bytes(display_df),
                         file_name=f"{condition_save_name}_alkali-{label}_zeeman.csv",
-                        mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_zeeman_{label}", width="content",
+                        mime="text/csv; charset=utf-8", on_click="ignore", key=f"download_zeeman_{label}",
+                        help="Download Zeeman table CSV", width=40,
                     )
             with help_col:
                 with st.popover("❓"):

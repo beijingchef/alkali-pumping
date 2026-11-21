@@ -196,15 +196,14 @@ def _probe(label, name, coefficients, pressure, disabled):
     source_col, direction_col, path_col = st.columns([0.45, 0.20, 0.35], gap="xsmall")
     with source_col:
         source = st.selectbox(
-            "Probe source", ["Custom", *PROBE_PRESET_SOURCES, *[f"Pump{label}{n} weak" for n in (1, 2, 3)]],
-            format_func=lambda value: "Custom Weak" if value == "Custom" else value,
+            "Probe source", ["Custom", *PROBE_PRESET_SOURCES, *[f"Pump{label}{n}" for n in (1, 2, 3)]],
             key=key(f"probe_source_{label}"), disabled=disabled,
             on_change=_apply_probe_source, args=(label,),
         )
     preset = source in PROBE_PRESET_SOURCES
     linked = source != "Custom" and not preset
     if linked:
-        prefix = source.removeprefix("Pump").removesuffix(" weak")
+        prefix = source.removeprefix("Pump")
         for probe_field, pump_field in (("line", "line"), ("transition", "transition"),
                                         ("det_rel", "det_rel"), ("k", "k")):
             st.session_state[key(f"probe_{probe_field}_{label}")] = st.session_state[key(f"{pump_field}_{prefix}")]
@@ -218,19 +217,17 @@ def _probe(label, name, coefficients, pressure, disabled):
     with path_col:
         path = st.number_input("Path length (cm)", min_value=0.0, step=0.1, format="%.3g",
                                key=key(f"probe_path_length_cm_{label}"), disabled=disabled)
-    spectral_line_col, transition_col = st.columns(2, gap="xsmall")
+    spectral_line_col, transition_col, detuning_col = st.columns(3, gap="xsmall")
     with spectral_line_col:
         line = st.selectbox("Reference line", ["D1", "D2"], key=key(f"probe_line_{label}"), disabled=disabled or linked)
     transition_key = key(f"probe_transition_{label}")
     options = _transition(name, line, transition_key, pressure, coefficients, excited_upper=False)
     with transition_col:
         transition = st.selectbox("F→F′", options, key=transition_key, disabled=disabled or linked)
-    detuning_col, center_caption_col = st.columns(2, gap="xsmall", vertical_alignment="bottom")
     with detuning_col:
         relative = st.number_input("Detuning (MHz)", step=10.0, format="%g", key=key(f"probe_det_rel_{label}"), disabled=disabled or linked)
-    detuning, _ = _detuning(name, line, transition, relative, pressure, coefficients)
-    with center_caption_col:
-        st.caption(line_center_detuning_caption(line, detuning))
+    detuning, selected = _detuning(name, line, transition, relative, pressure, coefficients)
+    st.caption(line_center_detuning_caption(line, detuning))
     cols = st.columns(2, gap="xsmall")
     with cols[0]:
         azimuth = st.number_input("Azimuth (°)", min_value=-90.0, max_value=90.0, step=5.0,
@@ -238,15 +235,47 @@ def _probe(label, name, coefficients, pressure, disabled):
     with cols[1]:
         ellipticity = st.number_input("Ellipticity angle (°)", min_value=-45.0, max_value=45.0, step=5.0,
                                       key=key(f"probe_ellipticity_deg_{label}"), disabled=disabled or linked)
+    weak_col, intensity_col = st.columns(2, gap="xsmall", vertical_alignment="bottom")
+    with weak_col:
+        weak = st.checkbox(
+            "Weak", key=key(f"probe_weak_{label}"), disabled=disabled,
+            help="A weak probe is a nonperturbing readout and does not alter the atomic state.",
+        )
+    with intensity_col:
+        intensity = st.number_input(
+            "I (µW/cm²)", min_value=0.0, step=1.0, format="%.3g",
+            key=key(f"probe_intensity_{label}"), disabled=disabled,
+            help="Used only when Weak is unchecked.",
+        )
     if preset:
         st.caption("Preset values are applied when selected. All probe fields remain editable.")
-    st.caption("Continuous weak probe: remains on after t₁ and does not pump or relax the atoms.")
+    if weak:
+        st.caption("Nonperturbing readout: the probe remains on but does not alter the atoms.")
+    else:
+        st.caption("Physical probe: absorption, repopulation and light shift remain active for the entire evolution.")
     return {"line": line, "detuning_MHz": detuning, "k_axis": k_axis,
-            "azimuth_deg": azimuth, "ellipticity_deg": ellipticity, "path_length_cm": path}
+            "azimuth_deg": azimuth, "ellipticity_deg": ellipticity, "path_length_cm": path,
+            "weak": weak, "intensity": intensity, "source": source,
+            "absolute_frequency_MHz": line_center_frequency_MHz(ATOMS[name], line) + detuning,
+            "selected_transition": selected, "transition_label": transition}
+
+
+def perturbing_probe_beam(label, probe):
+    """Return the continuous physical beam for a non-weak fixed probe."""
+    if probe["weak"] or float(probe["intensity"]) <= 0.0:
+        return None
+    return {
+        "name": f"Probe{label}", "target_label": label,
+        "absolute_frequency_MHz": probe["absolute_frequency_MHz"],
+        "intensity": probe["intensity"], "k_axis": probe["k_axis"],
+        "azimuth_deg": probe["azimuth_deg"], "ellipticity_deg": probe["ellipticity_deg"],
+        "selected_transition": probe["selected_transition"],
+        "transition_label": probe["transition_label"], "continuous": True,
+    }
 
 
 def render_sidebar():
-    """Return independent species, pump, common-cell, and weak-probe configs."""
+    """Return independent species, pump, common-cell, and probe configs."""
     initialize_settings()
     with st.sidebar:
         controls = st.empty()

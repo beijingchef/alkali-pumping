@@ -9,18 +9,20 @@ base = "light"                 # "light" or "dark"
 # primaryColor = "#FF4B4B"
 # backgroundColor = "#FFFFFF"
 # secondaryBackgroundColor = "#F0F2F6"
-# textColor = "#31333F"
+# Active control labels inherit pure black. Streamlit's disabled state keeps
+# unavailable controls and their labels muted gray.
+textColor = "#000000"
 font = "Arial"            # "sans-serif", "serif", or "monospace", or "'Times New Roman', serif"
 baseFontSize = 16               # pixels; applies to the whole app
 # baseFontWeight = 400
 # baseRadius = "0.5rem"
 # showWidgetBorder = true
 
-# [theme.sidebar]
+[theme.sidebar]
 # primaryColor = "#FF4B4B"
 # backgroundColor = "#F0F2F6"
 # secondaryBackgroundColor = "#FFFFFF"
-# textColor = "#31333F"
+textColor = "#000000"            # active sidebar labels; disabled labels remain muted gray
 # font = "sans-serif"            # includes native sidebar widget text
 # baseRadius = "0.5rem"
 # showWidgetBorder = true

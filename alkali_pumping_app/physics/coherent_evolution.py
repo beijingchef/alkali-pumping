@@ -13,7 +13,7 @@ from .angular_momentum import build_excited_states, coupled_basis_amplitudes, di
 from .constants import MU_B_OVER_H_HZ_PER_T, ground_hyperfine_lande_g
 from .field_geometry import static_field_vector_nT
 from .optical_pumping import optical_rate_scale_from_intensity
-from .polarization import lab_e_field, spherical_components_from_lab
+from .polarization import lab_e_field, polarization_ellipse_vector, spherical_components_from_lab
 from .spectroscopy import complex_voigt_response_relative, doppler_fwhm_MHz, transition_shift_MHz
 
 
@@ -37,11 +37,13 @@ def basis_rotation(states, q_axis):
     return expm(-1j * angle * sum(spin_matrices(states)) / np.sqrt(3))
 
 
-def _optical_terms(model, common):
-    """Weak-excitation Lindblad jumps and pump AC-Stark H/hbar (s^-1)."""
+def _optical_terms(model, common, *, continuous):
+    """Weak-excitation Lindblad jumps and optical AC-Stark H/hbar (s^-1)."""
     atom, states, n = model['atom'], model['ground_states'], model['size']
     jumps, h_light = [], np.zeros((n, n), complex)
     for beam in model['beams']:
+        if bool(beam.get('continuous', False)) != continuous:
+            continue
         if beam['intensity'] == 0:
             continue
         line = beam['line']
@@ -50,7 +52,11 @@ def _optical_terms(model, common):
         dipoles = np.array([[[dipole_amplitude(atom['I'], atom['ground']['J'], atom[line]['Jp'],
                                               g['F'], g['m'], e['F'], e['m'], q)
                              for g in states] for e in excited] for q in (-1, 0, 1)])
-        spherical = spherical_components_from_lab(lab_e_field(beam['k_axis'], beam['pol']), 'z')
+        field = (polarization_ellipse_vector(
+            beam['k_axis'], beam['azimuth_deg'], beam['ellipticity_deg']
+        ) if 'azimuth_deg' in beam and 'ellipticity_deg' in beam
+            else lab_e_field(beam['k_axis'], beam['pol']))
+        spherical = spherical_components_from_lab(field, 'z')
         absorption = sum(spherical[q] * dipoles[q + 1] for q in (-1, 0, 1))
         rate = optical_rate_scale_from_intensity(atom, line, beam['intensity'],
                     common['n2_pressure_torr'], common['temperature_C'], coeff['width'])
@@ -89,15 +95,26 @@ def prepare_density_model(model, common, output_axis):
     field_vector = static_field_vector_nT(common)
     g = np.array([ground_hyperfine_lande_g(model['atom_name'], model['atom'], s['F']) for s in states])
     h_b = 2 * np.pi * MU_B_OVER_H_HZ_PER_T * 1e-9 * g[:, None] * sum(B*F for B, F in zip(field_vector, spins))
-    jumps, h_light = _optical_terms(model, common)
+    switched_jumps, switched_h_light = _optical_terms(model, common, continuous=False)
+    continuous_jumps, continuous_h_light = _optical_terms(model, common, continuous=True)
     identity = np.eye(n)
     def commutator(h):
         return -1j * (np.kron(h, identity) - np.kron(identity, h.T))
-    light_shift = commutator(h_light)
-    optical = light_shift.copy()
-    for jump in jumps:
-        loss = jump.conj().T @ jump
-        optical += np.kron(jump, jump.conj()) - .5 * (np.kron(loss, identity) + np.kron(identity, loss.T))
+    def optical_generator(h_light, jumps):
+        light_shift = commutator(h_light)
+        optical = light_shift.copy()
+        for jump in jumps:
+            loss = jump.conj().T @ jump
+            optical += np.kron(jump, jump.conj()) - .5 * (
+                np.kron(loss, identity) + np.kron(identity, loss.T)
+            )
+        return light_shift, optical
+    switched_light_shift, switched_optical = optical_generator(
+        switched_h_light, switched_jumps
+    )
+    continuous_light_shift, continuous_optical = optical_generator(
+        continuous_h_light, continuous_jumps
+    )
     amplitudes = coupled_basis_amplitudes(model['atom'], states)
     # Common lab frame makes unlike-species electron transfer basis independent.
     nuclear_map = np.einsum('ais,bjs->ijab', amplitudes, amplitudes).reshape(-1, n*n)[:, indices]
@@ -108,8 +125,10 @@ def prepare_density_model(model, common, output_axis):
                  nuclear_size=amplitudes.shape[1], output_axis=output_axis,
                  basis_rotation=basis_rotation(states, output_axis),
                  density_dark=commutator(h_b)[np.ix_(indices, indices)],
-                 density_light_shift=light_shift[np.ix_(indices, indices)],
-                 density_optical=optical[np.ix_(indices, indices)],
+                 density_continuous_light_shift=continuous_light_shift[np.ix_(indices, indices)],
+                 density_continuous_optical=continuous_optical[np.ix_(indices, indices)],
+                 density_light_shift=switched_light_shift[np.ix_(indices, indices)],
+                 density_optical=switched_optical[np.ix_(indices, indices)],
                  max_larmor_hz=float(np.max(np.abs(g))) * MU_B_OVER_H_HZ_PER_T * 1e-9 * abs(field))
     return model
 
@@ -140,7 +159,8 @@ class DensityDynamics:
             randomization = m['recombine'] @ np.kron(nuclear_identity, unpolarized_electron[:, None]) @ m['nuclear_map']
             uniform = np.outer(trace / m['size'], trace)
             cross_rate = m['R_SE_cross'] if len(models) == 2 else 0.
-            dark = (m['density_dark'] + m['R_ER'] * (randomization - identity)
+            dark = (m['density_dark'] + m['density_continuous_optical']
+                    + m['R_ER'] * (randomization - identity)
                     + m['R_u'] * (uniform - identity) - (m['R_SE_self'] + cross_rate) * identity)
             self.generators[False].append(dark)
             self.generators[True].append(dark + m['density_optical'])
@@ -204,7 +224,7 @@ def density_derivative(state, models, pumps_on):
         def target(e):
             return m['recombine'] @ np.outer(nuclear[i], e).ravel()
         # trace(rho) is conserved; normalize the partner electron marginal only.
-        d = m['density_dark'] @ rho
+        d = (m['density_dark'] + m['density_continuous_optical']) @ rho
         if pumps_on:
             d = d + m['density_optical'] @ rho
         d += m['R_ER'] * (target(np.array([.5, 0, 0, .5])) - rho)

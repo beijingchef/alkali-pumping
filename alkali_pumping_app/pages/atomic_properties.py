@@ -22,6 +22,7 @@ from alkali_pumping_app.physics.atomic_properties import (
     magnetic_sublevels,
 )
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings
+from alkali_pumping_app.ui.plot_style import style_matplotlib_axis_text
 
 
 ATOMIC_PROPERTIES_SETTING_KEYS = (
@@ -158,6 +159,7 @@ def _grotrian_figure(isotope, line, Fg, Fe, polarizations, scale_width, labels):
         Line2D([0], [0], color=colors[1], lw=3, label="σ+  (Δm = +1)"),
     ]
     axis.legend(handles=legend_handles, loc="lower center", ncol=3, frameon=False)
+    style_matplotlib_axis_text(axis)
     fig.tight_layout()
     return fig, transitions
 
@@ -410,6 +412,7 @@ def render_atomic_properties():
     )
     thermal_tab, buffer_tab, transition_tab = st.tabs(
         ["Thermal & spin exchange", "Buffer-gas collisions", "Transition strengths"],
+        default="Transition strengths",
         key="atomic_properties_tab",
         on_change="rerun",
     )

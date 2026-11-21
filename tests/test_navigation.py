@@ -73,7 +73,7 @@ class NavigationTests(unittest.TestCase):
                 )
                 self.assertTrue(fake_streamlit.active_navigation.was_run)
 
-    def test_navigation_groups_and_acc_page_route(self):
+    def test_navigation_groups_and_atomic_properties_default_route(self):
         entrypoint = Path(__file__).resolve().parents[1] / "alkali_pumping.py"
         fake_streamlit = _Streamlit("ACC Magnetometer")
         with (
@@ -104,7 +104,14 @@ class NavigationTests(unittest.TestCase):
             "alkali_pumping_app/pages/ACC-Magnetometer.py",
         )
         self.assertEqual(acc_page.url_path, "acc-magnetometer")
-        self.assertTrue(acc_page.default)
+        self.assertFalse(getattr(acc_page, "default", False))
+        atomic_page = fake_streamlit.navigation_groups["Reference"][-1]
+        self.assertEqual(
+            atomic_page.path,
+            "alkali_pumping_app/pages/atomic_properties.py",
+        )
+        self.assertEqual(atomic_page.url_path, "atomic-properties")
+        self.assertTrue(atomic_page.default)
         self.assertEqual(fake_streamlit.navigation_kwargs, {"position": "top"})
 
 
