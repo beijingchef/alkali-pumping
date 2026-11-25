@@ -29,8 +29,11 @@ from alkali_pumping_app.ui.time_evolution_settings import (
 
 st.set_page_config(initial_sidebar_state=420)
 species_A, species_B, beams, common, probes = render_sidebar()
-t1 = st.session_state[key("t1_s")]
 t2 = st.session_state[key("t2_s")]
+t1 = max((beam["start_s"] + beam["duration_s"] for beam in beams
+          if beam["intensity"] > 0 and beam["duration_s"] > 0), default=0.0)
+probe_start = st.session_state[key("probe_start_s")]
+probe_duration = st.session_state[key("probe_duration_s")]
 SECTION_CONTROL_WIDTH = 56
 SCAN_AXIS_WIDTH = 125
 POPULATION_SELECTOR_WIDTH = 130
@@ -79,12 +82,12 @@ def _render_page_help():
     with st.popover("❓", help="About Time evolution", key=key("page_help")):
         st.markdown(r"""
 Initially unpolarized atoms have equal probability in every ground Zeeman
-state. All configured pumps are on from $t=0$ to the pump turn-off time,
-then off through the total time. Electron randomization, uniform relaxation,
+state. Each pump is active during its own start-time and duration window.
+Electron randomization, uniform relaxation,
 and self/cross spin exchange remain active throughout. RF is off.
 
-Time-domain graphs span zero to the total time. The dashed vertical line marks pump
-turn-off; populations are continuous there, although their derivatives change.
+Time-domain graphs span zero to the total time. Dashed vertical lines mark
+beam and probe event boundaries; populations remain continuous there.
 
 The density-matrix model retains all Zeeman coherences within each ground
 hyperfine level, with magnetic precession and pump AC-Stark evolution. Each
@@ -98,10 +101,9 @@ $F_x,F_y,F_z$ use laboratory axes. The alignment frame
 $(\hat{\mathbf u},\hat{\mathbf v},\hat{\mathbf q})$ is right-handed:
 $(y,z,x)$ for $q=x$, $(z,x,y)$ for $q=y$, and $(x,y,z)$ for $q=z$.
 Inter-hyperfine coherences are averaged out. Magnetic-field shifts are omitted
-from optical detunings. A **Weak** fixed probe reads the full density matrix
-without changing the evolution. With **Weak** unchecked, its absorption,
-repopulation and light shift act continuously from the initial time through
-the end of the calculation, including after pump turn-off.
+from optical detunings. A **Weak** fixed probe reads the density matrix during
+its configured window without changing the evolution. With **Weak** unchecked,
+its absorption, repopulation and light shift act during that window.
 
 Each section places help and download at the right end of its top control row.
 The plots below use the full section width.
@@ -238,6 +240,8 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
     export_species = dict(species, q_axis=species["moment_axis"]) if section_id == "atomic_moments" else species
     export = export_frame if export_frame is not None else section_export_dataframe(
         plots, species=export_species, label=label, section=title, t1_s=t1, t2_s=t2,
+        beam_windows=[(beam["name"], beam["start_s"], beam["duration_s"]) for beam in physical_beams],
+        probe_window=(probe_start, probe_duration),
     )
     # Streamlit permits disabling wrapping only for horizontal containers.
     with st.container(horizontal=horizontal, wrap=not horizontal, gap="xsmall",
@@ -251,7 +255,7 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
             if not plots and section_id == "probe_signal":
                 st.markdown("Select probe checkboxes to display and download probe-signal curves.")
             st.markdown(help_text or (
-                "The dashed vertical line marks pump turn-off. The CSV contains all displayed "
+                "Dashed vertical lines mark beam and probe event boundaries. The CSV contains all displayed "
                 "curves in this section, one column per curve, with plot names and plotted units "
                 "in the column labels, time in seconds, and timing/species/axis metadata."
             ))
@@ -304,7 +308,7 @@ def _plot(frame, y_label, title, *, species, label, plot_id, value_unit, explana
         )
         chart = alt.layer(curve)
         if show_switch:
-            switch = alt.Chart({"values": [{"switch": t1}]}).mark_rule(
+            switch = alt.Chart({"values": [{"switch": value} for value in event_times]}).mark_rule(
                 color="#666666", strokeDash=[5, 4]
             ).encode(x=alt.X("switch:Q", title=x_label))
             chart += switch
@@ -345,6 +349,12 @@ active_labels = ("A", "B") if species_B is not None else ("A",)
 continuous_probe_beams = [beam for label in active_labels
                           if (beam := perturbing_probe_beam(label, probes[label])) is not None]
 evolution_beams = [*physical_beams, *continuous_probe_beams]
+beam_windows = [(beam["start_s"], beam["duration_s"]) for beam in physical_beams]
+beam_windows += [(probe_start, probe_duration) for _ in continuous_probe_beams]
+event_times = sorted({value for start, duration in beam_windows if duration > 0
+                      for value in (start, start + duration) if 0 < value < t2}
+                     | ({probe_start, probe_start + probe_duration} - {0.0, t2}
+                        if probe_duration > 0 else set()))
 scan_probes = {
     label: {name: probes[label][name] for name in (
         "line", "k_axis", "azimuth_deg", "ellipticity_deg", "path_length_cm"
@@ -354,7 +364,8 @@ scan_probes = {
 pump_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, common))).hexdigest()
 scan_signature = sha256(pickle.dumps((pump_signature, scan_probes))).hexdigest()
 transient_signature = sha256(pickle.dumps((species_A, species_B, evolution_beams, common,
-                                            probes, t1, t2))).hexdigest()
+                                            probes, t1, t2, beam_windows, probe_start,
+                                            probe_duration))).hexdigest()
 with st.bottom:
     with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
         auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
@@ -394,7 +405,8 @@ def _transient_result():
     if evolution is None:
         with st.spinner("Calculating pumping and relaxation…"):
             try:
-                evolution = _evolution_cached(species_A, species_B, evolution_beams, common, t1, t2)
+                evolution = _evolution_cached(species_A, species_B, evolution_beams, common,
+                                              t1, t2, beam_windows)
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
                 st.stop()
@@ -573,7 +585,11 @@ def _render_section(label, section_id):
             if signals is not None:
                 for index, (signal, scale, y_label, title, value_unit, explanation) in enumerate(selected_plots):
                     with probe_columns[index % 2]:
-                        _plot(series_frame(times, {title: signals[signal] * scale}, y_label), y_label, title,
+                        active_probe = ((probe_duration > 0) & (times >= probe_start)
+                                        & ((times < probe_start + probe_duration)
+                                           | ((probe_start + probe_duration == t2) & (times == t2))))
+                        plotted_signal = np.where(active_probe, signals[signal] * scale, np.nan)
+                        _plot(series_frame(times, {title: plotted_signal}, y_label), y_label, title,
                               species=species, label=label, plot_id=f"probe_{signal}", value_unit=value_unit,
                               section_plots=probe_plots,
                               show_legend=False,
@@ -581,7 +597,7 @@ def _render_section(label, section_id):
                                   " The fixed probe uses uniform-path Jones propagation. With Weak checked, "
                                   "it does not alter the atomic evolution." if probes[label]["weak"] else
                                   " The fixed probe uses uniform-path Jones propagation, while its configured "
-                                  "intensity also contributes continuously to the atomic evolution."
+                                  "intensity also contributes during the probe window to the atomic evolution."
                               ))
             with probe_controls:
                 _section_controls(probe_plots, species=species, label=label,
@@ -703,7 +719,7 @@ def _render_section(label, section_id):
 The atoms are independently converged to a **pump-on steady state** using the
 same coherent master equation, including all configured pumps, magnetic
 precession, light shifts, electron randomization, uniform relaxation and spin
-exchange. The total-time and pump turn-off sliders do not set this state.
+exchange. The event windows do not set this steady state.
 The **Population** selector beside the population axis can instead display
 the transient density matrix at the exact pump turn-off time. This choice changes
 the bars and their population/density-matrix exports, not the steady-state spectrum.

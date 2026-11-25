@@ -24,6 +24,33 @@ def prepared(config, other, beams, common):
 
 
 class TimeEvolutionSolverTests(unittest.TestCase):
+    def test_independent_window_matches_single_pump_switch(self):
+        config, beams, common = inputs()
+        common.update(static_field_nT=0.)
+        legacy = te.compute_density_evolution(config, None, beams, common, .02, .04, 41)
+        scheduled = te.compute_density_evolution(
+            config, None, beams, common, .02, .04, 41,
+            beam_windows=[(0., .02)] * len(beams),
+        )
+        np.testing.assert_allclose(scheduled['A']['density_matrix'], legacy['A']['density_matrix'],
+                                   atol=2e-8, rtol=2e-8)
+        self.assertEqual(np.count_nonzero(scheduled['time_s'] == .02), 1)
+        self.assert_physical(scheduled)
+
+    def test_staggered_beam_windows_preserve_physical_state(self):
+        config, beams, common = inputs()
+        common.update(static_field_nT=0.)
+        second = dict(beams[0], name='PumpA2', intensity=beams[0]['intensity'] * 2)
+        with patch.object(te, 'solve_ivp', wraps=solve_ivp) as integrate:
+            result = te.compute_density_evolution(
+                config, None, [beams[0], second], common, .03, .04, 41,
+                beam_windows=[(0., .01), (.02, .01)],
+            )
+        self.assertEqual(len(integrate.call_args_list), 4)
+        for boundary in (.01, .02, .03):
+            self.assertEqual(np.count_nonzero(result['time_s'] == boundary), 1)
+        self.assert_physical(result)
+
     def assert_physical(self, result):
         for label in ('A', 'B'):
             if result[label] is None:

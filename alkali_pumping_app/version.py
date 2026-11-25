@@ -1,7 +1,7 @@
 """Application and model version metadata."""
 
 APP_NAME = "alkali_pumping"
-__version__ = "6.21.7"
-DISPLAY_VERSION = "6.21.7"
+__version__ = "6.21.8"
+DISPLAY_VERSION = "6.21.8"
 CONDITION_SCHEMA_VERSION = "6.16"
 PHYSICS_MODEL_VERSION = "v6.12-two-manifold-secular-rf-uniform-relaxation-and-shared-pump-feedback"

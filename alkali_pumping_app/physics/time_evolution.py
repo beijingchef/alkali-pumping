@@ -17,7 +17,7 @@ from .spin_exchange import hyperfine_uncoupled_probabilities
 from .system_model import build_species_linear_model
 
 
-TIME_EVOLUTION_MODEL_VERSION = "v4-continuous-physical-probe-master-equation"
+TIME_EVOLUTION_MODEL_VERSION = "v5-independent-beam-windows"
 TIME_EVOLUTION_SOLVER_VERSION = "v2-prepared-rhs-analytic-jacobian-and-rate-selection"
 
 
@@ -200,7 +200,7 @@ def _density_integration_method(models, pumps_on, duration):
 
 
 def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
-                              sample_count=801):
+                              sample_count=801, beam_windows=None):
     """Evolve full within-F density blocks; q axes specify output bases only.
 
     The laboratory field drives signed-g_F Larmor precession. Pumps contribute
@@ -229,7 +229,21 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
                            for m in models)
     requested_samples = max(int(sample_count), int(np.ceil(20 * fastest_harmonic * t2_s)) + 1)
     sample_count = min(requested_samples, 20001)
-    if 0 < t1_s < t2_s:
+    if beam_windows is not None:
+        if len(beam_windows) != len(beams):
+            raise ValueError("Every beam needs one start and duration.")
+        for start, duration in beam_windows:
+            if (not np.isfinite([start, duration]).all() or start < 0 or duration < 0
+                    or start + duration > t2_s + 1e-9):
+                raise ValueError("Beam windows must fit within total time.")
+        events = sorted({0.0, t2_s, *(float(v) for start, duration in beam_windows if duration > 0
+                                       for v in (start, start + duration))})
+        counts = [max(2, int(round((sample_count - 1) * (stop - start) / t2_s)) + 1)
+                  for start, stop in zip(events[:-1], events[1:])]
+        times = np.concatenate([np.linspace(start, stop, count)[:-1]
+                                for start, stop, count in zip(events[:-1], events[1:], counts)]
+                               + [np.array([t2_s])])
+    elif 0 < t1_s < t2_s:
         first_count = min(sample_count - 1, max(2, int(round((sample_count - 1) * t1_s / t2_s)) + 1))
         times = np.r_[np.linspace(0, t1_s, first_count),
                       np.linspace(t1_s, t2_s, sample_count - first_count + 1)[1:]]
@@ -237,14 +251,27 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
         times = np.linspace(0, t2_s, sample_count)
     density = np.empty((len(times), len(initial)), complex)
     current = initial
-    for start, stop, pumps_on in ((0.0, t1_s, True), (t1_s, t2_s, False)):
+    intervals = ((start, stop, True) for start, stop in zip(events[:-1], events[1:])) if beam_windows is not None else (
+        (0.0, t1_s, True), (t1_s, t2_s, False))
+    for start, stop, pumps_on in intervals:
         if stop <= start:
             continue
+        interval_models, interval_dynamics = models, dynamics
+        if beam_windows is not None:
+            midpoint = (start + stop) / 2
+            active_beams = [beam for beam, (on, duration) in zip(beams, beam_windows)
+                            if on <= midpoint < on + duration]
+            interval_models = build_population_dynamics(
+                lab_configs[0], lab_configs[1] if len(lab_configs) == 2 else None,
+                active_beams, common)
+            for interval_model, config in zip(interval_models, configs):
+                prepare_density_model(interval_model, common, config["q_axis"])
+            interval_dynamics = DensityDynamics(interval_models)
         indices = np.flatnonzero((times >= start) & (times <= stop))
-        method = _density_integration_method(models, pumps_on, stop - start)
-        jacobian = lambda time, rho, active=pumps_on: dynamics.jacobian(rho, active)
+        method = _density_integration_method(interval_models, pumps_on, stop - start)
+        jacobian = lambda time, rho, active=pumps_on, dyn=interval_dynamics: dyn.jacobian(rho, active)
         solution = solve_ivp(
-            lambda time, rho, active=pumps_on: dynamics.derivative(rho, active),
+            lambda time, rho, active=pumps_on, dyn=interval_dynamics: dyn.derivative(rho, active),
             (start, stop), current, method=method, t_eval=times[indices],
             rtol=2e-10, atol=1e-12,
             **({"jac": jacobian} if method == "BDF" else {}),
@@ -253,7 +280,7 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
             # Restart the complete interval from its original state and keep
             # exactly the same output grid and tolerances on the BDF retry.
             solution = solve_ivp(
-                lambda time, rho, active=pumps_on: dynamics.derivative(rho, active),
+                lambda time, rho, active=pumps_on, dyn=interval_dynamics: dyn.derivative(rho, active),
                 (start, stop), current, method="BDF", t_eval=times[indices],
                 rtol=2e-10, atol=1e-12, jac=jacobian,
             )

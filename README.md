@@ -1,4 +1,4 @@
-# Alkali Pumping v6.21.7
+# Alkali Pumping v6.21.8
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -33,8 +33,8 @@ five workflows:
   Physics is unchanged; current-only ACC format 6.16 removes `show_rate_matrices`.
 - **Analysis → Time evolution** independently configures the same atoms, cell,
   pumps, and probes. Initially unpolarized ground-state populations evolve
-  with all pumps on from zero to the turn-off slider `t₁`, then relax with the
-  pumps off through the total-time slider `t₂`. Self and cross spin exchange
+  with independent start times and durations for each pump beam. Sidebar timing
+  controls set total time and the fixed probe's start and duration. Self and cross spin exchange
   follow the instantaneous density matrices, including all within-hyperfine
   Zeeman coherences. Magnetic precession and pump AC-Stark evolution are included.
   Transient integration automatically chooses BDF for damping-dominated or short
@@ -57,17 +57,18 @@ five workflows:
   totals), hyperfine polarization ⟨S·I⟩/ℏ², electron polarization,
   selectable longitudinal orientation/alignment, and separate
   probe rotation, output ellipticity, and absorption signals. The fixed probe
-  stays on throughout. With **Weak** checked it is a nonperturbing readout;
-  unchecked, its configured intensity drives continuous absorption,
-  repopulation and AC-Stark evolution before and after pump turn-off. RF is absent. Settings and
+  is read during its configured window. With **Weak** checked it is a nonperturbing readout;
+  unchecked, its configured intensity drives absorption, repopulation and
+  AC-Stark evolution during that window. RF is absent. Settings and
   CSV exports are independent of ACC Magnetometer.
   The sidebar has separate **Open** and **Save** buttons beside the setting name.
   Save downloads committed settings immediately in the browser without rerunning
   the app. It uses the currently typed setting name and leaves other unfinished
   edits unapplied. Open validates the current settings format before loading it.
-  Both timing sliders share one row under **Event Sequence** below the probe configuration, with
-  a maximum total time of 30 s and turn-off bounded by total time. Their labels
-  are Total time (s) and Pump turn-off time (s). Absorption is the fraction
+  Probe start and duration sit below the Weak/intensity row in each probe tab,
+  editing the same shared timing values. Total time sits below the probe configuration.
+  Every pump has its own start and duration stacked below its intensity and pumping rate.
+  All event windows must fit within the maximum total time of 30 s. Absorption is the fraction
   $1-I_{\mathrm{out}}/I_{\mathrm{in}}$ and is included in CSV exports.
   Each section places help and download at the right end of its top control row.
   Time-domain plots use two equal columns across the full width. The CSV contains all displayed curves in that
@@ -129,7 +130,8 @@ five workflows:
   with zero intensity. The Custom probe is along z with a 1 cm path,
   the Rb87 2→1 reference transition, −2000 MHz detuning, and zero input
   ellipticity. **Weak** starts checked and probe intensity starts at 1 µW/cm².
-  Total time defaults to 4 s and turn-off to 1 s.
+  Total time defaults to 4 s, each pump starts at 0 s for 1 s, and the
+  fixed probe starts at 0 s for 4 s.
   **Steady-state weak probe signal scanning**, when opened, independently converges the pump-on steady state
   and scans all allowed hyperfine transitions of the probe's selected D line.
   This scan always treats the probe as nonperturbing from the start: only pumps

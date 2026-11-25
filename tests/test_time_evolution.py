@@ -282,6 +282,20 @@ class PopulationProbeTests(unittest.TestCase):
         self.assertEqual(len(table), len(times))
         self.assertTrue(table["Optical rotation"].isna().all())
 
+    def test_graph_csv_records_independent_pump_and_probe_windows(self):
+        times = np.array([0., .01, .02, .03, .04])
+        frame = series_frame(times, {"Signal": np.arange(len(times))}, "Signal")
+        table = plot_export_dataframe(
+            frame, "Signal", species=self.evolution["A"], label="A", title="Signal",
+            value_unit="1", t1_s=.03, t2_s=.04,
+            beam_windows=[("PumpA1", 0., .01), ("PumpA2", .02, .01)],
+            probe_window=(.01, .02),
+        )
+        np.testing.assert_array_equal(table["pumps_on"], [True, False, True, False, False])
+        np.testing.assert_array_equal(table["probe_on"], [False, True, True, False, False])
+        self.assertEqual(set(table["PumpA2_start_s"]), {.02})
+        self.assertEqual(set(table["probe_duration_s"]), {.02})
+
     def test_section_csv_disambiguates_curves_and_keeps_undefined_samples(self):
         species, times = self.evolution["A"], self.evolution["time_s"]
         plots = [dict(frame=zeeman_plot_frame(times, species, manifold), y_label="Population",

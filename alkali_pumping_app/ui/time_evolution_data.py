@@ -24,7 +24,8 @@ def series_frame(time_s, series, y_label):
                          "Series": np.repeat(list(series), len(time_s))})
 
 
-def plot_export_dataframe(frame, y_label, *, species, label, title, value_unit, t1_s, t2_s):
+def plot_export_dataframe(frame, y_label, *, species, label, title, value_unit, t1_s, t2_s,
+                          beam_windows=None, probe_window=None):
     """Export exactly the displayed curves, with one numeric column per curve.
 
     The frame already contains the plotted units (including mrad conversion).
@@ -35,6 +36,21 @@ def plot_export_dataframe(frame, y_label, *, species, label, title, value_unit, 
     values = values.reindex(columns=series).sort_index().rename_axis(columns=None)
     values = values.rename_axis("time_s").reset_index()
     values["pumps_on"] = values["time_s"] < t1_s
+    if beam_windows is not None:
+        values["pumps_on"] = False
+        for name, start, duration in beam_windows:
+            active = (values["time_s"] >= start) & (values["time_s"] < start + duration)
+            values[f"{name}_on"] = active
+            values[f"{name}_start_s"] = start
+            values[f"{name}_duration_s"] = duration
+            values["pumps_on"] |= active
+    if probe_window is not None:
+        start, duration = probe_window
+        values["probe_on"] = ((duration > 0) & (values["time_s"] >= start)
+                              & ((values["time_s"] < start + duration)
+                                 | ((start + duration == t2_s) & (values["time_s"] == t2_s))))
+        values["probe_start_s"] = start
+        values["probe_duration_s"] = duration
     values["pump_off_time_s"] = t1_s
     values["total_time_s"] = t2_s
     values["alkali"] = label
@@ -105,7 +121,8 @@ def evolution_export_dataframe(evolution, label, probe_signals, config, probe, c
     return pd.DataFrame(columns)
 
 
-def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s):
+def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s,
+                             beam_windows=None, probe_window=None):
     """One time row and one qualified column per displayed section curve.
 
     Plot titles disambiguate manifold/observable curves, and each column names
@@ -119,6 +136,7 @@ def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s):
         table = plot_export_dataframe(
             plot["frame"], plot["y_label"], species=species, label=label,
             title=plot["title"], value_unit=plot["value_unit"], t1_s=t1_s, t2_s=t2_s,
+            beam_windows=beam_windows, probe_window=probe_window,
         ).set_index("time_s")
         names = list(plot["frame"]["Series"].drop_duplicates())
         curves.append(table[names].rename(columns={

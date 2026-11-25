@@ -30,7 +30,7 @@ class MagnetometryToolbarTests(unittest.TestCase):
                 app.number_input(key="gamma_ER_A").set_value(value).run()
                 self.assertFalse(app.exception)
                 self.assertTrue(any("Pending condition changes" in item.value for item in app.info))
-                self.assertTrue(any("pump rate: pending Apply" in item.value for item in app.caption))
+                self.assertTrue(any(r"$R_{\mathrm{OP}}$: pending Apply" in item.value for item in app.caption))
         cache.equilibrium_cached.clear()
         with patch.object(cache, "solve_alkali_equilibrium", wraps=cache.solve_alkali_equilibrium) as solve:
             app.button(key="acc_apply_conditions").click().run()

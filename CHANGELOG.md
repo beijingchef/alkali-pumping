@@ -1,5 +1,21 @@
 # Changelog
 
+## 6.21.8 - 2026-11-25
+
+- Keep three significant digits in both pump-rate captions without exponent notation.
+- Use mathematical $\delta\nu_{\mathrm{D1/D2}}$ and $R_{\mathrm{OP}}$ captions
+  in both pump condition sidebars.
+- Stack each pump's duration below its start time, move shared probe timing
+  below the Weak/intensity row in each probe tab, and remove the Event Sequence heading.
+- Give every Time evolution pump its own start time and duration, with its
+  selected-transition pumping rate shown below intensity. The transient solver
+  switches the configured beams at their individual event boundaries.
+- Replace the pump turn-off control with probe start and duration. Fixed-probe
+  readout is displayed only in that window, and a physical probe perturbs atoms
+  only while its window is active. Section CSVs include the beam and probe windows.
+- Use current-only Time evolution settings schema 2.11. Older settings are
+  rejected as requested.
+
 ## 6.21.7 - 2026-11-21
 
 - Add an independent **Weak** checkbox (checked by default) and probe intensity

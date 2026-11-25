@@ -13,7 +13,7 @@ from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.10"
+SCHEMA_VERSION = "2.11"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
@@ -35,7 +35,8 @@ SHARED_KEYS = (
 )
 DEFAULTS = {key: deepcopy(DEFAULT_STARTUP_CONDITION[key]) for key in SHARED_KEYS
             if key in DEFAULT_STARTUP_CONDITION}
-DEFAULTS.update(condition_name="time-evolution", t1_s=1.0, t2_s=4.0,
+DEFAULTS.update(condition_name="time-evolution", t2_s=4.0,
+                probe_start_s=0.0, probe_duration_s=4.0,
                 plotted_moments=["Hyperfine polarization", "F_z"])
 for _label in ("A", "B"):
     _atom_name = DEFAULTS[f"atom_{_label}_name"]
@@ -61,6 +62,9 @@ for _label in ("A", "B"):
         f"probe_weak_{_label}": True,
         f"probe_intensity_{_label}": 1.0,
     })
+    for _number in (1, 2, 3):
+        DEFAULTS[f"pump_start_s_{_label}{_number}"] = 0.0
+        DEFAULTS[f"pump_duration_s_{_label}{_number}"] = 1.0
 
 
 def validate_settings(values):
@@ -128,8 +132,16 @@ def validate_settings(values):
         lower, upper = result[f"probe_scan_min_MHz_{label}"], result[f"probe_scan_max_MHz_{label}"]
         if not (-10000 <= lower <= 9990 and -9990 <= upper <= 10000 and upper - lower >= 10):
             raise ValueError("Probe scan limits must lie within ±10000 MHz and be at least 10 MHz apart.")
-    if not 0.001 <= result["t2_s"] <= 30 or not 0 <= result["t1_s"] <= result["t2_s"]:
-        raise ValueError("Times must satisfy 0 ≤ t1 ≤ t2 and 0.001 ≤ t2 ≤ 30 seconds.")
+    total = result["t2_s"]
+    if not 0.001 <= total <= 30:
+        raise ValueError("Total time must be between 0.001 and 30 seconds.")
+    for prefix in (f"{label}{number}" for label in ("A", "B") for number in (1, 2, 3)):
+        start, duration = result[f"pump_start_s_{prefix}"], result[f"pump_duration_s_{prefix}"]
+        if start < 0 or duration < 0 or start + duration > total + 1e-9:
+            raise ValueError(f"Pump{prefix} timing must fit within total time.")
+    if (result["probe_start_s"] < 0 or result["probe_duration_s"] < 0
+            or result["probe_start_s"] + result["probe_duration_s"] > total + 1e-9):
+        raise ValueError("Probe timing must fit within total time.")
     for field, allowed in (
         ("plotted_moments", PLOTTED_MOMENTS),
         *[(f"plotted_probe_signals_{label}", PLOTTED_PROBE_SIGNALS) for label in ("A", "B")],

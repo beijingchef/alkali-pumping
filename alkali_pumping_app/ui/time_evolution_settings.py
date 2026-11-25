@@ -6,6 +6,8 @@ import json
 import streamlit as st
 
 from ..physics.constants import ATOMS, DEFAULT_N2_COEFFS
+from ..physics.angular_momentum import build_ground_states
+from ..physics.optical_pumping import build_optical_L, optical_rate_scale_from_intensity
 from ..physics.polarization import allowed_polarizations, preset_ellipse_parameters
 from ..physics.spectroscopy import (
     absolute_detuning_from_transition_choice, default_transition_label,
@@ -16,7 +18,7 @@ from .downloads import save_button_with_immediate_download, update_settings_down
 from .page_state import register_persistent_page_settings
 from .magnetic_field import render_field_controls
 from .probe_presets import PROBE_PRESET_SOURCES, probe_preset_settings
-from .text import line_center_detuning_caption
+from .text import line_center_detuning_caption, pump_rate_caption
 from .time_evolution_conditions import (
     DEFAULTS, PREFIX, build_settings_payload, parse_settings_payload,
 )
@@ -49,31 +51,47 @@ def refresh_settings_download():
     update_settings_download_snapshot(key("save"), snapshot)
 
 
-def _clamp_switch_time():
-    st.session_state[key("t1_s")] = min(st.session_state[key("t1_s")], st.session_state[key("t2_s")])
+def _clamp_event_times():
+    total = st.session_state[key("t2_s")]
+    for prefix in (f"{label}{number}" for label in ("A", "B") for number in (1, 2, 3)):
+        start_key, duration_key = key(f"pump_start_s_{prefix}"), key(f"pump_duration_s_{prefix}")
+        st.session_state[start_key] = min(st.session_state[start_key], total)
+        st.session_state[duration_key] = min(st.session_state[duration_key], total - st.session_state[start_key])
+    start_key, duration_key = key("probe_start_s"), key("probe_duration_s")
+    st.session_state[start_key] = min(st.session_state[start_key], total)
+    st.session_state[duration_key] = min(st.session_state[duration_key], total - st.session_state[start_key])
 
 
-def _store_time_widget(name):
-    st.session_state[key(name)] = st.session_state["_time_widget_" + key(name)]
-    _clamp_switch_time()
+def _store_time_widget(name, suffix=""):
+    st.session_state[key(name)] = st.session_state["_time_widget_" + key(name) + suffix]
+    _clamp_event_times()
 
 
 def _time_controls():
-    _clamp_switch_time()
+    st.session_state["_time_widget_" + key("t2_s")] = st.session_state[key("t2_s")]
+    st.slider("Total time (s)", min_value=0.001, max_value=30.0, step=0.001,
+              format="%.3f", key="_time_widget_" + key("t2_s"),
+              on_change=_store_time_widget, args=("t2_s",))
+
+
+def _probe_time_controls(label, disabled):
     # Separate durable settings from widget identity so moving the controls or
     # changing their bounds cannot reset loaded values to the slider minimum.
-    for name in ("t1_s", "t2_s"):
-        st.session_state["_time_widget_" + key(name)] = st.session_state[key(name)]
-    total_col, turn_off_col = st.columns(2, gap="xsmall")
-    with total_col:
-        st.slider("Total time (s)", min_value=0.001, max_value=30.0, step=0.001,
-                  format="%.3f", key="_time_widget_" + key("t2_s"),
-                  on_change=_store_time_widget, args=("t2_s",))
-    with turn_off_col:
-        st.slider("Pump turn-off time (s)", min_value=0.0,
-                  max_value=float(st.session_state[key("t2_s")]), step=0.001,
-                  format="%.3f", key="_time_widget_" + key("t1_s"),
-                  on_change=_store_time_widget, args=("t1_s",))
+    # Both probe tabs edit the same existing timing settings.
+    suffix = "" if label == "A" else "_B"
+    for name in ("probe_start_s", "probe_duration_s"):
+        st.session_state["_time_widget_" + key(name) + suffix] = st.session_state[key(name)]
+    start_col, duration_col = st.columns(2, gap="xsmall")
+    with start_col:
+        st.number_input("Probe start (s)", min_value=0.0,
+                        max_value=float(st.session_state[key("t2_s")]), step=0.001,
+                        format="%.3f", key="_time_widget_" + key("probe_start_s") + suffix,
+                        on_change=_store_time_widget, args=("probe_start_s", suffix), disabled=disabled)
+    with duration_col:
+        st.number_input("Probe duration (s)", min_value=0.0,
+                        max_value=float(st.session_state[key("t2_s")] - st.session_state[key("probe_start_s")]),
+                        step=0.001, format="%.3f", key="_time_widget_" + key("probe_duration_s") + suffix,
+                        on_change=_store_time_widget, args=("probe_duration_s", suffix), disabled=disabled)
 
 
 def _file_widget_key():
@@ -173,12 +191,38 @@ def _pump(label, number, name, coefficients, pressure, disabled):
     transition = st.selectbox("F→F′", options, key=transition_key, disabled=disabled)
     relative = st.number_input("Detuning (MHz)", step=10.0, format="%g", key=key(f"det_rel_{prefix}"), disabled=disabled)
     detuning, selected = _detuning(name, line, transition, relative, pressure, coefficients)
-    st.caption(line_center_detuning_caption(line, detuning))
+    st.caption(line_center_detuning_caption(line, detuning, pump=True))
     intensity = st.number_input("I (µW/cm²)", min_value=0.0, step=1.0, format="%.1f",
                                 key=key(f"intensity_{prefix}"), disabled=disabled)
+    if not disabled and intensity > 0:
+        atom = ATOMS[name]
+        rate_scale = optical_rate_scale_from_intensity(
+            atom, line, intensity, pressure, st.session_state[key("temperature_C_for_table")],
+            coefficients[line]["width"],
+        )
+        _, info = build_optical_L(
+            atom=atom, line=line, ground_states=build_ground_states(atom),
+            detuning_MHz=detuning, pump_rate_s=rate_scale,
+            selected_transition=selected, k_axis=k_axis, pol=pol, q_axis="z",
+            n2_pressure_torr=pressure, temperature_C=st.session_state[key("temperature_C_for_table")],
+            n2_width_MHz_per_torr=coefficients[line]["width"],
+            n2_shift_MHz_per_torr=coefficients[line]["shift"],
+            normalize_to_selected_total=False,
+        )
+        rate = float(info["R_ge"][info["reference_ground_indices"], :].sum())
+    else:
+        rate = 0.0
+    st.caption(pump_rate_caption(rate))
+    start = st.number_input("Start time (s)", min_value=0.0,
+                            max_value=float(st.session_state[key("t2_s")]), step=0.001,
+                            format="%.3f", key=key(f"pump_start_s_{prefix}"), disabled=disabled)
+    duration = st.number_input("Duration (s)", min_value=0.0,
+                               max_value=float(st.session_state[key("t2_s")] - start), step=0.001,
+                               format="%.3f", key=key(f"pump_duration_s_{prefix}"), disabled=disabled)
     return {"name": f"Pump{prefix}", "target_label": label,
             "absolute_frequency_MHz": line_center_frequency_MHz(ATOMS[name], line) + detuning,
             "intensity": intensity, "k_axis": k_axis, "pol": pol,
+            "start_s": start, "duration_s": duration,
             "selected_transition": selected, "transition_label": transition}
 
 
@@ -247,12 +291,13 @@ def _probe(label, name, coefficients, pressure, disabled):
             key=key(f"probe_intensity_{label}"), disabled=disabled,
             help="Used only when Weak is unchecked.",
         )
+    _probe_time_controls(label, disabled)
     if preset:
         st.caption("Preset values are applied when selected. All probe fields remain editable.")
     if weak:
-        st.caption("Nonperturbing readout: the probe remains on but does not alter the atoms.")
+        st.caption("Nonperturbing readout during the configured probe window.")
     else:
-        st.caption("Physical probe: absorption, repopulation and light shift remain active for the entire evolution.")
+        st.caption("Physical probe: absorption, repopulation and light shift act during the probe window.")
     return {"line": line, "detuning_MHz": detuning, "k_axis": k_axis,
             "azimuth_deg": azimuth, "ellipticity_deg": ellipticity, "path_length_cm": path,
             "weak": weak, "intensity": intensity, "source": source,
@@ -277,6 +322,7 @@ def perturbing_probe_beam(label, probe):
 def render_sidebar():
     """Return independent species, pump, common-cell, and probe configs."""
     initialize_settings()
+    _clamp_event_times()
     with st.sidebar:
         controls = st.empty()
         st.header("Atom / cell")
@@ -334,7 +380,6 @@ def render_sidebar():
         for label, tab in zip(("A", "B"), st.tabs(["Probe-A", "Probe-B"])):
             with tab:
                 probes[label] = _probe(label, atoms[label], coefficients[label], pressure, label == "B" and not active_B)
-        st.header("Event Sequence")
         _time_controls()
         with controls.container():
             cols = st.columns([0.2, 0.2, 0.6], gap="xsmall", vertical_alignment="bottom")

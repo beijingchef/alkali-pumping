@@ -40,6 +40,7 @@ from alkali_pumping_app.ui.text import (
     accent_caption,
     inactive_aware_label,
     line_center_detuning_caption,
+    pump_rate_caption,
 )
 from alkali_pumping_app.ui.uploads import open_file_button
 from alkali_pumping_app.version import CONDITION_SCHEMA_VERSION
@@ -312,7 +313,7 @@ def _beam_config_ui(
             allowed_only=True,
         )
     )
-    st.caption(line_center_detuning_caption(line, line_center_detuning_MHz))
+    st.caption(line_center_detuning_caption(line, line_center_detuning_MHz, pump=True))
     st.number_input(
         "I (µW/cm²)",
         min_value=0.0,
@@ -995,7 +996,7 @@ def _populate_rate_captions():
         if not beam["active"]:
             continue
         if models is None:
-            caption = "pump rate: pending Apply"
+            caption = r"$R_{\mathrm{OP}}$: pending Apply"
             st.session_state[f"_pump_rate_caption_{beam['name'][4:]}"] = caption
             if beam["rate_placeholder"] is not None:
                 beam["rate_placeholder"].caption(accent_caption(caption))
@@ -1006,7 +1007,7 @@ def _populate_rate_captions():
             None,
         )
         if diagnostic is None:
-            caption = "pump rate: 0 s⁻¹"
+            caption = pump_rate_caption(0)
             st.session_state[f"_pump_rate_caption_{beam['name'][4:]}"] = caption
             if beam["rate_placeholder"] is not None:
                 beam["rate_placeholder"].caption(accent_caption(caption))
@@ -1014,7 +1015,7 @@ def _populate_rate_captions():
         _, info = diagnostic
         selected_rows = info["reference_ground_indices"]
         selected_rate = float(info["R_ge"][selected_rows, :].sum())
-        caption = f"pump rate: {selected_rate:.3g} s⁻¹"
+        caption = pump_rate_caption(selected_rate)
         st.session_state[f"_pump_rate_caption_{beam['name'][4:]}"] = caption
         if beam["rate_placeholder"] is not None:
             beam["rate_placeholder"].caption(accent_caption(caption))
