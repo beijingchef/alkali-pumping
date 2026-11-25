@@ -90,6 +90,16 @@ class TimeEvolutionUiTests(unittest.TestCase):
         self.assertFalse(any(widget.label == "Only show allowed hyperfine transitions" for widget in app.checkbox))
         self.assertTrue(app.checkbox(key="te_probe_weak_A").value)
         self.assertEqual(app.number_input(key="te_probe_intensity_A").value, 1.0)
+        self.assertEqual(app.number_input(key="te_field_start_s").value, 0.)
+        self.assertEqual(app.number_input(key="te_field_duration_s").value, 4.)
+        self.assertEqual(app.number_input(key="te_field_start_s").label, "Field start time (s)")
+        self.assertEqual(app.number_input(key="te_field_duration_s").label, "Field duration (s)")
+        field_timing_columns = [column for column in app.sidebar.get("column")
+                                if any(widget.key in ("te_field_start_s", "te_field_duration_s")
+                                       for widget in column.number_input)]
+        self.assertEqual([[widget.key for widget in column.number_input]
+                          for column in field_timing_columns],
+                         [["te_field_start_s"], ["te_field_duration_s"]])
         probe_spectral_columns = [
             column for column in app.sidebar.get("column")
             if any(widget.key in ("te_probe_line_A", "te_probe_transition_A", "te_probe_det_rel_A")
@@ -234,6 +244,12 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.switch_page(PAGE).run()
         self.assertEqual(app.number_input(key='te_static_field_theta_deg').value,37)
         self.assertEqual(app.number_input(key='te_static_field_phi_deg').value,123)
+        app.number_input(key='te_field_start_s').set_value(.5).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.number_input(key='te_field_duration_s').value,3.5)
+        app.switch_page('alkali_pumping_app/pages/ACC-Magnetometer.py').run()
+        app.switch_page(PAGE).run()
+        self.assertEqual(app.number_input(key='te_field_start_s').value,.5)
         self.assertFalse(app.exception)
 
     def test_scan_checkboxes_filter_plots_and_csv_without_resolving_the_atoms(self):
@@ -711,7 +727,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
 
         values = deepcopy(DEFAULTS)
         values.update(condition_name="loaded-via-file", intensity_A1=17.25,
-                      pump_duration_s_A1=.01, probe_duration_s=.05, t2_s=.05)
+                      pump_duration_s_A1=.01, probe_duration_s=.05,
+                      field_duration_s=.05, t2_s=.05)
         for label in ("A", "B"):
             for number in (1, 2, 3):
                 values[f"pump_duration_s_{label}{number}"] = .01
@@ -824,6 +841,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
         app.slider(key="_time_widget_te_t2_s").set_value(.001).run()
         self.assertFalse(app.exception)
         self.assertEqual(app.number_input(key="_time_widget_te_probe_start_s").value, 0.)
+        self.assertEqual(app.number_input(key="te_field_duration_s").value, .001)
         self.assertEqual(app.slider(key="_time_widget_te_t2_s").proto.max, 30.)
 
     def test_sidebar_and_moment_choices_persist_without_changing_acc(self):

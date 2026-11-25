@@ -13,7 +13,7 @@ from ..physics.time_evolution import TIME_EVOLUTION_MODEL_VERSION
 
 
 FORMAT = "alkali_pumping_time_evolution"
-SCHEMA_VERSION = "2.11"
+SCHEMA_VERSION = "2.12"
 PREFIX = "te_"
 PLOTTED_MOMENTS = (
     "Hyperfine polarization", "Electron polarization", "F_x", "F_y", "F_z",
@@ -36,6 +36,7 @@ SHARED_KEYS = (
 DEFAULTS = {key: deepcopy(DEFAULT_STARTUP_CONDITION[key]) for key in SHARED_KEYS
             if key in DEFAULT_STARTUP_CONDITION}
 DEFAULTS.update(condition_name="time-evolution", t2_s=4.0,
+                field_start_s=0.0, field_duration_s=4.0,
                 probe_start_s=0.0, probe_duration_s=4.0,
                 plotted_moments=["Hyperfine polarization", "F_z"])
 for _label in ("A", "B"):
@@ -142,6 +143,9 @@ def validate_settings(values):
     if (result["probe_start_s"] < 0 or result["probe_duration_s"] < 0
             or result["probe_start_s"] + result["probe_duration_s"] > total + 1e-9):
         raise ValueError("Probe timing must fit within total time.")
+    if (result["field_start_s"] < 0 or result["field_duration_s"] < 0
+            or result["field_start_s"] + result["field_duration_s"] > total + 1e-9):
+        raise ValueError("Magnetic-field timing must fit within total time.")
     for field, allowed in (
         ("plotted_moments", PLOTTED_MOMENTS),
         *[(f"plotted_probe_signals_{label}", PLOTTED_PROBE_SIGNALS) for label in ("A", "B")],

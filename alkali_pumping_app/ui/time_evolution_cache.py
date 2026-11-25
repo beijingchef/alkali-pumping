@@ -28,24 +28,25 @@ def estimated_density_bytes(config_A, config_B, cell, total_time):
 
 @st.cache_data(max_entries=SMALL_EVOLUTION_ENTRIES, show_spinner=False)
 def _small_evolution(config_A, config_B, beams, cell, t1, t2, model_version, solver_version, physics_version,
-                     beam_windows=None):
+                     beam_windows=None, field_window=None):
     return time_evolution.compute_density_evolution(config_A, config_B, beams, cell, t1, t2,
-                                                    beam_windows=beam_windows)
+                                                    beam_windows=beam_windows, field_window=field_window)
 
 
 @st.cache_data(max_entries=LARGE_EVOLUTION_ENTRIES, show_spinner=False)
 def _large_evolution(config_A, config_B, beams, cell, t1, t2, model_version, solver_version, physics_version,
-                     beam_windows=None):
+                     beam_windows=None, field_window=None):
     return time_evolution.compute_density_evolution(config_A, config_B, beams, cell, t1, t2,
-                                                    beam_windows=beam_windows)
+                                                    beam_windows=beam_windows, field_window=field_window)
 
 
-def evolution_cached(config_A, config_B, beams, cell, t1, t2, beam_windows=None):
+def evolution_cached(config_A, config_B, beams, cell, t1, t2, beam_windows=None, field_window=None):
     cache = (_large_evolution if estimated_density_bytes(config_A, config_B, cell, t2) >= LARGE_DENSITY_BYTES
              else _small_evolution)
     return cache(config_A, config_B, beams, cell, t1, t2,
                  time_evolution.TIME_EVOLUTION_MODEL_VERSION,
-                 time_evolution.TIME_EVOLUTION_SOLVER_VERSION, PHYSICS_MODEL_VERSION, beam_windows)
+                 time_evolution.TIME_EVOLUTION_SOLVER_VERSION, PHYSICS_MODEL_VERSION,
+                 beam_windows, field_window)
 
 
 @st.cache_data(max_entries=DISPLAY_ENTRIES, show_spinner=False)

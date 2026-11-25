@@ -34,6 +34,9 @@ t1 = max((beam["start_s"] + beam["duration_s"] for beam in beams
           if beam["intensity"] > 0 and beam["duration_s"] > 0), default=0.0)
 probe_start = st.session_state[key("probe_start_s")]
 probe_duration = st.session_state[key("probe_duration_s")]
+field_start = st.session_state[key("field_start_s")]
+field_duration = st.session_state[key("field_duration_s")]
+field_window = (field_start, field_duration)
 SECTION_CONTROL_WIDTH = 56
 SCAN_AXIS_WIDTH = 125
 POPULATION_SELECTOR_WIDTH = 130
@@ -83,11 +86,12 @@ def _render_page_help():
         st.markdown(r"""
 Initially unpolarized atoms have equal probability in every ground Zeeman
 state. Each pump is active during its own start-time and duration window.
+The configured magnetic field acts only during its start-time and duration window.
 Electron randomization, uniform relaxation,
 and self/cross spin exchange remain active throughout. RF is off.
 
 Time-domain graphs span zero to the total time. Dashed vertical lines mark
-beam and probe event boundaries; populations remain continuous there.
+beam, probe and field event boundaries; populations remain continuous there.
 
 The density-matrix model retains all Zeeman coherences within each ground
 hyperfine level, with magnetic precession and pump AC-Stark evolution. Each
@@ -118,7 +122,7 @@ The right 70% contains three signal checkboxes in one row before the detuning sl
 Only optical rotation starts checked; ellipticity and absorption are optional.
 Selected signals appear one per row;
 their dashed lines mark allowed hyperfine transitions. Scan results do
-not depend on the pump turn-off or total-time sliders.
+not depend on the transient pump, field or probe timing windows.
 
 Zeeman populations, Atomic moments and Steady-state weak probe signal scanning start collapsed.
 Only open sections create plots and controls or refresh them after sidebar
@@ -241,7 +245,8 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
     export = export_frame if export_frame is not None else section_export_dataframe(
         plots, species=export_species, label=label, section=title, t1_s=t1, t2_s=t2,
         beam_windows=[(beam["name"], beam["start_s"], beam["duration_s"]) for beam in physical_beams],
-        probe_window=(probe_start, probe_duration),
+        probe_window=(probe_start, probe_duration), field_window=field_window,
+        field_nT=common["static_field_nT"],
     )
     # Streamlit permits disabling wrapping only for horizontal containers.
     with st.container(horizontal=horizontal, wrap=not horizontal, gap="xsmall",
@@ -255,7 +260,7 @@ def _section_controls(plots, *, species, label, section_id, title, export_frame=
             if not plots and section_id == "probe_signal":
                 st.markdown("Select probe checkboxes to display and download probe-signal curves.")
             st.markdown(help_text or (
-                "Dashed vertical lines mark beam and probe event boundaries. The CSV contains all displayed "
+                "Dashed vertical lines mark beam, probe and field event boundaries. The CSV contains all displayed "
                 "curves in this section, one column per curve, with plot names and plotted units "
                 "in the column labels, time in seconds, and timing/species/axis metadata."
             ))
@@ -354,7 +359,9 @@ beam_windows += [(probe_start, probe_duration) for _ in continuous_probe_beams]
 event_times = sorted({value for start, duration in beam_windows if duration > 0
                       for value in (start, start + duration) if 0 < value < t2}
                      | ({probe_start, probe_start + probe_duration} - {0.0, t2}
-                        if probe_duration > 0 else set()))
+                        if probe_duration > 0 else set())
+                     | ({field_start, field_start + field_duration} - {0.0, t2}
+                        if field_duration > 0 else set()))
 scan_probes = {
     label: {name: probes[label][name] for name in (
         "line", "k_axis", "azimuth_deg", "ellipticity_deg", "path_length_cm"
@@ -365,7 +372,7 @@ pump_signature = sha256(pickle.dumps((species_A, species_B, physical_beams, comm
 scan_signature = sha256(pickle.dumps((pump_signature, scan_probes))).hexdigest()
 transient_signature = sha256(pickle.dumps((species_A, species_B, evolution_beams, common,
                                             probes, t1, t2, beam_windows, probe_start,
-                                            probe_duration))).hexdigest()
+                                            probe_duration, field_window))).hexdigest()
 with st.bottom:
     with st.container(horizontal=True, wrap=False, vertical_alignment="center"):
         auto_update = st.checkbox("Auto update", key=key("auto_update"), width="content")
@@ -406,7 +413,7 @@ def _transient_result():
         with st.spinner("Calculating pumping and relaxation…"):
             try:
                 evolution = _evolution_cached(species_A, species_B, evolution_beams, common,
-                                              t1, t2, beam_windows)
+                                              t1, t2, beam_windows, field_window)
             except (ValueError, RuntimeError) as exc:
                 st.error(str(exc))
                 st.stop()

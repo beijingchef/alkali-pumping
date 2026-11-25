@@ -1,5 +1,16 @@
 # Changelog
 
+## 6.21.9 - 2026-11-25
+
+- Place the field start and duration controls on one sidebar row with shorter labels.
+- Add start time and duration for the Time evolution magnetic field. The field
+  drives Zeeman precession only within that window; the default 0–4 s window
+  preserves continuous-field behavior. Time plots mark field events and their
+  CSV exports record field timing and the applied field strength.
+- Update current-only Time evolution settings to schema 2.12. Older settings
+  remain unsupported under the requested policy. The independent steady-state
+  probe scan continues to use the configured static field.
+
 ## 6.21.8 - 2026-11-25
 
 - Keep three significant digits in both pump-rate captions without exponent notation.

@@ -289,12 +289,14 @@ class PopulationProbeTests(unittest.TestCase):
             frame, "Signal", species=self.evolution["A"], label="A", title="Signal",
             value_unit="1", t1_s=.03, t2_s=.04,
             beam_windows=[("PumpA1", 0., .01), ("PumpA2", .02, .01)],
-            probe_window=(.01, .02),
+            probe_window=(.01, .02), field_window=(.01, .02), field_nT=5.,
         )
         np.testing.assert_array_equal(table["pumps_on"], [True, False, True, False, False])
         np.testing.assert_array_equal(table["probe_on"], [False, True, True, False, False])
         self.assertEqual(set(table["PumpA2_start_s"]), {.02})
         self.assertEqual(set(table["probe_duration_s"]), {.02})
+        np.testing.assert_array_equal(table["magnetic_field_on"], [False, True, True, False, False])
+        np.testing.assert_array_equal(table["magnetic_field_applied_nT"], [0., 5., 5., 0., 0.])
 
     def test_section_csv_disambiguates_curves_and_keeps_undefined_samples(self):
         species, times = self.evolution["A"], self.evolution["time_s"]

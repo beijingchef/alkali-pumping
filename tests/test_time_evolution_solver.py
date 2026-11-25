@@ -24,6 +24,40 @@ def prepared(config, other, beams, common):
 
 
 class TimeEvolutionSolverTests(unittest.TestCase):
+    def test_field_window_switches_precession_without_changing_optical_pumping(self):
+        config, beams, common = inputs()
+        common.update(static_field_nT=5., static_field_theta_deg=90, static_field_phi_deg=0)
+        windows = [(0., .02)]
+        off = te.compute_density_evolution(config, None, beams, common, .02, .04, 41,
+                                           beam_windows=windows, field_window=(0., 0.))
+        zero_field = te.compute_density_evolution(
+            config, None, beams, dict(common, static_field_nT=0.), .02, .04, 41,
+            beam_windows=windows)
+        np.testing.assert_allclose(off['A']['density_matrix'][-1],
+                                   zero_field['A']['density_matrix'][-1],
+                                   atol=2e-8, rtol=2e-8)
+        timed = te.compute_density_evolution(config, None, beams, common, .02, .04, 41,
+                                             beam_windows=windows, field_window=(.01, .02))
+        for boundary in (.01, .02, .03):
+            self.assertEqual(np.count_nonzero(timed['time_s'] == boundary), 1)
+        self.assertGreater(np.linalg.norm(timed['A']['density_matrix'][-1]
+                                          - off['A']['density_matrix'][-1]), 1e-8)
+        self.assert_physical(timed)
+        other = dict(config, label='B', atom_name='Rb85',
+                     n2_coeffs=deepcopy(DEFAULT_N2_COEFFS['Rb85']))
+        coupled = te.compute_density_evolution(config, other, beams, common, .02, .04, 41,
+                                               beam_windows=windows, field_window=(.01, .02))
+        self.assert_physical(coupled)
+        self.assertIsNotNone(coupled['B'])
+
+    def test_field_window_roundoff_at_total_time_has_one_endpoint(self):
+        config, beams, common = inputs()
+        result = te.compute_density_evolution(config, None, beams, common, .1, .3, 31,
+                                              beam_windows=[(0., .1)], field_window=(.1, .2))
+        self.assertEqual(np.count_nonzero(result['time_s'] == .3), 1)
+        self.assertEqual(result['time_s'][-1], .3)
+        self.assert_physical(result)
+
     def test_independent_window_matches_single_pump_switch(self):
         config, beams, common = inputs()
         common.update(static_field_nT=0.)

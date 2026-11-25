@@ -60,6 +60,9 @@ def _clamp_event_times():
     start_key, duration_key = key("probe_start_s"), key("probe_duration_s")
     st.session_state[start_key] = min(st.session_state[start_key], total)
     st.session_state[duration_key] = min(st.session_state[duration_key], total - st.session_state[start_key])
+    start_key, duration_key = key("field_start_s"), key("field_duration_s")
+    st.session_state[start_key] = min(st.session_state[start_key], total)
+    st.session_state[duration_key] = min(st.session_state[duration_key], total - st.session_state[start_key])
 
 
 def _store_time_widget(name, suffix=""):
@@ -361,6 +364,19 @@ def render_sidebar():
                                 key=key(f"gamma_u_{label}"),
                                 help="Uniform relaxation toward equal ground-state populations; remains active after pump turn-off.")
         theta, phi, field = render_field_controls(PREFIX)
+        field_start_col, field_duration_col = st.columns(2, gap="xsmall")
+        with field_start_col:
+            field_start = st.number_input(
+                "Field start time (s)", min_value=0.0,
+                max_value=float(st.session_state[key("t2_s")]), step=0.001, format="%.3f",
+                key=key("field_start_s"), on_change=_clamp_event_times,
+            )
+        with field_duration_col:
+            st.number_input(
+                "Field duration (s)", min_value=0.0,
+                max_value=float(st.session_state[key("t2_s")] - field_start), step=0.001,
+                format="%.3f", key=key("field_duration_s"),
+            )
         common = {"temperature_C": temperature, "n2_pressure_torr": pressure,
                   "static_field_theta_deg": theta, "static_field_phi_deg": phi, "static_field_nT": field}
         atoms = {"A": atom_A, "B": atom_B if active_B else atom_A}

@@ -25,7 +25,7 @@ def series_frame(time_s, series, y_label):
 
 
 def plot_export_dataframe(frame, y_label, *, species, label, title, value_unit, t1_s, t2_s,
-                          beam_windows=None, probe_window=None):
+                          beam_windows=None, probe_window=None, field_window=None, field_nT=None):
     """Export exactly the displayed curves, with one numeric column per curve.
 
     The frame already contains the plotted units (including mrad conversion).
@@ -48,9 +48,20 @@ def plot_export_dataframe(frame, y_label, *, species, label, title, value_unit, 
         start, duration = probe_window
         values["probe_on"] = ((duration > 0) & (values["time_s"] >= start)
                               & ((values["time_s"] < start + duration)
-                                 | ((start + duration == t2_s) & (values["time_s"] == t2_s))))
+                                 | ((abs(start + duration - t2_s) <= 1e-9)
+                                    & (values["time_s"] == t2_s))))
         values["probe_start_s"] = start
         values["probe_duration_s"] = duration
+    if field_window is not None:
+        start, duration = field_window
+        values["magnetic_field_on"] = ((duration > 0) & (values["time_s"] >= start)
+                                       & ((values["time_s"] < start + duration)
+                                          | ((abs(start + duration - t2_s) <= 1e-9)
+                                             & (values["time_s"] == t2_s))))
+        values["magnetic_field_start_s"] = start
+        values["magnetic_field_duration_s"] = duration
+        if field_nT is not None:
+            values["magnetic_field_applied_nT"] = values["magnetic_field_on"] * field_nT
     values["pump_off_time_s"] = t1_s
     values["total_time_s"] = t2_s
     values["alkali"] = label
@@ -94,6 +105,14 @@ def evolution_export_dataframe(evolution, label, probe_signals, config, probe, c
         "probe_weak": probe.get("weak", True),
         "probe_intensity_uW_cm-2": probe.get("intensity", 0.0),
     }
+    field_start, field_duration = evolution.get("field_window", (0., evolution["t2_s"]))
+    field_on = ((field_duration > 0) & (times >= field_start)
+                & ((times < field_start + field_duration)
+                   | ((abs(field_start + field_duration - evolution["t2_s"]) <= 1e-9)
+                      & (times == evolution["t2_s"]))))
+    columns.update(magnetic_field_on=field_on, magnetic_field_start_s=field_start,
+                   magnetic_field_duration_s=field_duration,
+                   magnetic_field_applied_nT=field_on * common["static_field_nT"])
     for beam in beams:
         name = beam["name"]
         columns.update({f"{name}_on_intensity_uW_cm-2": beam["intensity"],
@@ -122,7 +141,7 @@ def evolution_export_dataframe(evolution, label, probe_signals, config, probe, c
 
 
 def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s,
-                             beam_windows=None, probe_window=None):
+                             beam_windows=None, probe_window=None, field_window=None, field_nT=None):
     """One time row and one qualified column per displayed section curve.
 
     Plot titles disambiguate manifold/observable curves, and each column names
@@ -137,6 +156,7 @@ def section_export_dataframe(plots, *, species, label, section, t1_s, t2_s,
             plot["frame"], plot["y_label"], species=species, label=label,
             title=plot["title"], value_unit=plot["value_unit"], t1_s=t1_s, t2_s=t2_s,
             beam_windows=beam_windows, probe_window=probe_window,
+            field_window=field_window, field_nT=field_nT,
         ).set_index("time_s")
         names = list(plot["frame"]["Series"].drop_duplicates())
         curves.append(table[names].rename(columns={

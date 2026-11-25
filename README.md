@@ -1,4 +1,4 @@
-# Alkali Pumping v6.21.8
+# Alkali Pumping v6.21.9
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -34,18 +34,20 @@ five workflows:
 - **Analysis → Time evolution** independently configures the same atoms, cell,
   pumps, and probes. Initially unpolarized ground-state populations evolve
   with independent start times and durations for each pump beam. Sidebar timing
-  controls set total time and the fixed probe's start and duration. Self and cross spin exchange
+  controls set total time, the magnetic field's start and duration, and the fixed
+  probe's start and duration. Self and cross spin exchange
   follow the instantaneous density matrices, including all within-hyperfine
   Zeeman coherences. Magnetic precession and pump AC-Stark evolution are included.
   Transient integration automatically chooses BDF for damping-dominated or short
   intervals and DOP853 for sustained coherent motion without faster damping.
-  Each pump-on/dark interval is selected separately, with unchanged error
+  Each event interval is integrated separately, with unchanged error
   tolerances and physical-state checks. A failed or nonfinite DOP853 solve
   restarts that interval with BDF. The steady-state probe scan retains BDF.
   Both solvers reuse prepared constant matrices and collision maps; BDF uses
   an analytic Jacobian, including self and cross spin exchange.
   The three magnetic-field inputs share equal sidebar columns and resize with
-  the sidebar using the same native layout as other condition fields.
+  the sidebar using the same native layout as other condition fields. A field
+  start time and duration beneath them gate magnetic precession in the transient.
   Each alkali has independent Zeeman-population and atomic-moment display axes,
   which can differ from the magnetic-field axis. The compact Zeeman **Axis**
   selector sits in its section's top row, with its label on the left. Axis
@@ -131,12 +133,14 @@ five workflows:
   the Rb87 2→1 reference transition, −2000 MHz detuning, and zero input
   ellipticity. **Weak** starts checked and probe intensity starts at 1 µW/cm².
   Total time defaults to 4 s, each pump starts at 0 s for 1 s, and the
-  fixed probe starts at 0 s for 4 s.
+  magnetic field and fixed probe each start at 0 s for 4 s.
   **Steady-state weak probe signal scanning**, when opened, independently converges the pump-on steady state
   and scans all allowed hyperfine transitions of the probe's selected D line.
   This scan always treats the probe as nonperturbing from the start: only pumps
   and relaxation determine the atomic state, and absorption is evaluated afterward
   without feedback, regardless of the fixed-probe **Weak** checkbox or intensity.
+  The independent scan uses the configured static field without applying its
+  transient timing window.
   If numerical error stalls stationary convergence, the solver tightens its
   integration accuracy with bounded retries rather than extending settled
   trajectories indefinitely. Normally converging cases retain their tolerances.

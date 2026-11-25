@@ -13,10 +13,11 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         settings = deepcopy(DEFAULTS)
         settings.update(t2_s=4., intensity_A1=0., probe_source_A="Custom")
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
-        settings.update(probe_start_s=26., probe_duration_s=4., t2_s=30.)
+        settings.update(probe_start_s=26., probe_duration_s=4.,
+                        field_start_s=26., field_duration_s=4., t2_s=30.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
         payload = build_settings_payload(DEFAULTS)
-        self.assertEqual(payload["version"], "2.11")
+        self.assertEqual(payload["version"], "2.12")
         self.assertTrue(payload["settings"]["probe_weak_A"])
         self.assertEqual(payload["settings"]["probe_intensity_A"], 1.0)
         self.assertNotIn("q_axis_A", payload["settings"])
@@ -38,7 +39,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
             parse_settings_payload(payload)
 
     def test_wrong_format_and_future_version_rejected(self):
-        for field, value in (("format", "alkali_pumping_conditions"), ("version", "2.9"), ("version", "3.0")):
+        for field, value in (("format", "alkali_pumping_conditions"), ("version", "2.11"), ("version", "3.0")):
             payload = build_settings_payload(DEFAULTS)
             payload[field] = value
             with self.subTest(field=field), self.assertRaises(ValueError):
@@ -105,6 +106,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
     def test_invalid_fields_and_obsolete_probe_sources_rejected(self):
         for key, value in (("pump_start_s_A1", -1.), ("pump_duration_s_A1", 31.),
                            ("probe_start_s", -1.), ("probe_duration_s", 31.),
+                           ("field_start_s", -1.), ("field_duration_s", 31.),
                            ("t2_s", 0.), ("t2_s", 30.001), ("intensity_A1", -1.),
                            ("probe_source_A", "PumpA1 weak"), ("probe_path_length_cm_A", -1.),
                            ("probe_intensity_A", -1.), ("probe_weak_A", "yes"),

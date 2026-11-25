@@ -1,12 +1,11 @@
-"""Coherent pump-on / pump-off evolution, with population reference helpers.
+"""Coherent optical and magnetic-field event evolution, with population helpers.
 
 The initial state is unpolarized: equal probability per ground Zeeman state.
 The density solver retains all within-F coherences and signed Larmor dynamics.
 The population helpers below provide diagonal reference limits. Collision
 targets recombine instantaneous nuclear/electron marginals rather than using
-an equilibrium Jacobian. Pump optical terms switch off exactly at t1;
-continuous physical-probe terms remain active. The complete atomic state is
-continuous across that switch.
+an equilibrium Jacobian. Pump, physical-probe and magnetic-field generators
+change at their configured boundaries; the atomic state remains continuous.
 """
 
 import numpy as np
@@ -17,7 +16,7 @@ from .spin_exchange import hyperfine_uncoupled_probabilities
 from .system_model import build_species_linear_model
 
 
-TIME_EVOLUTION_MODEL_VERSION = "v5-independent-beam-windows"
+TIME_EVOLUTION_MODEL_VERSION = "v6-independent-beam-and-field-windows"
 TIME_EVOLUTION_SOLVER_VERSION = "v2-prepared-rhs-analytic-jacobian-and-rate-selection"
 
 
@@ -200,14 +199,13 @@ def _density_integration_method(models, pumps_on, duration):
 
 
 def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
-                              sample_count=801, beam_windows=None):
+                              sample_count=801, beam_windows=None, field_window=None):
     """Evolve full within-F density blocks; q axes specify output bases only.
 
-    The laboratory field drives signed-g_F Larmor precession. Pumps contribute
-    coherent absorption/repopulation and AC-Stark evolution until the switch.
-    A non-weak probe contributes the same optical effects throughout the full
-    evolution, including after the pump switch. Optical detunings omit magnetic
-    shifts. No RF enters this equation.
+    The laboratory field drives signed-g_F Larmor precession only within its
+    configured window. Pumps and a non-weak probe contribute their optical
+    generators within their own windows. The density matrix remains continuous
+    across every event. Optical detunings omit magnetic shifts. No RF enters.
     """
     from .coherent_evolution import prepare_density_model, DensityDynamics
     t1_s, t2_s = float(t1_s), float(t2_s)
@@ -215,6 +213,16 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
         raise ValueError("Times must satisfy 0 ≤ t1 ≤ t2, with finite t2 > 0.")
     if sample_count < 3:
         raise ValueError("At least three time samples are required.")
+    if field_window is not None:
+        field_start, field_duration = map(float, field_window)
+        if (not np.isfinite([field_start, field_duration]).all() or field_start < 0
+                or field_duration < 0 or field_start + field_duration > t2_s + 1e-9):
+            raise ValueError("Magnetic-field window must fit within total time.")
+        field_window = (field_start, field_duration)
+    scheduled = beam_windows is not None or field_window is not None
+    if scheduled and beam_windows is None:
+        beam_windows = [(0.0, t2_s if beam.get("continuous", False) else t1_s)
+                        for beam in beams]
     configs = [config for config in (species_A, species_B) if config is not None]
     lab_configs = [dict(config, q_axis="z") for config in configs]
     models = build_population_dynamics(lab_configs[0], lab_configs[1] if len(lab_configs) == 2 else None,
@@ -229,15 +237,17 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
                            for m in models)
     requested_samples = max(int(sample_count), int(np.ceil(20 * fastest_harmonic * t2_s)) + 1)
     sample_count = min(requested_samples, 20001)
-    if beam_windows is not None:
+    if scheduled:
         if len(beam_windows) != len(beams):
             raise ValueError("Every beam needs one start and duration.")
         for start, duration in beam_windows:
             if (not np.isfinite([start, duration]).all() or start < 0 or duration < 0
                     or start + duration > t2_s + 1e-9):
                 raise ValueError("Beam windows must fit within total time.")
-        events = sorted({0.0, t2_s, *(float(v) for start, duration in beam_windows if duration > 0
+        events = sorted({0.0, t2_s, *(min(t2_s, float(v)) for start, duration in beam_windows if duration > 0
                                        for v in (start, start + duration))})
+        if field_window is not None and field_window[1] > 0:
+            events = sorted(set(events) | {field_window[0], min(t2_s, sum(field_window))})
         counts = [max(2, int(round((sample_count - 1) * (stop - start) / t2_s)) + 1)
                   for start, stop in zip(events[:-1], events[1:])]
         times = np.concatenate([np.linspace(start, stop, count)[:-1]
@@ -251,21 +261,26 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
         times = np.linspace(0, t2_s, sample_count)
     density = np.empty((len(times), len(initial)), complex)
     current = initial
-    intervals = ((start, stop, True) for start, stop in zip(events[:-1], events[1:])) if beam_windows is not None else (
+    intervals = ((start, stop, True) for start, stop in zip(events[:-1], events[1:])) if scheduled else (
         (0.0, t1_s, True), (t1_s, t2_s, False))
     for start, stop, pumps_on in intervals:
         if stop <= start:
             continue
         interval_models, interval_dynamics = models, dynamics
-        if beam_windows is not None:
+        if scheduled:
             midpoint = (start + stop) / 2
             active_beams = [beam for beam, (on, duration) in zip(beams, beam_windows)
                             if on <= midpoint < on + duration]
+            field_on = (field_window is None or
+                        field_window[0] <= midpoint < field_window[0] + field_window[1])
+            interval_common = common if field_on else dict(common, static_field_nT=0.0)
+            # The field enters only the Zeeman Hamiltonian. Rebuild that
+            # interval's generator at B=0 while retaining optical/collision terms.
             interval_models = build_population_dynamics(
                 lab_configs[0], lab_configs[1] if len(lab_configs) == 2 else None,
-                active_beams, common)
+                active_beams, interval_common)
             for interval_model, config in zip(interval_models, configs):
-                prepare_density_model(interval_model, common, config["q_axis"])
+                prepare_density_model(interval_model, interval_common, config["q_axis"])
             interval_dynamics = DensityDynamics(interval_models)
         indices = np.flatnonzero((times >= start) & (times <= stop))
         method = _density_integration_method(interval_models, pumps_on, stop - start)
@@ -288,7 +303,8 @@ def compute_density_evolution(species_A, species_B, beams, common, t1_s, t2_s,
             raise RuntimeError("Density-matrix integration failed: " + solution.message)
         density[indices] = solution.y.T
         current = solution.y[:, -1]
-    result = {"time_s": times, "t1_s": t1_s, "t2_s": t2_s, "A": None, "B": None,
+    result = {"time_s": times, "t1_s": t1_s, "t2_s": t2_s,
+              "field_window": field_window or (0.0, t2_s), "A": None, "B": None,
               "model": TIME_EVOLUTION_MODEL_VERSION,
               "initial_state": "equal population per ground Zeeman state", "rf_enabled": False,
               "sampling_limited": requested_samples > sample_count}
