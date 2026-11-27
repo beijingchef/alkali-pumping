@@ -1,4 +1,4 @@
-# Alkali Pumping v6.21.9
+# Alkali Pumping v6.21.15
 
 This Streamlit application models optical pumping, electron randomization,
 uniform ground-state relaxation, self spin exchange, and unlike-alkali spin
@@ -15,7 +15,19 @@ five workflows:
 - **Analysis → ACC Magnetometer** models an antirelaxation coated cell
   magnetometer with dual-alkali population and Zeeman diagnostics, independent
   RF-A/RF-B drives, atomic-moment susceptibilities, and independent weak or
-  physical Pump-A/Pump-B Stokes readouts. Its Zeeman tables have per-species
+  physical Pump-A/Pump-B Stokes readouts. A closed expander shows the selected
+  hyperfine manifold's angular momentum probability surface over one periodically
+  driven weak-RF steady-state cycle, defaulting to F=I+1/2. Its frequency,
+  amplitude, and phase controls are independent per species and do not change
+  the saved physical conditions.
+  Start/Stop loops through one RF cycle in four seconds and freezes the current
+  phase when stopped. Drag the 3D surface to rotate its view, or scroll to
+  zoom. The first row starts with the F selector and ends with the adjacent,
+  right-aligned help and CSV buttons. The help popover explains the surface and phase, and the
+  selected manifold's samples are exported. A light
+  blue-to-yellow gradient and
+  subtle mesh lines aid depth perception without changing probability values.
+  Its Zeeman tables have per-species
   column selectors while retaining complete CSV exports. Rate matrices are a
   closed subsection at the end of each Zeeman section; the coupled A/B
   Jacobian appears there too. The former sidebar Display controls are removed.
@@ -69,8 +81,9 @@ five workflows:
   edits unapplied. Open validates the current settings format before loading it.
   Probe start and duration sit below the Weak/intensity row in each probe tab,
   editing the same shared timing values. Total time sits below the probe configuration.
+  Increasing Probe duration extends Total time when needed to include the probe window.
   Every pump has its own start and duration stacked below its intensity and pumping rate.
-  All event windows must fit within the maximum total time of 30 s. Absorption is the fraction
+  Total time has no fixed upper limit; all event windows must fit within it. Absorption is the fraction
   $1-I_{\mathrm{out}}/I_{\mathrm{in}}$ and is included in CSV exports.
   Each section places help and download at the right end of its top control row.
   Time-domain plots use two equal columns across the full width. The CSV contains all displayed curves in that
@@ -331,10 +344,9 @@ the former checkbox and saved `show_allowed_only` field have been removed.
 The selected reference defines detuning; calculations still include all
 relevant allowed transitions, including off-resonant contributions.
 ACC writes and loads condition schema **6.16**. Time evolution writes and
-loads its independent settings schema **2.10** and coherent-model identifier. Time evolution requires every
-current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂ ≤ 30 s
-(with t₂ ≥ 0.001 s). It does not fill omitted fields or extend the time range
-for previous configurations. Older analysis condition
+loads its independent settings schema **2.12** and coherent-model identifier. Time evolution requires every
+current setting, rejects unknown fields, and enforces 0 ≤ t₁ ≤ t₂
+(with t₂ ≥ 0.001 s). It does not fill omitted fields. Older analysis condition
 formats are unsupported, as requested; no migration is performed.
 New sessions show both atomic manifolds and default R_u,A/B to 1 s⁻¹.
 The complete pre-upgrade v6.9.9 working

@@ -16,6 +16,8 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         settings.update(probe_start_s=26., probe_duration_s=4.,
                         field_start_s=26., field_duration_s=4., t2_s=30.)
         self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
+        settings.update(probe_duration_s=35., t2_s=61.)
+        self.assertEqual(parse_settings_payload(build_settings_payload(settings)), settings)
         payload = build_settings_payload(DEFAULTS)
         self.assertEqual(payload["version"], "2.12")
         self.assertTrue(payload["settings"]["probe_weak_A"])
@@ -107,7 +109,7 @@ class TimeEvolutionConditionTests(unittest.TestCase):
         for key, value in (("pump_start_s_A1", -1.), ("pump_duration_s_A1", 31.),
                            ("probe_start_s", -1.), ("probe_duration_s", 31.),
                            ("field_start_s", -1.), ("field_duration_s", 31.),
-                           ("t2_s", 0.), ("t2_s", 30.001), ("intensity_A1", -1.),
+                           ("t2_s", 0.), ("intensity_A1", -1.),
                            ("probe_source_A", "PumpA1 weak"), ("probe_path_length_cm_A", -1.),
                            ("probe_intensity_A", -1.), ("probe_weak_A", "yes"),
                            ("gamma_ER_A", float("nan")), ("gamma_u_A", -1.),

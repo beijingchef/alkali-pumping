@@ -134,8 +134,8 @@ def validate_settings(values):
         if not (-10000 <= lower <= 9990 and -9990 <= upper <= 10000 and upper - lower >= 10):
             raise ValueError("Probe scan limits must lie within ±10000 MHz and be at least 10 MHz apart.")
     total = result["t2_s"]
-    if not 0.001 <= total <= 30:
-        raise ValueError("Total time must be between 0.001 and 30 seconds.")
+    if total < 0.001:
+        raise ValueError("Total time must be at least 0.001 seconds.")
     for prefix in (f"{label}{number}" for label in ("A", "B") for number in (1, 2, 3)):
         start, duration = result[f"pump_start_s_{prefix}"], result[f"pump_duration_s_{prefix}"]
         if start < 0 or duration < 0 or start + duration > total + 1e-9:

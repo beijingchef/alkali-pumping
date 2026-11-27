@@ -2,6 +2,7 @@
 
 from hashlib import sha256
 import pickle
+from time import monotonic
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,13 +18,15 @@ from alkali_pumping_app.ui.exports import (
     manifold_rf_export_dataframe,
 )
 from alkali_pumping_app.ui.population_plot import render_population_plot as _render_population_plot
+from alkali_pumping_app.ui.angular_probability import render_angular_probability_surfaces
 from alkali_pumping_app.ui.plot_style import style_matplotlib_axis_text
 from alkali_pumping_app.ui.magnetic_field import render_field_controls
 from alkali_pumping_app.ui.page_state import register_persistent_page_settings, preserve_persistent_page_settings
 from alkali_pumping_app.physics.field_geometry import static_field_vector_nT
 from alkali_pumping_app.ui.magnetometry_cache import (
-    models_cached, equilibrium_cached, atomic_cached, optical_cached,
+    models_cached, equilibrium_cached, contexts_cached, atomic_cached, optical_cached,
 )
+from alkali_pumping_app.physics.rf_response import weak_rf_density_phasor
 from alkali_pumping_app.ui.rf_display import (
     add_probe_decomposition_legend,
     prepare_weak_rf_plot_values,
@@ -55,6 +58,8 @@ register_persistent_page_settings(
         "zeeman_visible_columns_A",
         "zeeman_visible_columns_B",
         "acc_auto_update",
+        *(f"acc_surface_{field}_{label}" for field in ("open", "frequency_hz", "amplitude_nT", "phase_deg")
+          for label in ("A", "B")),
         *(f"acc_{section}_open_{label}" for label in ("A", "B")
           for section in ("zeeman", "atomic", "optical", "transitions", "rf_transitions", "rate_matrices")),
     )
@@ -1822,6 +1827,140 @@ def _render_rate_matrices(result, label):
             ))
 
 
+def _render_angular_probability_section(label):
+    section = st.expander("Angular momentum probability surface over one RF cycle",
+                          expanded=False, key=f"acc_surface_open_{label}", on_change="rerun")
+    if not section.open:
+        st.session_state[f"acc_surface_playing_{label}"] = False
+        return
+    with section:
+        _render_angular_probability_content(label)
+
+
+@st.fragment(run_every=0.5)
+def _render_angular_probability_content(label):
+    _begin_result_fragment()
+    with st.container():
+        if not _physics_view_ready():
+            return
+        equilibrium = _equilibrium_result()
+        result = dict(equilibrium[label], rf_axis=st.session_state[f"rf_axis_{label}"])
+        if not result["light_shift_available"] or (
+            not result["static_field_aligned"] and abs(common["static_field_nT"]) > 0.0
+        ):
+            st.info("The weak RF coherence response is unavailable for these field and light-shift conditions.")
+            return
+        frequency_key = f"acc_surface_frequency_hz_{label}"
+        st.session_state.setdefault(frequency_key, max(
+            1.0, abs(upper_larmor_frequency_from_field_nT(
+                result["atom_name"], result["field_parallel_nT"]
+            ))
+        ))
+        st.session_state.setdefault(f"acc_surface_amplitude_nT_{label}", 0.1)
+        phase_key = f"acc_surface_phase_deg_{label}"
+        playing_key = f"acc_surface_playing_{label}"
+        st.session_state.setdefault(phase_key, 0)
+        st.session_state.setdefault(playing_key, False)
+        if st.session_state[playing_key]:
+            elapsed = monotonic() - st.session_state[f"acc_surface_play_start_s_{label}"]
+            origin = st.session_state[f"acc_surface_play_origin_deg_{label}"]
+            # Playback is intentionally visual time, not physical RF time.
+            st.session_state[phase_key] = int(round((origin + 90.0 * elapsed) / 10.0)) * 10 % 360
+        manifolds = sorted({float(state["F"]) for state in result["ground_states"]}, reverse=True)
+        selected_F_key = f"acc_surface_manifold_F_{label}"
+        if st.session_state.get(selected_F_key) not in manifolds:
+            st.session_state[selected_F_key] = manifolds[0]
+        manifold_col, frequency_col, amplitude_col, phase_col, playback_col, actions_col = st.columns(
+            [0.9, 1, 1, 1, 0.6, 1], gap="xsmall", vertical_alignment="bottom"
+        )
+        with manifold_col:
+            selected_F = st.selectbox(
+                "Hyperfine manifold", manifolds, format_func=lambda F: f"F={F:g}",
+                key=selected_F_key,
+            )
+        with frequency_col:
+            frequency = st.number_input("RF frequency (Hz)", min_value=0.001,
+                                        key=frequency_key, format="%.3f")
+        with amplitude_col:
+            amplitude_nT = st.number_input("RF amplitude (nT)", min_value=0.0,
+                                           step=0.01, format="%.4f",
+                                           key=f"acc_surface_amplitude_nT_{label}")
+        with phase_col:
+            phase_deg = st.slider("RF phase (°)", 0, 360, step=10,
+                                  key=phase_key, on_change=_reset_surface_playback_origin,
+                                  args=(label,))
+        with playback_col:
+            playing = st.session_state[playing_key]
+            if st.button("Stop" if playing else "Start",
+                         key=f"acc_surface_play_toggle_{label}", width="stretch",
+                         help="Freeze the current phase" if playing else "Play one RF cycle repeatedly"):
+                st.session_state[playing_key] = not playing
+                if not playing:
+                    _reset_surface_playback_origin(label)
+        local_frame = {
+            "z": "(x, y, z)", "x": "(y, z, x)", "y": "(z, x, y)",
+        }[result["q_axis"]]
+        with actions_col:
+            actions = st.container(horizontal=True, horizontal_alignment="right", wrap=False)
+        with actions:
+            with st.popover("❓"):
+                st.markdown(
+                    "Drag the surface to change its 3D viewing angle; scroll over it to zoom. "
+                    "Start loops through one RF cycle in four seconds; Stop freezes the phase. "
+                    "Playback speed is independent of the physical RF frequency. "
+                    "The colors follow the conditional angular probability, scaled separately "
+                    "for each hyperfine manifold. The CSV contains the selected F manifold."
+                )
+                st.caption(accent_caption(
+                    "Radius = 4πQ_F/P_F (one for an isotropic manifold); color follows radius. "
+                    "The coherent-state probability density Q_F (sr⁻¹) integrates to P_F over solid angle. "
+                    f"Phase {phase_deg}° corresponds to t/T={phase_deg / 360.0:.3f}. "
+                    "The surface is the first-order, periodically driven steady state; "
+                    "RF-induced population changes are second order. "
+                    f"Local axes (x′, y′, z′) = {local_frame} in laboratory coordinates. "
+                    "Drag to rotate the surface; playback shows one RF cycle in four seconds."
+                ))
+        _, surface_col, _ = st.columns([3, 2, 3], gap="small")
+        context = contexts_cached(equilibrium, common).get(label)
+        if context is None:
+            st.info("The weak RF coherence response is unavailable for these conditions.")
+            return
+        phasor = weak_rf_density_phasor(result, frequency, context=context)
+        omega_per_nT = 2.0 * np.pi * upper_larmor_frequency_from_field_nT(
+            result["atom_name"], 1.0
+        )
+        phase = np.deg2rad(phase_deg)
+        oscillation = phasor * np.exp(-1j * phase)
+        density = (np.diag(np.asarray(result["population"], dtype=complex))
+                   + amplitude_nT * omega_per_nT * (oscillation + oscillation.conj().T))
+        if np.min(np.linalg.eigvalsh(density)) < -1e-9:
+            st.warning("This RF amplitude exceeds the physical range of the first-order response. Reduce it to view the probability surface.")
+            return
+        with surface_col:
+            surface_data = render_angular_probability_surfaces(
+                result, density, selected_F, key_prefix=f"acc_surface_{label}"
+            )
+        surface_data.insert(0, "RF_frequency_Hz", frequency)
+        surface_data.insert(1, "RF_amplitude_nT", amplitude_nT)
+        surface_data.insert(2, "RF_phase_deg", phase_deg)
+        surface_data.insert(3, "quantization_axis", result["q_axis"])
+        with actions:
+            st.download_button(
+                ":material/download:", dataframe_to_csv_bytes(surface_data),
+                file_name=f"{condition_save_name}_alkali-{label}_F{selected_F:g}_angular-probability.csv",
+                mime="text/csv; charset=utf-8", on_click="ignore",
+                key=f"download_angular_probability_{label}",
+                help="Download angular probability surface CSV", width=40,
+            )
+
+
+def _reset_surface_playback_origin(label):
+    st.session_state[f"acc_surface_play_start_s_{label}"] = monotonic()
+    st.session_state[f"acc_surface_play_origin_deg_{label}"] = (
+        st.session_state[f"acc_surface_phase_deg_{label}"] % 360
+    )
+
+
 @st.fragment
 def _render_atomic_section(label, atom_name):
     _begin_result_fragment()
@@ -1886,6 +2025,7 @@ def _render_species_result(label):
         ))
     _render_zeeman_section(label, atom_name)
     _render_shared_rf_controls(label)
+    _render_angular_probability_section(label)
     _render_atomic_section(label, atom_name)
     _render_optical_section(label, atom_name)
     _render_transition_section(label, atom_name)

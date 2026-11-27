@@ -1,5 +1,49 @@
 # Changelog
 
+## 6.21.15 - 2026-11-27
+
+- Group the ACC angular probability help and CSV buttons together at the right
+  end of the control row.
+
+## 6.21.14 - 2026-11-26
+
+- Place the ACC angular probability F selector at the start of the control row,
+  put CSV download after the help button, and center the selected surface. Move
+  the surface explanation from below the plot into the help popover.
+
+## 6.21.13 - 2026-11-26
+
+- Let the ACC angular probability expander show one selected hyperfine manifold,
+  defaulting to F=I+1/2. Its CSV follows the selected manifold.
+- Reduce the displayed surface width and height by about half and use a lighter
+  blue-purple-peach-yellow palette.
+
+## 6.21.12 - 2026-11-26
+
+- Add Start/Stop playback to the angular momentum probability expander. The
+  current RF phase loops once every four seconds and freezes when stopped;
+  closing the expander stops playback. Move its CSV download into the first
+  control row and add a help popover.
+- Let each 3D probability surface rotate by mouse drag and zoom by scrolling.
+  Use a blue-purple-orange-yellow gradient with subtle front-facing mesh lines,
+  inspired by Wolfram Mathematica's 3D surface examples. The plotted and CSV
+  probability values are unchanged by camera movement and color styling.
+
+## 6.21.11 - 2026-11-26
+
+- Add a closed-by-default ACC Magnetometer expander showing the angular
+  momentum coherent-state probability surfaces of both hyperfine manifolds
+  through one weak-RF steady-state cycle. Frequency, amplitude, and phase are
+  display-only controls. The surfaces reuse the existing coupled RF coherence
+  response and show a warning if the first-order density matrix is unphysical.
+  The sampled surfaces and RF display settings can be downloaded as CSV.
+
+## 6.21.10 - 2026-11-25
+
+- Extend Time evolution Total time automatically when Probe duration is increased
+  beyond the current end of the probe window. Total time and Probe duration
+  now accept values beyond 30 s. Shortening the probe leaves Total time unchanged.
+
 ## 6.21.9 - 2026-11-25
 
 - Place the field start and duration controls on one sidebar row with shorter labels.

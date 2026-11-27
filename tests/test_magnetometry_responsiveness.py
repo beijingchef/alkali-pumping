@@ -5,6 +5,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import re
+from time import monotonic
 import unittest
 from unittest.mock import patch
 
@@ -121,6 +122,66 @@ class MagnetometryUiTests(unittest.TestCase):
         with patch.object(st, "dataframe", side_effect=AssertionError("Closed matrix rendering")):
             app.run()
         self.assertFalse(app.exception)
+
+    def test_angular_surface_is_closed_and_phase_updates_without_response_rebuild(self):
+        app = self.app()
+        surface = next(item for item in app.expander if "Angular momentum probability surface" in item.label)
+        self.assertFalse(surface.proto.expanded)
+        self.assertFalse(surface.get("imgs"))
+        app.session_state["acc_surface_open_A"] = True
+        with patch.object(st, "pyplot", wraps=st.pyplot) as plots:
+            app.run()
+        self.assertFalse(app.exception)
+        self.assertEqual(plots.call_count, 3)
+        self.assertEqual(len(app.get("download_button")), 4)
+        surface = next(item for item in app.expander if "Angular momentum probability surface" in item.label)
+        columns = surface.get("column")
+        self.assertEqual(len(columns), 9)
+        self.assertEqual(len(columns[0].get("selectbox")), 1)
+        self.assertEqual(len(columns[4].get("button")), 1)
+        self.assertEqual(len(columns[5].get("popover")), 1)
+        self.assertEqual(len(columns[5].get("caption")), 1)
+        self.assertEqual(len(columns[5].get("download_button")), 1)
+        self.assertEqual(len(columns[7].get("bidi_component")), 1)
+        self.assertFalse(columns[7].get("caption"))
+        self.assertEqual(len(surface.get("bidi_component")), 1)
+        self.assertEqual(app.selectbox(key="acc_surface_manifold_F_A").value, 2.0)
+        app.selectbox(key="acc_surface_manifold_F_A").set_value(1.0).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.selectbox(key="acc_surface_manifold_F_A").value, 1.0)
+        surface = next(item for item in app.expander if "Angular momentum probability surface" in item.label)
+        self.assertEqual(len(surface.get("bidi_component")), 1)
+        with patch.object(cache, "compute_alkali_response", side_effect=AssertionError("Response rebuilt")):
+            app.slider(key="acc_surface_phase_deg_A").set_value(90).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.slider(key="acc_surface_phase_deg_A").value, 90)
+
+    def test_angular_surface_start_stop_and_close_control_playback(self):
+        app = self.app()
+        app.session_state["acc_surface_open_A"] = True
+        app.run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.button(key="acc_surface_play_toggle_A").label, "Start")
+        app.button(key="acc_surface_play_toggle_A").click().run()
+        self.assertFalse(app.exception)
+        self.assertTrue(app.session_state["acc_surface_playing_A"])
+        app.run()  # The timed fragment refreshes the button on its next pass.
+        self.assertEqual(app.button(key="acc_surface_play_toggle_A").label, "Stop")
+        app.session_state["acc_surface_play_start_s_A"] = monotonic() - 1.0
+        app.run()
+        self.assertFalse(app.exception)
+        self.assertGreater(app.slider(key="acc_surface_phase_deg_A").value, 0)
+        app.button(key="acc_surface_play_toggle_A").click().run()
+        self.assertFalse(app.exception)
+        self.assertFalse(app.session_state["acc_surface_playing_A"])
+        frozen_phase = app.slider(key="acc_surface_phase_deg_A").value
+        app.run()
+        self.assertEqual(app.slider(key="acc_surface_phase_deg_A").value, frozen_phase)
+        app.button(key="acc_surface_play_toggle_A").click().run()
+        app.session_state["acc_surface_open_A"] = False
+        app.run()
+        self.assertFalse(app.exception)
+        self.assertFalse(app.session_state["acc_surface_playing_A"])
 
     def test_closed_sections_defer_solve_readouts_exports_and_refresh_when_opened(self):
         app = self.app()

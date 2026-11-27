@@ -923,6 +923,29 @@ def weak_rf_matrix_readouts(result, readout_operators, *, context=None):
     return responses
 
 
+def weak_rf_density_phasor(result, frequency_hz, *, context=None):
+    """Return the exp(-i omega t) density coefficient per rad/s of RF drive.
+
+    The same secular coherence modes and cosine-drive source as the atomic
+    response are used. The conjugate Fourier coefficient is the adjoint of
+    this matrix, so rho(t) = diag(p) + Omega * (M exp(-i omega t) + h.c.).
+    Populations have no first-order response to a transverse magnetic drive.
+    """
+    if context is None:
+        context = build_single_species_liouvillian_response_context(result)
+    pairs = context["coherence_pairs"]
+    offset = context.get("coherence_offset", 0)
+    eigenvalues, eigenvectors, inverse_eigenvectors = context["coherence_modes"]
+    source, _used = _drive_vector(result, pairs, len(eigenvalues), offset)
+    denominator = -1j * 2.0 * np.pi * float(frequency_hz) - eigenvalues
+    denominator = np.where(np.abs(denominator) < 1e-12, 1e-12, denominator)
+    response = eigenvectors @ ((inverse_eigenvectors @ source) / denominator)
+    matrix = np.zeros((len(result["ground_states"]),) * 2, dtype=complex)
+    for index, (a, b) in enumerate(pairs):
+        matrix[a, b] = response[offset + index]
+    return matrix
+
+
 def weak_liouvillian_source_matrix_readouts(
     result,
     source_matrix,

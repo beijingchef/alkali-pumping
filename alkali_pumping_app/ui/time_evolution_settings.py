@@ -67,14 +67,19 @@ def _clamp_event_times():
 
 def _store_time_widget(name, suffix=""):
     st.session_state[key(name)] = st.session_state["_time_widget_" + key(name) + suffix]
+    if name == "probe_duration_s":
+        st.session_state[key("t2_s")] = max(
+            st.session_state[key("t2_s")],
+            st.session_state[key("probe_start_s")] + st.session_state[key("probe_duration_s")],
+        )
     _clamp_event_times()
 
 
 def _time_controls():
     st.session_state["_time_widget_" + key("t2_s")] = st.session_state[key("t2_s")]
-    st.slider("Total time (s)", min_value=0.001, max_value=30.0, step=0.001,
-              format="%.3f", key="_time_widget_" + key("t2_s"),
-              on_change=_store_time_widget, args=("t2_s",))
+    st.number_input("Total time (s)", min_value=0.001, step=0.001,
+                    format="%.3f", key="_time_widget_" + key("t2_s"),
+                    on_change=_store_time_widget, args=("t2_s",))
 
 
 def _probe_time_controls(label, disabled):
@@ -92,7 +97,6 @@ def _probe_time_controls(label, disabled):
                         on_change=_store_time_widget, args=("probe_start_s", suffix), disabled=disabled)
     with duration_col:
         st.number_input("Probe duration (s)", min_value=0.0,
-                        max_value=float(st.session_state[key("t2_s")] - st.session_state[key("probe_start_s")]),
                         step=0.001, format="%.3f", key="_time_widget_" + key("probe_duration_s") + suffix,
                         on_change=_store_time_widget, args=("probe_duration_s", suffix), disabled=disabled)
 

@@ -81,8 +81,8 @@ class TimeEvolutionUiTests(unittest.TestCase):
         relaxation_keys = [widget.key for widget in app.sidebar.number_input
                            if widget.key.startswith(("te_gamma_ER_", "te_gamma_u_"))]
         self.assertEqual(relaxation_keys, ["te_gamma_ER_A", "te_gamma_ER_B", "te_gamma_u_A", "te_gamma_u_B"])
-        self.assertEqual(len(app.slider), 1)
-        self.assertEqual(len(app.sidebar.slider), 1)
+        self.assertEqual(len(app.slider), 0)
+        self.assertEqual(len(app.sidebar.slider), 0)
         self.assertEqual(len(app.main.slider), 0)
         self.assertIn("Steady-state weak probe signal scanning", [expander.label for expander in app.expander])
         self.assertNotIn("Event Sequence", [header.value for header in app.sidebar.header])
@@ -114,8 +114,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
                             for column in probe_spectral_columns))
         slider_columns = [column for column in app.sidebar.get("column") if len(column.slider)]
         self.assertEqual(slider_columns, [])
-        self.assertEqual(app.slider(key="_time_widget_te_t2_s").proto.max, 30.)
-        self.assertEqual(app.slider(key="_time_widget_te_t2_s").label, "Total time (s)")
+        self.assertEqual(app.number_input(key="_time_widget_te_t2_s").label, "Total time (s)")
         self.assertEqual(app.number_input(key="_time_widget_te_probe_start_s").label, "Probe start (s)")
         self.assertEqual(app.number_input(key="_time_widget_te_probe_duration_s").label, "Probe duration (s)")
         for label in ("A", "B"):
@@ -798,7 +797,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
         for name in ("intensity_A1", "gamma_u_B", "probe_det_rel_A", "probe_path_length_cm_B"):
             app.number_input(key="te_" + name).set_value(edits[name])
         app.number_input(key="te_pump_duration_s_A1").set_value(edits["pump_duration_s_A1"])
-        app.slider(key="_time_widget_te_t2_s").set_value(edits["t2_s"])
+        app.number_input(key="_time_widget_te_t2_s").set_value(edits["t2_s"])
         app.number_input(key="_time_widget_te_probe_duration_s").set_value(edits["probe_duration_s"])
         with patch.object(downloads.st, "html", wraps=downloads.st.html) as render_html:
             app.run()
@@ -822,27 +821,39 @@ class TimeEvolutionUiTests(unittest.TestCase):
 
     def test_time_controls_clamp_windows_and_support_zero_and_end_time(self):
         app = self.app()
-        app.slider(key="_time_widget_te_t2_s").set_value(30.).run()
+        app.checkbox(key="te_auto_update").uncheck().run()
+        app.number_input(key="_time_widget_te_t2_s").set_value(31.).run()
         self.assertFalse(app.exception)
-        self.assertEqual(app.slider(key="_time_widget_te_t2_s").proto.max, 30.)
-        self.assertEqual(app.number_input(key="_time_widget_te_probe_start_s").proto.max, 30.)
-        app.number_input(key="_time_widget_te_probe_start_s").set_value(30.).run()
+        self.assertEqual(app.number_input(key="_time_widget_te_t2_s").value, 31.)
+        app.number_input(key="_time_widget_te_probe_start_s").set_value(31.).run()
         self.assertFalse(app.exception)
-        app.slider(key="_time_widget_te_t2_s").set_value(.1).run()
+        app.number_input(key="_time_widget_te_t2_s").set_value(.1).run()
         self.assertFalse(app.exception)
         self.assertEqual(app.number_input(key="_time_widget_te_probe_start_s").value, .1)
         app.number_input(key="_time_widget_te_probe_start_s").set_value(0.).run()
         self.assertFalse(app.exception)
+        app.button(key="te_apply_conditions").click().run()
         for chart in app.get("vega_lite_chart"):
             spec = json.loads(chart.proto.spec)
             if spec["layer"][0]["encoding"]["x"]["field"] != "Time (s)":
                 continue
             self.assertEqual(spec["layer"][0]["encoding"]["x"]["scale"]["domain"], [0, .1])
-        app.slider(key="_time_widget_te_t2_s").set_value(.001).run()
+        app.number_input(key="_time_widget_te_t2_s").set_value(.001).run()
         self.assertFalse(app.exception)
         self.assertEqual(app.number_input(key="_time_widget_te_probe_start_s").value, 0.)
         self.assertEqual(app.number_input(key="te_field_duration_s").value, .001)
-        self.assertEqual(app.slider(key="_time_widget_te_t2_s").proto.max, 30.)
+
+    def test_probe_duration_extends_total_time_to_include_probe(self):
+        app = self.app(open_moments=False, open_zeeman=False)
+        app.checkbox(key="te_auto_update").uncheck().run()
+        app.number_input(key="_time_widget_te_probe_start_s").set_value(1.).run()
+        self.assertEqual(app.number_input(key="_time_widget_te_probe_duration_s").value, 3.)
+        app.number_input(key="_time_widget_te_probe_duration_s").set_value(35.).run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.number_input(key="_time_widget_te_t2_s").value, 36.)
+        self.assertEqual(app.number_input(key="_time_widget_te_probe_duration_s_B").value, 35.)
+        app.number_input(key="_time_widget_te_probe_duration_s").set_value(2.).run()
+        self.assertEqual(app.number_input(key="_time_widget_te_t2_s").value, 36.)
 
     def test_sidebar_and_moment_choices_persist_without_changing_acc(self):
         app = self.app()
@@ -922,7 +933,7 @@ class TimeEvolutionUiTests(unittest.TestCase):
 
     def test_transverse_field_and_independent_quantization_axes_render(self):
         app = self.app()
-        app.slider(key="_time_widget_te_t2_s").set_value(.04).run()
+        app.number_input(key="_time_widget_te_t2_s").set_value(.04).run()
         app.selectbox(key="te_atom_B_name").select("Rb85").run()
         app.session_state["te_atomic_moments_open_B"] = True
         app.session_state["te_zeeman_populations_open_B"] = True

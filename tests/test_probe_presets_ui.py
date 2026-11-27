@@ -83,7 +83,7 @@ class ProbePresetUiTests(unittest.TestCase):
         self.assertFalse(app.exception)
         self.assertEqual(app.session_state["te_probe_source_A"], "Preset D2b")
         self.assert_probe(app, "A", edits)
-        app.slider(key="_time_widget_te_t2_s").set_value(5.).run()
+        app.number_input(key="_time_widget_te_t2_s").set_value(5.).run()
         self.assert_probe(app, "A", edits)
         # A different preset repopulates the fields using the current isotope.
         app.selectbox(key="te_atom_A_name").select("Cs133").run()
